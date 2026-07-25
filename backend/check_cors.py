@@ -1,0 +1,5 @@
+from stark_backend.settings import CORS_ALLOWED_ORIGINS, CSRF_TRUSTED_ORIGINS
+
+print("🔧 Current CORS settings:")
+print(f"CORS_ALLOWED_ORIGINS: {CORS_ALLOWED_ORIGINS}")
+print(f"CSRF_TRUSTED_ORIGINS: {CSRF_TRUSTED_ORIGINS}")
