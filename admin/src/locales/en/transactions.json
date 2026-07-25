@@ -1,0 +1,116 @@
+{
+  "category": "Financial Management",
+  "title": "Transactions Ledger",
+  "stats": {
+    "total": "Total Transactions",
+    "totalDesc": "{{count}} approved",
+    "inflowUSD": "USD Inflow",
+    "outflowUSD": "USD Outflow",
+    "inflowSYP": "SYP Inflow",
+    "outflowSYP": "SYP Outflow",
+    "pending": "Pending",
+    "approvedDesc": "Approved",
+    "pendingDesc": "Awaiting action"
+  },
+  "filterSection": {
+    "title": "Filter Transactions",
+    "buttons": {
+      "export": "Export CSV",
+      "clear": "Clear Filters"
+    },
+    "badges": {
+      "currency": "Currency: {{currency}}",
+      "status": "Status: {{status}}",
+      "type": "Type: {{type}}",
+      "from": "From: {{date}}",
+      "to": "To: {{date}}"
+    }
+  },
+  "table": {
+    "headers": {
+      "id": "Txn ID",
+      "dateTime": "Date/Time",
+      "type": "Type",
+      "source": "Source",
+      "destination": "Destination",
+      "amount": "Amount",
+      "currency": "Currency",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "sourceEntity": {
+      "user": "User: {{name}}",
+      "agent": "Agent: {{name}}",
+      "system": "System"
+    },
+    "targetEntity": {
+      "user": "User: {{name}}",
+      "recipientWallet": "Recipient Wallet",
+      "storePurchase": "Store Purchase",
+      "walletDeposit": "Wallet Deposit",
+      "system": "System"
+    },
+    "unknown": "Unknown",
+    "buttons": {
+      "details": "Details",
+      "approve": "Approve",
+      "reject": "Reject"
+    },
+    "tooltips": {
+      "details": "View transaction details",
+      "approve": "Approve transaction",
+      "reject": "Reject transaction"
+    }
+  },
+  "modal": {
+    "title": "Transaction Details",
+    "sections": {
+      "basic": "Basic Information",
+      "financial": "Financial Details",
+      "parties": "Parties Involved",
+      "source": "Source",
+      "destination": "Destination",
+      "notes": "Notes"
+    },
+    "labels": {
+      "id": "Transaction ID:",
+      "type": "Type:",
+      "status": "Status:",
+      "dateTime": "Date & Time:",
+      "amount": "Amount:",
+      "currency": "Currency:",
+      "direction": "Direction:",
+      "userId": "User ID:"
+    },
+    "buttons": {
+      "close": "Close"
+    }
+  },
+  "alerts": {
+    "loadFailed": "Failed to fetch transactions",
+    "approveConfirm": "Are you sure you want to approve this transaction?",
+    "approveFailed": "Failed to approve transaction",
+    "rejectPrompt": "Please enter rejection reason:",
+    "rejectFailed": "Failed to reject transaction",
+    "errorPrefix": "Error: {{message}}"
+  },
+  "direction": {
+    "inflow": "Inflow",
+    "outflow": "Outflow"
+  },
+  "status": {
+    "approved": "Approved",
+    "pending": "Pending",
+    "rejected": "Rejected"
+  },
+  "type": {
+    "deposit": "Deposit",
+    "transfer": "Transfer",
+    "purchase": "Purchase"
+  },
+  "currency": {
+    "usd": "USD",
+    "syp": "SYP",
+    "eur": "EUR"
+  }
+}

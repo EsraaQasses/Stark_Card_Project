@@ -1,0 +1,45 @@
+{
+  "title": "إعدادات الملف الشخصي",
+  "subtitle": "إدارة معلومات حسابك وإعدادات الأمان الخاصة بك",
+  "tabs": {
+    "profile": "معلومات الملف الشخصي",
+    "security": "إعدادات الأمان",
+    "twoFactor": "التحقق بخطوتين"
+  },
+  "info": {
+    "memberSince": "عضو منذ",
+    "status": "الحالة",
+    "accountStatus": "حالة الحساب",
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "banned": "محظور"
+  },
+  "personal": {
+    "title": "المعلومات الشخصية",
+    "fullName": "الاسم الكامل",
+    "fullNamePlaceholder": "أدخل اسمك الكامل",
+    "username": "اسم المستخدم",
+    "usernamePlaceholder": "أدخل اسم المستخدم الخاص بك",
+    "email": "البريد الإلكتروني",
+    "emailPlaceholder": "أدخل بريدك الإلكتروني",
+    "phone": "رقم الهاتف",
+    "phonePlaceholder": "أدخل رقم هاتفك",
+    "country": "البلد",
+    "countryPlaceholder": "أدخل بلدك",
+    "optionalPhone": "هاتف إضافي",
+    "optionalPhonePlaceholder": "رقم هاتف إضافي",
+    "currencyPreference": "العملة المفضلة",
+    "notSet": "لم يحدد"
+  },
+  "buttons": {
+    "editProfile": "تعديل الملف الشخصي",
+    "cancel": "إلغاء",
+    "saveChanges": "حفظ التغييرات",
+    "saving": "جاري الحفظ..."
+  },
+  "alerts": {
+    "profileUpdated": "تم تحديث الملف الشخصي بنجاح!",
+    "profileUpdateFailed": "فشل تحديث الملف الشخصي",
+    "loadFailed": "فشل تحميل بيانات الملف الشخصي"
+  }
+}

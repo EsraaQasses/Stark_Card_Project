@@ -1,0 +1,133 @@
+{
+  "catalog": {
+    "title": "العملاء",
+    "category": "إدارة المستخدمين",
+    "buttons": {
+      "refreshData": "تحديث البيانات"
+    },
+    "activity": {
+      "title": "حالة نشاط المستخدمين",
+      "totalUsers": "إجمالي المستخدمين المسجلين: {{count}}",
+      "noData": "لا توجد بيانات متاحة للمخطط",
+      "activeDesc": "قاموا بتسجيل الدخول خلال آخر 30 يوماً",
+      "dormantDesc": "لم يقوموا بتسجيل الدخول منذ أكثر من 30 يوماً",
+      "newDesc": "مسجلون خلال آخر 7 أيام",
+      "activeLabel": "نشط",
+      "dormantLabel": "خامل",
+      "newLabel": "جديد (آخر 7 أيام)",
+      "tooltipFormat": "${point.x} : <b>${point.y} مستخدم</b><br>${point.percentage}%"
+    },
+    "insights": {
+      "title": "رؤى النشاط",
+      "active": "المستخدمون النشطون",
+      "usersCount": "{{count}} مستخدم",
+      "percentOfTotal": "{{percent}}% من الإجمالي"
+    },
+    "stats": {
+      "total": "إجمالي العملاء",
+      "active": "النشطون الآن",
+      "admins": "المشرفون",
+      "usdBalance": "إجمالي رصيد USD",
+      "sypBalance": "إجمالي رصيد SYP",
+      "syp": "ل.س"
+    },
+    "table": {
+      "emptyTitle": "لم يتم العثور على عملاء",
+      "emptySubtitle": "ستظهر بيانات العملاء هنا بمجرد توفرها",
+      "neverLogin": "أبداً",
+      "notAvailable": "غير متوفر",
+      "usdFormat": "{{balance}} دولار",
+      "sypFormat": "{{balance}} ل.س",
+      "headers": {
+        "id": "المعرف",
+        "username": "اسم المستخدم",
+        "fullName": "الاسم الكامل",
+        "email": "البريد الإلكتروني",
+        "phone": "الهاتف",
+        "country": "البلد",
+        "role": "الدور",
+        "status": "الحالة",
+        "usdBalance": "رصيد USD",
+        "sypBalance": "رصيد SYP",
+        "agentCode": "رمز الوكيل",
+        "joinedDate": "تاريخ الانضمام",
+        "lastLogin": "آخر تسجيل دخول",
+        "delete": "حذف",
+        "block": "حظر",
+        "unblock": "إلغاء الحظر",
+        "makeAgent": "تعيين كوكيل",
+        "makeAdmin": "ترقية لمشرف",
+        "refresh": "تحديث"
+      }
+    },
+    "modal": {
+      "promoteTitle": "الترقية لمشرف",
+      "confirmMsg": "هل أنت متأكد من ترقية {{name}} إلى مشرف؟",
+      "warningMsg": "سيمنحهم هذا وصولاً إدارياً كاملاً إلى النظام.",
+      "setPasswordTitle": "تعيين كلمة مرور الأمان للمشرف",
+      "setPasswordMsg": "قم بتعيين كلمة مرور ثانية لحساب المشرف لـ {{name}}.",
+      "buttons": {
+        "cancel": "إلغاء",
+        "promote": "الترقية لمشرف",
+        "promoting": "جاري الترقية...",
+        "back": "رجوع",
+        "setPassword": "تعيين كلمة المرور",
+        "settingPassword": "جاري تعيين كلمة المرور..."
+      },
+      "fields": {
+        "secondPassword": "كلمة المرور الثانية",
+        "secondPasswordPlaceholder": "أدخل كلمة المرور الثانية",
+        "confirmPassword": "تأكيد كلمة المرور",
+        "confirmPasswordPlaceholder": "أكد كلمة المرور الثانية"
+      },
+      "criteria": {
+        "title": "يجب أن تحتوي كلمة المرور على:",
+        "len": "8 أحرف على الأقل",
+        "case": "أحرف كبيرة وصغيرة",
+        "num": "رقم واحد على الأقل",
+        "spec": "رمز خاص واحد على الأقل"
+      },
+      "errors": {
+        "len": "يجب أن تكون كلمة المرور مكونة من 8 أحرف على الأقل",
+        "mismatch": "كلمتا المرور غير متطابقتين",
+        "complexity": "يجب أن تحتوي كلمة المرور على أحرف كبيرة وصغيرة، وأرقام، ورموز خاصة"
+      }
+    },
+    "alerts": {
+      "loadFailed": "فشل تحميل بيانات العملاء. يرجى التحقق من تسجيل دخول المشرف.",
+      "promoteFailed": "خطأ: {{error}}",
+      "setPasswordSuccess": "تم تعيين كلمة المرور الثانية بنجاح!",
+      "setPasswordFailed": "خطأ: {{error}}",
+      "deleteConfirm": "هل أنت متأكد من حذف {{count}} عميل؟",
+      "deleteMarked": "تم تحديد {{count}} عميل للحذف.",
+      "deleteFailed": "فشل حذف العملاء",
+      "blockSuccess": "تم حظر {{count}} عميل بنجاح.",
+      "blockFailed": "خطأ في حظر العملاء",
+      "unblockSuccess": "تم إلغاء حظر {{count}} عميل بنجاح.",
+      "unblockFailed": "خطأ في إلغاء حظر العملاء",
+      "selectOneAgent": "يرجى اختيار مستخدم واحد فقط لجعله وكيلاً.",
+      "alreadyAgent": "المستخدم {{name}} هو وكيل بالفعل.",
+      "adminCannotBeAgent": "لا يمكن تغيير دور المشرف إلى وكيل.",
+      "makeAgentConfirm": "هل أنت متأكد من جعل {{name}} وكيلاً؟",
+      "makeAgentSuccess": "نجاح! أصبح {{name}} وكيلاً الآن. رمز الوكيل: {{code}}",
+      "makeAgentFailed": "خطأ: {{error}}",
+      "selectOneAdmin": "يرجى اختيار مستخدم واحد فقط لترقيته لمشرف.",
+      "alreadyAdmin": "المستخدم {{name}} هو مشرف بالفعل.",
+      "selectDelete": "يرجى اختيار عميل لحذفه.",
+      "selectBlock": "يرجى اختيار عميل لحظره.",
+      "selectUnblock": "يرجى اختيار عميل لإلغاء حظره.",
+      "selectAgent": "يرجى تحديد مستخدم لجعله وكيلاً.",
+      "selectAdmin": "يرجى تحديد مستخدم لترقيته لمشرف."
+    }
+  },
+  "role": {
+    "admin": "مشرف",
+    "agent": "وكيل",
+    "customer": "عميل",
+    "user": "مستخدم"
+  },
+  "status": {
+    "active": "نشط",
+    "banned": "محظور"
+  }
+}

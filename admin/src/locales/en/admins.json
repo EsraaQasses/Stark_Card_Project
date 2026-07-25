@@ -1,0 +1,114 @@
+{
+  "category": "User Management",
+  "title": "Admin Users",
+  "loading": "Loading admin users data...",
+  "error": "Failed to load admin users data.",
+  "tryAgain": "Try Again",
+  "stats": {
+    "total": "Total Admins",
+    "active": "Active Admins",
+    "activeSuffix": "{{percent}}% active",
+    "super": "Super Admins",
+    "security": "Security Setup",
+    "securedSuffix": "{{percent}}% secured",
+    "refresh": "Refresh Data"
+  },
+  "notice": {
+    "title": "Security Notice",
+    "desc": "{{count}} admin(s) have not set up their second password. Encourage them to complete their security setup."
+  },
+  "table": {
+    "never": "Never",
+    "buttons": {
+      "refresh": "Refresh",
+      "viewDetails": "View Details"
+    },
+    "headers": {
+      "id": "ID",
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Email",
+      "phone": "Phone",
+      "status": "Status",
+      "superAdmin": "Super Admin",
+      "security": "Security",
+      "joinedDate": "Joined Date",
+      "lastLogin": "Last Login"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "yes": "Yes",
+      "no": "No",
+      "secure": "Secure",
+      "setupNeeded": "Setup Needed"
+    }
+  },
+  "emptyState": {
+    "title": "No admin users found",
+    "desc": "Admin users will appear here once they are created or promoted"
+  },
+  "modal": {
+    "title": "Admin Details: {{name}}",
+    "tabs": {
+      "overview": "Overview",
+      "security": "Security",
+      "actions": "Actions"
+    },
+    "overview": {
+      "basicInfo": "Basic Information",
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Email",
+      "phone": "Phone",
+      "status": "Admin Status",
+      "accountStatus": "Account Status",
+      "superAdmin": "Super Admin",
+      "staffAccess": "Staff Access",
+      "joinedDate": "Date Joined",
+      "lastLogin": "Last Login",
+      "notSet": "Not set"
+    },
+    "security": {
+      "title": "Security Settings",
+      "subtitle": "Second Password",
+      "statusConfigured": "Configured",
+      "statusNotConfigured": "Not Configured",
+      "msgSet": "Second password is set up",
+      "msgNotSet": "Second password is not set up",
+      "lastUpdated": "Last updated: {{date}}",
+      "formTitle": "Set/Update Second Password",
+      "passwordLabel": "Second Password",
+      "confirmLabel": "Confirm Password",
+      "passwordPlaceholder": "Enter new second password",
+      "confirmPlaceholder": "Confirm second password",
+      "rulesTitle": "Password must contain:",
+      "rule1": "At least 8 characters",
+      "rule2": "Uppercase and lowercase letters",
+      "rule3": "At least one number",
+      "rule4": "At least one special character",
+      "btnUpdate": "Update Second Password",
+      "btnUpdating": "Updating..."
+    },
+    "actions": {
+      "title": "Admin Actions",
+      "dangerZone": "Danger Zone",
+      "dangerDesc": "Removing admin privileges will demote this user to a regular user. They will lose access to admin features.",
+      "btnRemove": "Remove Admin Privileges",
+      "btnRemoving": "Removing..."
+    },
+    "buttons": {
+      "close": "Close"
+    }
+  },
+  "alerts": {
+    "passwordLength": "Password must be at least 8 characters long",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "passwordPattern": "Password must contain uppercase, lowercase, number, and special character",
+    "passwordUpdateSuccess": "Second password updated successfully!",
+    "removeConfirm": "Are you sure you want to remove admin privileges from {{name}}?",
+    "removeSuccess": "Admin privileges removed successfully!",
+    "selectSingle": "Please select only one admin to view details.",
+    "selectOne": "Please select an admin to view details."
+  }
+}

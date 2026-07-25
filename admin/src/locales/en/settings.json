@@ -1,0 +1,9 @@
+{
+  "title": "Settings",
+  "themeOption": "Theme Option",
+  "themeColors": "Theme Colors",
+  "modes": {
+    "light": "Light",
+    "dark": "Dark"
+  }
+}

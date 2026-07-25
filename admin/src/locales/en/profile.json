@@ -1,0 +1,45 @@
+{
+  "title": "Profile Settings",
+  "subtitle": "Manage your account information and security settings",
+  "tabs": {
+    "profile": "Profile Information",
+    "security": "Security Settings",
+    "twoFactor": "Two-Factor Auth"
+  },
+  "info": {
+    "memberSince": "Member since",
+    "status": "Status",
+    "accountStatus": "Account Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "banned": "Banned"
+  },
+  "personal": {
+    "title": "Personal Information",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "username": "Username",
+    "usernamePlaceholder": "Enter your username",
+    "email": "Email Address",
+    "emailPlaceholder": "Enter your email",
+    "phone": "Phone Number",
+    "phonePlaceholder": "Enter your phone number",
+    "country": "Country",
+    "countryPlaceholder": "Enter your country",
+    "optionalPhone": "Optional Phone",
+    "optionalPhonePlaceholder": "Optional phone number",
+    "currencyPreference": "Currency Preference",
+    "notSet": "Not set"
+  },
+  "buttons": {
+    "editProfile": "Edit Profile",
+    "cancel": "Cancel",
+    "saveChanges": "Save Changes",
+    "saving": "Saving..."
+  },
+  "alerts": {
+    "profileUpdated": "Profile updated successfully!",
+    "profileUpdateFailed": "Failed to update profile",
+    "loadFailed": "Failed to load profile data"
+  }
+}

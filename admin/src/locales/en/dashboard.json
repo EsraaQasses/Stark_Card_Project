@@ -1,0 +1,76 @@
+{
+  "overview": {
+    "title": "Dashboard Overview",
+    "subtitle": "Real-time statistics and monitoring",
+    "buttons": {
+      "refresh": "Refresh Data"
+    },
+    "status": {
+      "loading": "Loading...",
+      "updating": "Updating...",
+      "live": "Live",
+      "pendingCount": "{{count}} Pending",
+      "needsAttention": "{{count}} needs attention",
+      "allCaughtUp": "All caught up",
+      "notice": "Notice: ",
+      "failedToLoadData": "Failed to load dashboard data. Please check your connection and try again."
+    },
+    "priority": {
+      "low": "Low Priority",
+      "medium": "Medium Priority",
+      "high": "High Priority"
+    },
+    "cards": {
+      "shipping-requests": {
+        "title": "Shipping Requests",
+        "desc": "{{count}} pending requests"
+      },
+      "pending": {
+        "title": "Pending",
+        "desc": "{{count}} requests awaiting review"
+      },
+      "in-progress": {
+        "title": "In Progress",
+        "desc": "{{count}} active processes"
+      },
+      "objection-requests": {
+        "title": "Objection Requests",
+        "desc": "{{count}} customer objections"
+      }
+    },
+    "revenue": {
+      "title": "Revenue Analytics",
+      "subtitle": "Real-time financial overview",
+      "usd": "USD Transactions",
+      "syp": "SYP Transactions",
+      "total": "Total",
+      "pending": "Pending Revenue",
+      "registeredUsers": "Registered Users",
+      "registeredUsersDesc": "{{count}} total users",
+      "pendingDesc": "Total pending revenue",
+      "noChartData": "No Sufficient Historical Data",
+      "noChartDataDesc": "At least 3 months of transaction history are required to generate the chart."
+    },
+    "summary": {
+      "title": "Quick Summary",
+      "subtitle": "Request overview",
+      "shipping": "Shipping Requests",
+      "pending": "Pending Reviews",
+      "inProgress": "In Progress",
+      "objections": "Objections"
+    }
+  },
+  "chart": {
+    "sales": "Sales",
+    "customers": "Customers"
+  },
+  "months": {
+    "jan": "Jan",
+    "feb": "Feb",
+    "mar": "Mar",
+    "apr": "Apr",
+    "may": "May",
+    "jun": "Jun",
+    "july": "July"
+  }
+}

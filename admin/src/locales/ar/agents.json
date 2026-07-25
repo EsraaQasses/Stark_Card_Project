@@ -1,0 +1,59 @@
+{
+  "category": "الإدارة",
+  "title": "الوكلاء",
+  "loading": "جاري تحميل بيانات الوكلاء...",
+  "error": "فشل تحميل بيانات الوكلاء",
+  "tryAgain": "إعادة المحاولة",
+  "selectedAgent": {
+    "title": "الوكيل المحدد: {{name}}",
+    "buttons": {
+      "viewUsers": "عرض المستخدمين",
+      "updateCommission": "تحديث العمولة",
+      "demote": "تخفيض لمستخدم"
+    },
+    "labels": {
+      "currentCommission": "العمولة الحالية",
+      "totalClients": "إجمالي العملاء",
+      "assignedProducts": "المنتجات المخصصة",
+      "totalBalance": "إجمالي الرصيد"
+    }
+  },
+  "table": {
+    "headers": {
+      "id": "المعرف",
+      "username": "اسم المستخدم",
+      "fullName": "الاسم الكامل",
+      "clients": "العملاء",
+      "balance": "الرصيد",
+      "commission": "العمولة",
+      "products": "المنتجات",
+      "status": "الحالة"
+    }
+  },
+  "modal": {
+    "title": "تحديث عمولة الوكيل: {{name}}",
+    "label": "نسبة العمولة (%)",
+    "placeholder": "أدخل نسبة العمولة",
+    "buttons": {
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "updating": "جاري التحديث..."
+    }
+  },
+  "stats": {
+    "totalAgents": "إجمالي الوكلاء",
+    "totalClients": "إجمالي العملاء",
+    "totalBalance": "إجمالي الرصيد",
+    "avgCommission": "متوسط العمولة"
+  },
+  "alerts": {
+    "updateSuccess": "تم تحديث نسبة العمولة بنجاح!",
+    "updateFailed": "فشل تحديث نسبة العمولة",
+    "demoteConfirm": "هل أنت متأكد من تخفيض مرتبة الوكيل {{name}} إلى مستخدم عادي؟",
+    "demoteSuccess": "تم تخفيض الوكيل بنجاح!",
+    "demoteFailed": "فشل تخفيض مرتبة الوكيل"
+  },
+  "status": {
+    "active": "نشط"
+  }
+}

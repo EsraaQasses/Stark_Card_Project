@@ -1,0 +1,130 @@
+{
+  "title": "Third Party APIs",
+  "category": "Integration Management",
+  "alerts": {
+    "loadFailed": "Failed to load APIs data",
+    "testSuccess": "Connection successful!",
+    "testFailed": "Connection test failed",
+    "syncSuccess": "Product Sync Successful",
+    "syncFailed": "Product Sync Failed",
+    "addSuccess": "API configuration has been added successfully",
+    "connectionTitle": "Connection Test Successful"
+  },
+  "distribution": {
+    "title": "API Providers Distribution",
+    "count": "{{count}} APIs",
+    "noData": "No API data available for chart"
+  },
+  "stats": {
+    "total": "Total APIs",
+    "active": "Active APIs",
+    "daily": "Daily APIs",
+    "alfaour": "Alfaour APIs",
+    "alaaeddin": "Alaaeddin APIs",
+    "totalProducts": "Total Products",
+    "activeCount": "{{count}} active",
+    "ready": "Ready for use",
+    "dailyDesc": "Daily provider",
+    "alfaourDesc": "Alfaour provider",
+    "alaaeddinDesc": "Alaaeddin provider",
+    "availableProducts": "Available products"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "addBtn": "Add New API",
+    "refreshBtn": "Refresh Data",
+    "syncAllBtn": "Sync All Active APIs",
+    "refreshing": "Refreshing..."
+  },
+  "gettingStarted": {
+    "title": "Getting Started with Third Party APIs",
+    "desc": "No APIs configured yet. Follow these steps to integrate with payment providers:",
+    "stepsTitle": "Setup Steps:",
+    "steps": {
+      "1": "Click \"Add New API\" button above",
+      "2": "Fill in the API configuration details",
+      "3": "Test the connection to verify credentials",
+      "4": "Sync products to import available services",
+      "5": "Activate the API to make it available for users"
+    },
+    "infoTitle": "Required Information:",
+    "info": {
+      "name": "API Name: Descriptive name for identification",
+      "provider": "Provider: Choose from available providers",
+      "url": "Base URL: API endpoint URL",
+      "key": "API Key: Authentication token from provider",
+      "priority": "Priority: Order of API usage (1 = highest)"
+    }
+  },
+  "table": {
+    "noApis": "No APIs configured yet. Click \"Add New API\" to get started.",
+    "headers": {
+      "id": "ID",
+      "name": "API Name",
+      "provider": "Provider",
+      "baseUrl": "Base URL",
+      "description": "Description",
+      "priority": "Priority",
+      "dailyLimit": "Daily Limit",
+      "status": "Status",
+      "apiKey": "API Key",
+      "actions": "Actions"
+    },
+    "buttons": {
+      "test": "Test",
+      "testing": "Testing...",
+      "sync": "Sync Products",
+      "syncing": "Syncing...",
+      "logs": "Logs"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "connected": "Connected",
+      "notConnected": "Not Connected",
+      "notSet": "Not Set"
+    },
+    "tooltips": {
+      "showKey": "Show API Key",
+      "hideKey": "Hide API Key"
+    }
+  },
+  "modal": {
+    "titleAdd": "Add New API",
+    "titleEdit": "Edit API",
+    "labels": {
+      "name": "API Name *",
+      "provider": "Provider *",
+      "baseUrl": "Base URL *",
+      "apiKey": "API Key *",
+      "description": "Description",
+      "priority": "Priority *",
+      "dailyLimit": "Daily Limit",
+      "activate": "Activate this API immediately"
+    },
+    "placeholders": {
+      "name": "e.g., Alaaeddin Main API",
+      "baseUrl": "https://api.example.com",
+      "apiKey": "Enter your API key",
+      "description": "Optional description...",
+      "dailyLimit": "Optional"
+    },
+    "buttons": {
+      "cancel": "Cancel",
+      "add": "Add API",
+      "adding": "Adding..."
+    },
+    "validation": {
+      "nameRequired": "API name is required",
+      "urlRequired": "Base URL is required",
+      "urlInvalid": "Please enter a valid URL",
+      "keyRequired": "API Key is required",
+      "priorityRange": "Priority must be between 1 and 10"
+    }
+  },
+  "provider": {
+    "daily": "Daily",
+    "alfaour": "Alfaour",
+    "alaaeddin": "Alaaeddin"
+  }
+}

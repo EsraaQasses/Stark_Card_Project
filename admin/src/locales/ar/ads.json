@@ -1,0 +1,70 @@
+{
+  "title": "الإعلانات",
+  "category": "الإدارة",
+  "stats": {
+    "activeAds": "إجمالي الإعلانات النشطة"
+  },
+  "buttons": {
+    "addAd": "إضافة إعلان جديد",
+    "createFirst": "إنشاء أول إعلان",
+    "updateAd": "تعديل الإعلان",
+    "cancel": "إلغاء",
+    "tryAgain": "إعادة المحاولة"
+  },
+  "alerts": {
+    "loadFailed": "فشل تحميل بيانات الإعلانات",
+    "addSuccess": "تمت إضافة الإعلان بنجاح ✅",
+    "addFailed": "فشل في إضافة الإعلان ❌",
+    "editSuccess": "تم تعديل الإعلان بنجاح ✅",
+    "editFailed": "فشل في تعديل الإعلان ❌",
+    "deleteConfirm": "هل أنت متأكد من رغبتك في حذف {{count}} إعلان(إعلانات)؟",
+    "deleteSuccess": "تم حذف {{count}} إعلان(إعلانات) بنجاح ❌",
+    "deleteFailed": "حدث خطأ أثناء حذف الإعلانات",
+    "selectOne": "يرجى تحديد إعلان واحد فقط لتعديله.",
+    "selectToDelete": "يرجى تحديد إعلان لحذفه."
+  },
+  "table": {
+    "noImage": "لا توجد صورة",
+    "noLink": "لا يوجد رابط",
+    "headers": {
+      "id": "المعرف",
+      "section": "القسم",
+      "product": "المنتج",
+      "text": "نص الإعلان",
+      "background": "الخلفية",
+      "fontSize": "حجم الخط",
+      "textColor": "لون النص",
+      "image": "الصورة",
+      "link": "الرابط",
+      "createdAt": "تاريخ الإنشاء"
+    }
+  },
+  "modal": {
+    "addTitle": "إضافة إعلان جديد",
+    "editTitle": "تعديل الإعلان",
+    "labels": {
+      "section": "القسم *",
+      "product": "المنتج *",
+      "text": "نص الإعلان *",
+      "background": "لون الخلفية",
+      "fontSize": "حجم الخط",
+      "textColor": "لون النص",
+      "image": "صورة الإعلان",
+      "link": "الرابط",
+      "preview": "المعاينة"
+    },
+    "placeholders": {
+      "section": "اختر القسم",
+      "product": "اختر المنتج",
+      "text": "أدخل نص الإعلان...",
+      "background": "#FFFFFF",
+      "link": "https://example.com",
+      "previewDefault": "ستظهر معاينة الإعلان هنا..."
+    }
+  },
+  "emptyState": {
+    "title": "لم يتم العثور على إعلانات",
+    "desc": "ابدأ بإنشاء إعلانك الأول"
+  },
+  "loading": "جاري تحميل الإعلانات..."
+}

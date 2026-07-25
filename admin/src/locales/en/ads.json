@@ -1,0 +1,70 @@
+{
+  "title": "Advertisements",
+  "category": "Management",
+  "stats": {
+    "activeAds": "Total Active Ads"
+  },
+  "buttons": {
+    "addAd": "Add New Ad",
+    "createFirst": "Create First Ad",
+    "updateAd": "Update Ad",
+    "cancel": "Cancel",
+    "tryAgain": "Try Again"
+  },
+  "alerts": {
+    "loadFailed": "Failed to load ads data",
+    "addSuccess": "Advertisement added successfully ✅",
+    "addFailed": "Failed to add advertisement ❌",
+    "editSuccess": "Advertisement updated successfully ✅",
+    "editFailed": "Failed to edit advertisement ❌",
+    "deleteConfirm": "Are you sure you want to delete {{count}} ad(s)?",
+    "deleteSuccess": "{{count}} ad(s) deleted successfully ❌",
+    "deleteFailed": "Error deleting ads",
+    "selectOne": "Please select one ad to edit.",
+    "selectToDelete": "Please select an ad to delete."
+  },
+  "table": {
+    "noImage": "No image",
+    "noLink": "No link",
+    "headers": {
+      "id": "ID",
+      "section": "Section",
+      "product": "Product",
+      "text": "Ad Text",
+      "background": "Background",
+      "fontSize": "Font Size",
+      "textColor": "Text Color",
+      "image": "Image",
+      "link": "Link",
+      "createdAt": "Created At"
+    }
+  },
+  "modal": {
+    "addTitle": "Add New Ad",
+    "editTitle": "Edit Ad",
+    "labels": {
+      "section": "Section *",
+      "product": "Product *",
+      "text": "Ad Text *",
+      "background": "Background Color",
+      "fontSize": "Font Size",
+      "textColor": "Text Color",
+      "image": "Ad Image",
+      "link": "Link",
+      "preview": "Preview"
+    },
+    "placeholders": {
+      "section": "Select Section",
+      "product": "Select Product",
+      "text": "Enter advertisement text...",
+      "background": "#FFFFFF",
+      "link": "https://example.com",
+      "previewDefault": "Ad preview will appear here..."
+    }
+  },
+  "emptyState": {
+    "title": "No advertisements found",
+    "desc": "Start by creating your first advertisement"
+  },
+  "loading": "Loading advertisements..."
+}

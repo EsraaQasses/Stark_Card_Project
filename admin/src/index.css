@@ -1,0 +1,28 @@
+html[lang="en"] {
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html[lang="ar"] {
+  --font-family: 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family), sans-serif;
+}
+
+/* Apply fonts to entire project: headings, buttons, inputs, labels, tables, modals, sidebar, navbar, syncfusion, dialogs, dropdowns */
+body, h1, h2, h3, h4, h5, h6, p, span, a, button, input, select, textarea, label, table, th, td, 
+.e-control, .e-btn, .e-input, .e-grid, .e-dialog, .e-dropdownbase, .e-sidebar, .e-card, .e-list-item {
+  font-family: var(--font-family), sans-serif !important;
+}
+
+/* Protect Syncfusion icon font family */
+.e-icons, [class^="e-icon-"], [class*=" e-icon-"] {
+  font-family: 'e-icons' !important;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

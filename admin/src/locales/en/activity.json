@@ -1,0 +1,38 @@
+{
+  "title": "Admin Actions",
+  "subtitle": "Recent administrative activities",
+  "buttons": {
+    "refresh": "Refresh Actions",
+    "tryAgain": "Try Again"
+  },
+  "alerts": {
+    "loadFailed": "Failed to load admin actions"
+  },
+  "states": {
+    "noActions": "No recent actions",
+    "noActionsDesc": "Admin activities will appear here",
+    "loading": "Loading...",
+    "noDescription": "No description available"
+  },
+  "stats": {
+    "total": "Total",
+    "today": "Today",
+    "thisWeek": "This Week"
+  },
+  "action": {
+    "ban": "User Ban",
+    "unban": "User Unban",
+    "promote": "Promotion",
+    "create": "Create",
+    "update": "Update",
+    "delete": "Delete",
+    "action": "Action",
+    "target": "Target: {{name}}"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  }
+}

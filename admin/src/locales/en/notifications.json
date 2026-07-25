@@ -1,0 +1,32 @@
+{
+  "title": "System Notifications",
+  "buttons": {
+    "markAllAsRead": "Mark all as read",
+    "seeAll": "See All Notifications",
+    "tryAgain": "Try Again"
+  },
+  "alerts": {
+    "loadFailed": "Failed to load notifications"
+  },
+  "states": {
+    "noNotifications": "No notifications",
+    "caughtUp": "You're all caught up!",
+    "loading": "Loading...",
+    "actionRequired": "Action Required",
+    "read": "Read"
+  },
+  "priority": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "badge": {
+    "new": "New"
+  }
+}

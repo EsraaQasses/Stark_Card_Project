@@ -1,0 +1,133 @@
+{
+  "catalog": {
+    "title": "Store Sections",
+    "category": "Store Management",
+    "stats": {
+      "total": "Total Sections",
+      "active": "Active Sections",
+      "products": "Total Products",
+      "main": "Main Sections",
+      "sub": "Subsections"
+    },
+    "filters": {
+      "status": "Status",
+      "allStatus": "All Status",
+      "activeOnly": "Active Only",
+      "inactiveOnly": "Inactive Only"
+    },
+    "buttons": {
+      "addSection": "Add New Section"
+    },
+    "table": {
+      "id": "ID",
+      "image": "Image",
+      "details": "Section Details",
+      "products": "Products",
+      "type": "Type",
+      "created": "Created",
+      "status": "Status",
+      "actions": "Actions",
+      "noImage": "No Image",
+      "mainType": "Main",
+      "subType": "Sub",
+      "mainLabel": "Main Section",
+      "subLabel": "Subsection",
+      "productsCount": "{{count}} products",
+      "active": "Active",
+      "inactive": "Inactive",
+      "loadingText": "Loading sections...",
+      "emptyState": "No sections found"
+    },
+    "actions": {
+      "edit": "Edit",
+      "products": "Products",
+      "hide": "Hide",
+      "show": "Show",
+      "delete": "Delete"
+    },
+    "alerts": {
+      "loadFailed": "Failed to load sections",
+      "navProducts": "Navigating to products for section {{id}}",
+      "statusUpdated": "Section {{status}} successfully",
+      "statusActivated": "activated",
+      "statusDeactivated": "deactivated",
+      "statusUpdateFailed": "Failed to update section status",
+      "deleteConfirm": "Are you sure you want to delete \"{{title}}\"? This will also remove all products in this section.",
+      "deleteSuccess": "Section deleted successfully",
+      "deleteFailed": "Failed to delete section",
+      "imageTypeErr": "Please select an image file (JPEG, PNG, etc.)",
+      "imageSizeErr": "Image size should be less than 5MB",
+      "saveSuccess": "Section saved successfully!",
+      "saveError": "Error: {{message}}"
+    },
+    "modal": {
+      "addTitle": "Add New Store Section",
+      "editTitle": "Edit Store Section",
+      "fields": {
+        "nameEn": "English Name *",
+        "nameAr": "Arabic Name *",
+        "desc": "Description",
+        "image": "Section Image",
+        "parent": "Parent Section",
+        "isActive": "Active (Visible to users in the store)",
+        "nameEnPlaceholder": "e.g., Mobile Gaming",
+        "nameArPlaceholder": "e.g., ألعاب الموبايل",
+        "descPlaceholder": "Description of this section...",
+        "noParentOption": "Main Section (No Parent)",
+        "noFile": "No file selected",
+        "selected": "Selected: {{name}}",
+        "currentKept": "Current image will be kept",
+        "preview": "Preview:",
+        "currentImage": "Current Image:",
+        "cancel": "Cancel",
+        "updateSection": "Update Section",
+        "createSection": "Create Section"
+      }
+    }
+  },
+  "addSectionPage": {
+    "title": "Add New Section",
+    "subtitle": "Create a main or sub section to organize your store content",
+    "breadcrumb": {
+      "sections": "Sections",
+      "add": "Add Section"
+    },
+    "cards": {
+      "basicInfo": "Basic Information",
+      "hierarchy": "Hierarchy Classification",
+      "image": "Section Image"
+    },
+    "fields": {
+      "nameAr": "Arabic Name *",
+      "nameEn": "English Name *",
+      "description": "Description",
+      "parent": "Parent Section (Main)",
+      "mainSection": "Main Section (No Parent)",
+      "active": "Active (Visible to users in the store)",
+      "inactive": "Inactive (Hidden from the store)",
+      "subNotice": "This category will be nested under the selected parent category.",
+      "mainNotice": "This will be a top-level category displayed directly on the shop index."
+    },
+    "image": {
+      "dropTitle": "Drag and drop your image here, or",
+      "dropSubtitle": "click to select a file from your device",
+      "change": "Change Image",
+      "remove": "Remove Image",
+      "allowedFormats": "Supported formats: JPEG, PNG, WebP (Max 5MB)"
+    },
+    "buttons": {
+      "create": "Create Section",
+      "cancel": "Cancel",
+      "back": "Back",
+      "creating": "Creating..."
+    },
+    "alerts": {
+      "success": "Section created successfully!",
+      "failed": "Error: {{message}}"
+    },
+    "validation": {
+      "nameAr": "Arabic Name is required",
+      "nameEn": "English Name is required"
+    }
+  }
+}

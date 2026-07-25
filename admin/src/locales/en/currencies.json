@@ -1,0 +1,39 @@
+{
+  "title": "Wallet Balances",
+  "subtitle": "Monitor balances and exchange rates",
+  "buttons": {
+    "refreshData": "Refresh Data",
+    "updateRates": "Update Rates",
+    "updating": "Updating...",
+    "changeExchangeRate": "Change Exchange Rate",
+    "updateRate": "Update Rate",
+    "cancel": "Cancel",
+    "tryAgain": "Try Again"
+  },
+  "alerts": {
+    "loadFailed": "Failed to load wallet data",
+    "refreshSuccess": "Exchange rates refreshed automatically",
+    "refreshFailed": "Failed to refresh exchange rates",
+    "invalidRate": "Please enter a valid exchange rate greater than 0",
+    "updateSuccess": "Exchange rate updated successfully",
+    "updateFailed": "Failed to update exchange rate"
+  },
+  "currency": {
+    "usd": "US Dollar",
+    "syp": "Syrian Pound",
+    "available": "Available",
+    "pending": "Pending"
+  },
+  "exchange": {
+    "title": "Exchange Rates",
+    "updateManually": "Update Exchange Rate Manually",
+    "usdToSypRate": "USD to SYP Rate",
+    "usdToSypPlaceholder": "Enter USD to SYP rate",
+    "currentRate": "Current Rate",
+    "currentLabel": "Current: 1 USD = {{rate}} SYP",
+    "lastUpdated": "Last updated: {{date}}",
+    "totalBalanceUsd": "Total Balance (USD)",
+    "totalBalanceSyp": "Total Balance (SYP)"
+  },
+  "loading": "Loading wallet data..."
+}

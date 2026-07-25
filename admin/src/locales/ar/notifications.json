@@ -1,0 +1,32 @@
+{
+  "title": "إشعارات النظام",
+  "buttons": {
+    "markAllAsRead": "تحديد الكل كمقروء",
+    "seeAll": "عرض كافة الإشعارات",
+    "tryAgain": "إعادة المحاولة"
+  },
+  "alerts": {
+    "loadFailed": "فشل تحميل الإشعارات"
+  },
+  "states": {
+    "noNotifications": "لا توجد إشعارات",
+    "caughtUp": "لقد قمت بقراءة جميع الإشعارات!",
+    "loading": "جاري التحميل...",
+    "actionRequired": "إجراء مطلوب",
+    "read": "مقروء"
+  },
+  "priority": {
+    "high": "عالية",
+    "medium": "متوسطة",
+    "low": "منخفضة"
+  },
+  "time": {
+    "justNow": "الآن",
+    "minutesAgo": "منذ {{count}} د",
+    "hoursAgo": "منذ {{count}} سا",
+    "daysAgo": "منذ {{count}} ي"
+  },
+  "badge": {
+    "new": "جديد"
+  }
+}

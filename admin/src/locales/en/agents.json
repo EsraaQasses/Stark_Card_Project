@@ -1,0 +1,59 @@
+{
+  "category": "Management",
+  "title": "Agents",
+  "loading": "Loading agents data...",
+  "error": "Failed to load agents data",
+  "tryAgain": "Try Again",
+  "selectedAgent": {
+    "title": "Selected Agent: {{name}}",
+    "buttons": {
+      "viewUsers": "View Users",
+      "updateCommission": "Update Commission",
+      "demote": "Demote to User"
+    },
+    "labels": {
+      "currentCommission": "Current Commission",
+      "totalClients": "Total Clients",
+      "assignedProducts": "Assigned Products",
+      "totalBalance": "Total Balance"
+    }
+  },
+  "table": {
+    "headers": {
+      "id": "ID",
+      "username": "Username",
+      "fullName": "Full Name",
+      "clients": "Clients",
+      "balance": "Balance",
+      "commission": "Commission",
+      "products": "Products",
+      "status": "Status"
+    }
+  },
+  "modal": {
+    "title": "Update Commission for {{name}}",
+    "label": "Commission Rate (%)",
+    "placeholder": "Enter commission rate",
+    "buttons": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "updating": "Updating..."
+    }
+  },
+  "stats": {
+    "totalAgents": "Total Agents",
+    "totalClients": "Total Clients",
+    "totalBalance": "Total Balance",
+    "avgCommission": "Avg Commission"
+  },
+  "alerts": {
+    "updateSuccess": "Commission rate updated successfully!",
+    "updateFailed": "Failed to update commission rate",
+    "demoteConfirm": "Are you sure you want to demote {{name}} to regular user?",
+    "demoteSuccess": "Agent demoted successfully!",
+    "demoteFailed": "Failed to demote agent"
+  },
+  "status": {
+    "active": "Active"
+  }
+}

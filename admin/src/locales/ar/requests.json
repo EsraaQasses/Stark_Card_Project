@@ -1,0 +1,241 @@
+{
+  "catalog": {
+    "title": "مركز الطلبات",
+    "category": "إدارة الطلبات",
+    "buttons": {
+      "refreshData": "تحديث البيانات"
+    },
+    "stats": {
+      "total": "إجمالي الطلبات",
+      "pending": "قيد الانتظار",
+      "inProgress": "قيد التنفيذ",
+      "rejected": "المرفوضة"
+    },
+    "filters": {
+      "status": "تصفية حسب الحالة:",
+      "type": "تصفية حسب النوع:",
+      "clear": "إعادة تعيين الفلاتر",
+      "allStatus": "جميع الحالات",
+      "allTypes": "جميع الأنواع"
+    },
+    "table": {
+      "loadingText": "جاري تحميل بيانات الطلبات...",
+      "emptyTitle": "لم يتم العثور على طلبات",
+      "emptyNoRequests": "لا توجد طلبات في النظام بعد.",
+      "emptyNoMatch": "لا توجد طلبات تطابق الفلاتر المحددة.",
+      "unknownUser": "مستخدم غير معروف",
+      "noEmail": "لا يوجد بريد إلكتروني",
+      "review": "مراجعة",
+      "headers": {
+        "id": "معرف الطلب",
+        "user": "المستخدم",
+        "type": "نوع الطلب",
+        "status": "الحالة",
+        "title": "العنوان",
+        "amount": "المبلغ",
+        "submitted": "تاريخ التقديم",
+        "actions": "الإجراءات"
+      }
+    },
+    "modal": {
+      "title": "مراجعة الطلب ذو المعرف {{id}}",
+      "labels": {
+        "userInfo": "معلومات المستخدم:",
+        "requestType": "نوع الطلب:",
+        "status": "الحالة:",
+        "submittedDate": "تاريخ التقديم:",
+        "priority": "الأولوية:",
+        "amount": "المبلغ:",
+        "details": "التفاصيل:"
+      },
+      "fields": {
+        "decisionLabel": "ملاحظات القرار / السبب:",
+        "decisionPlaceholder": "أدخل ملاحظات القرار أو سبب الرفض...",
+        "notesLabel": "ملاحظات إضافية (اختياري):",
+        "notesPlaceholder": "أي تعليقات أو تعليمات إضافية..."
+      },
+      "buttons": {
+        "viewDetails": "عرض التفاصيل الكاملة",
+        "reject": "رفض الطلب",
+        "approve": "الموافقة على الطلب"
+      },
+      "alerts": {
+        "approveConfirm": "هل تريد الموافقة دون إضافة ملاحظات؟",
+        "approveSuccess": "تمت الموافقة على الطلب ذو المعرف {{id}} ✅\n\nالقرار: {{decision}}",
+        "rejectReasonRequired": "يرجى تقديم سبب للرفض",
+        "rejectSuccess": "تم رفض الطلب ذو المعرف {{id}} ❌\n\nالسبب: {{reason}}",
+        "fullDetailsTitle": "تفاصيل الطلب الكاملة:"
+      }
+    },
+    "alerts": {
+      "loadFailed": "فشل تحميل بيانات الطلبات",
+      "updateFailed": "فشل تحديث حالة الطلب",
+      "commentFailed": "فشل إضافة التعليق"
+    }
+  },
+  "status": {
+    "pending": "قيد الانتظار",
+    "shipping": "جاري الشحن",
+    "in_progress": "قيد التنفيذ",
+    "objection": "اعتراض",
+    "completed": "مكتمل",
+    "rejected": "مرفوض"
+  },
+  "type": {
+    "payment": "دفع",
+    "support": "دعم",
+    "refund": "استرداد",
+    "other": "أخرى"
+  },
+  "priority": {
+    "high": "عالية",
+    "medium": "متوسطة",
+    "low": "منخفضة"
+  },
+  "currency": {
+    "usd": "دولار",
+    "syp": "ل.س"
+  },
+  "requestsPages": {
+    "pending": {
+      "category": "الطلبات",
+      "title": "الطلبات قيد الانتظار",
+      "loading": "جاري تحميل الطلبات قيد الانتظار...",
+      "error": "فشل تحميل الطلبات قيد الانتظار",
+      "tryAgain": "إعادة المحاولة",
+      "stats": {
+        "total": "إجمالي قيد الانتظار",
+        "shipping": "الدفع والشحن",
+        "verification": "الدعم والتحقق",
+        "refund": "استرداد الأموال",
+        "other": "أخرى"
+      },
+      "table": {
+        "headers": {
+          "id": "المعرف",
+          "customer": "العميل",
+          "amount": "المبلغ",
+          "description": "الوصف",
+          "requestDate": "تاريخ الطلب",
+          "actions": "الإجراءات"
+        },
+        "buttons": {
+          "approve": "موافقة",
+          "reject": "رفض"
+        }
+      },
+      "alerts": {
+        "approveConfirm": "الموافقة على الطلب ذو الرقم #{{id}} المقدم من {{customer}}؟",
+        "approveSuccess": "تمت الموافقة على الطلب ذو الرقم #{{id}} المقدم من {{customer}} بنجاح!",
+        "approveFailed": "فشل قبول الطلب",
+        "rejectPrompt": "يرجى إدخال سبب رفض طلب {{customer}}:",
+        "rejectSuccess": "تم رفض الطلب ذو الرقم #{{id}}. السبب: {{reason}}",
+        "rejectFailed": "فشل رفض الطلب",
+        "error": "خطأ"
+      }
+    },
+    "inProgress": {
+      "category": "الطلبات",
+      "title": "الطلبات قيد التنفيذ",
+      "loading": "جاري تحميل الطلبات قيد التنفيذ...",
+      "error": "فشل تحميل الطلبات قيد التنفيذ",
+      "stats": {
+        "total": "إجمالي قيد التنفيذ",
+        "usdTotal": "المبلغ بالدولار",
+        "sypTotal": "المبلغ بالليرة",
+        "underReview": "قيد المراجعة"
+      },
+      "table": {
+        "headers": {
+          "id": "المعرف",
+          "customer": "العميل",
+          "amount": "المبلغ",
+          "description": "الوصف",
+          "requestDate": "تاريخ الطلب",
+          "actions": "الإجراءات"
+        },
+        "buttons": {
+          "approve": "موافقة",
+          "reject": "رفض",
+          "viewDetails": "عرض التفاصيل"
+        }
+      },
+      "alerts": {
+        "approveConfirm": "هل تريد الموافقة على دفعة بقيمة {{amount}} {{currency}} من {{customer}}؟",
+        "approveSuccess": "تمت الموافقة على الدفعة ذي الرقم #{{id}} بنجاح!",
+        "approveFailed": "فشل قبول الدفعة",
+        "rejectPrompt": "يرجى إدخال سبب رفض دفعة {{customer}}:",
+        "rejectSuccess": "تم رفض الدفعة ذي الرقم #{{id}}. السبب: {{reason}}",
+        "rejectFailed": "فشل رفض الدفعة",
+        "detailsTitle": "تفاصيل الطلب ذو الرقم #{{id}}:\n\nالعميل: {{customer}}\nالمبلغ: {{amount}} {{currency}}\nالوصف: {{description}}\nالحالة: {{status}}\nالتاريخ: {{date}}\n\nملاحظات:\n{{notes}}",
+        "error": "خطأ"
+      }
+    },
+    "objection": {
+      "category": "الطلبات",
+      "title": "طلبات الاعتراض",
+      "loading": "جاري تحميل طلبات الاعتراض...",
+      "error": "فشل تحميل طلبات الاعتراض",
+      "stats": {
+        "total": "إجمالي الاعتراضات",
+        "highPriority": "أولوية عالية",
+        "underReview": "قيد المراجعة",
+        "resolved": "اعتراضات تم حلها"
+      },
+      "table": {
+        "headers": {
+          "id": "المعرف",
+          "customer": "العميل",
+          "amount": "المبلغ",
+          "reason": "سبب الاعتراض",
+          "requestDate": "تاريخ الطلب",
+          "actions": "الإجراءات"
+        },
+        "buttons": {
+          "approve": "موافقة",
+          "reject": "رفض",
+          "viewDetails": "عرض التفاصيل"
+        }
+      },
+      "alerts": {
+        "approveConfirm": "هل تريد الموافقة على الاعتراض المقدم من {{customer}}؟\nالسبب: {{reason}}",
+        "approveSuccess": "تمت الموافقة على الاعتراض ذو الرقم #{{id}}. تم معالجة التعويض/الاسترداد.",
+        "approveFailed": "فشل قبول الاعتراض",
+        "rejectPrompt": "يرجى إدخال سبب رفض اعتراض العميل {{customer}}:\n\nالسبب الأصلي: {{reason}}",
+        "rejectSuccess": "تم رفض الاعتراض ذو الرقم #{{id}}.\nسبب الرفض: {{rejectionReason}}",
+        "rejectFailed": "فشل رفض الاعتراض",
+        "detailsTitle": "العميل: {{customer}}\nسبب الاعتراض: {{reason}}\nالمبلغ: {{amount}} {{currency}}\nالحالة: {{status}}\nالتاريخ: {{date}}\n\nتفاصيل الطلب الأصلي:\nالعنوان: {{title}}\nالنوع: {{type}}",
+        "error": "خطأ"
+      }
+    },
+    "shipping": {
+      "category": "الشحن",
+      "title": "إدارة طلبات الشحن",
+      "loading": "جاري تحميل طلبات الشحن...",
+      "error": "فشل تحميل طلبات الشحن",
+      "table": {
+        "headers": {
+          "id": "المعرف",
+          "customer": "العميل",
+          "amount": "المبلغ",
+          "description": "الوصف",
+          "requestDate": "تاريخ الطلب",
+          "status": "الحالة",
+          "actions": "الإجراءات"
+        },
+        "buttons": {
+          "approve": "موافقة",
+          "reject": "رفض"
+        }
+      },
+      "alerts": {
+        "approveSuccess": "تمت الموافقة على طلب الشحن ذو الرقم #{{id}} بنجاح!",
+        "approveFailed": "فشل قبول طلب الشحن",
+        "rejectPrompt": "يرجى إدخال سبب الرفض:",
+        "rejectSuccess": "تم رفض طلب الشحن ذو الرقم #{{id}}.",
+        "rejectFailed": "فشل رفض طلب الشحن",
+        "error": "خطأ"
+      }
+    }
+  }
+}

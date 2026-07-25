@@ -1,0 +1,212 @@
+{
+  "methods": {
+    "category": "إدارة المدفوعات",
+    "title": "طرق الدفع اليدوية",
+    "refreshData": "تحديث البيانات",
+    "stats": {
+      "total": "إجمالي الطرق",
+      "active": "الطرق النشطة",
+      "usd": "طرق بالدولار",
+      "syp": "طرق بالليرة"
+    },
+    "searchPlaceholder": "ابحث عن الطرق حسب العنوان، العملة، أو التفاصيل...",
+    "addNewMethod": "إضافة طريقة دفع جديدة",
+    "table": {
+      "headers": {
+        "id": "المعرف",
+        "iconCurrency": "الأيقونة والعملة",
+        "methodTitle": "عنوان الطريقة",
+        "accountDetails": "تفاصيل الحساب",
+        "instructions": "التعليمات",
+        "fields": "الحقول",
+        "statusDate": "الحالة والتاريخ",
+        "actions": "الإجراءات"
+      },
+      "noTitle": "بدون عنوان",
+      "noDetails": "لم يتم توفير تفاصيل",
+      "noInstructions": "لا توجد تعليمات",
+      "status": {
+        "active": "نشط",
+        "inactive": "غير نشط"
+      },
+      "tooltips": {
+        "edit": "تعديل طريقة الدفع",
+        "deactivate": "تعطيل الطريقة",
+        "activate": "تفعيل الطريقة",
+        "delete": "حذف طريقة الدفع"
+      }
+    },
+    "emptyState": {
+      "title": "لم يتم العثور على طرق دفع",
+      "description": "أنشئ أول طريقة دفع للبدء",
+      "button": "إضافة طريقة دفع"
+    },
+    "alerts": {
+      "deleteConfirm": "هل أنت متأكد أنك تريد حذف \"{{title}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+      "deleteSuccess": "تم حذف طريقة الدفع بنجاح!",
+      "deleteFailed": "فشل حذف طريقة الدفع",
+      "statusFailed": "فشل تحديث حالة طريقة الدفع",
+      "saveSuccess": "تم حفظ طريقة الدفع بنجاح!",
+      "updateSuccess": "تم تحديث طريقة الدفع بنجاح!",
+      "createSuccess": "تم إنشاء طريقة الدفع بنجاح!",
+      "saveFailed": "فشل حفظ طريقة الدفع",
+      "errorPrefix": "خطأ: {{message}}",
+      "unknownSaveError": "فشل حفظ طريقة الدفع. يرجى التحقق من الكونسول لمعرفة التفاصيل."
+    },
+    "modal": {
+      "titleAdd": "إضافة طريقة دفع جديدة",
+      "titleEdit": "تعديل طريقة الدفع",
+      "labels": {
+        "methodTitle": "عنوان الطريقة *",
+        "uniqueName": "الاسم الفريد *",
+        "currency": "العملة *",
+        "iconUrl": "رابط الأيقونة",
+        "accountDetails": "تفاصيل الحساب/الخدمة *",
+        "instructions": "التعليمات *",
+        "description": "الوصف",
+        "note": "ملاحظة",
+        "formFields": "حقول النموذج",
+        "fieldName": "اسم الحقل *",
+        "fieldKey": "مفتاح الحقل",
+        "inputType": "نوع الإدخال *",
+        "placeholder": "نص تلميحي (Placeholder)",
+        "requiredField": "حقل مطلوب",
+        "activeStatus": "تعيين كنشط (يمكن للمستخدمين رؤية واستخدام هذه الطريقة)"
+      },
+      "placeholders": {
+        "methodTitle": "مثال: تحويل بنكي - ليرة سورية",
+        "uniqueName": "مثال: bank_transfer_syp",
+        "accountDetails": "رقم الحساب، معلومات الوكيل، أو معلومات الخدمة...",
+        "instructions": "تعليمات خطوة بخطوة للمستخدمين...",
+        "description": "وصف اختياري...",
+        "note": "ملاحظات إضافية...",
+        "fieldName": "مثال: رقم الحساب",
+        "fieldKey": "توليد تلقائي",
+        "placeholder": "نص تلميحي اختياري"
+      },
+      "helpers": {
+        "uniqueName": "معرف فريد (بدون مسافات، استخدم شرطة سفلية _)",
+        "formFieldsDesc": "حدد حقول الإدخال التي يحتاج المستخدمون لملئها عند استخدام طريقة الدفع هذه"
+      },
+      "emptyFields": "لم يتم إضافة أي حقول نموذج بعد",
+      "emptyFieldsDesc": "أضف حقولاً لجمع معلومات المستخدمين",
+      "buttons": {
+        "addField": "إضافة حقل",
+        "remove": "إزالة",
+        "cancel": "إلغاء",
+        "save": "حفظ الطريقة",
+        "update": "تحديث الطريقة"
+      }
+    }
+  },
+  "history": {
+    "category": "إدارة المدفوعات",
+    "title": "جميع المدفوعات",
+    "stats": {
+      "total": "إجمالي عمليات الدفع",
+      "totalDesc": "{{count}} ناجحة",
+      "revenue": "إجمالي الإيرادات",
+      "revenueDesc": "من عمليات الدفع الناجحة",
+      "pending": "معلقة",
+      "pendingDesc": "في انتظار المعالجة",
+      "average": "متوسط عملية الدفع",
+      "averageDesc": "لكل عملية دفع ناجحة"
+    },
+    "filterSection": {
+      "title": "تصفية المدفوعات",
+      "buttons": {
+        "export": "تصدير CSV",
+        "refresh": "تحديث",
+        "clear": "مسح الفلاتر"
+      },
+      "labels": {
+        "status": "الحالة",
+        "currency": "العملة",
+        "fromDate": "من تاريخ",
+        "toDate": "إلى تاريخ",
+        "search": "البحث"
+      },
+      "options": {
+        "allStatuses": "جميع الحالات",
+        "allCurrencies": "جميع العملات"
+      },
+      "placeholders": {
+        "search": "ابحث باسم المستخدم، المنتج، معرف العملية..."
+      },
+      "badges": {
+        "status": "الحالة: {{status}}",
+        "currency": "العملة: {{currency}}",
+        "from": "من: {{date}}",
+        "to": "إلى: {{date}}",
+        "search": "البحث: {{query}}",
+        "showing": "عرض: {{count}} عملية دفع"
+      }
+    },
+    "table": {
+      "headers": {
+        "id": "معرف الدفع",
+        "user": "المستخدم",
+        "product": "المنتج",
+        "amount": "المبلغ",
+        "profit": "الربح",
+        "currency": "العملة",
+        "status": "الحالة",
+        "date": "التاريخ",
+        "externalId": "المعرف الخارجي",
+        "actions": "الإجراءات"
+      },
+      "userName": "مستخدم رقم {{id}}",
+      "productName": "شراء منتج",
+      "baseAmount": "الأساسي: {{symbol}}{{amount}}",
+      "profitPercent": "+{{percent}}% ربح",
+      "buttons": {
+        "details": "تفاصيل",
+        "process": "معالجة"
+      },
+      "tooltips": {
+        "details": "عرض تفاصيل الدفع",
+        "process": "معالجة عملية الدفع"
+      }
+    },
+    "alerts": {
+      "detailsTitle": "تفاصيل عملية الدفع",
+      "detailsMessage": "تفاصيل عملية الدفع:\nالمعرف: {{id}}\nالمستخدم: {{user}}\nالمنتج: {{product}}\nالمبلغ: {{amount}}\nالحالة: {{status}}",
+      "processing": "جاري معالجة عملية الدفع {{id}}..."
+    }
+  },
+  "recent": {
+    "title": "المدفوعات الأخيرة",
+    "activeBadge": "{{count}} نشط",
+    "loadingText": "جاري تحميل عمليات الدفع...",
+    "emptyTitle": "لم يتم العثور على عمليات دفع",
+    "emptyDesc": "ستظهر عمليات الدفع هنا بمجرد معالجتها",
+    "productPurchase": "شراء منتج",
+    "base": "الأساسي: {{symbol}}{{amount}}",
+    "profit": "+{{percent}}% ربح",
+    "externalId": "خارجي: {{id}}",
+    "buttons": {
+      "viewAll": "عرض جميع المدفوعات",
+      "refresh": "تحديث",
+      "retry": "إعادة المحاولة"
+    }
+  },
+  "status": {
+    "success": "ناجحة",
+    "pending": "معلقة",
+    "processing": "جاري المعالجة",
+    "failed": "فاشلة",
+    "cancelled": "ملغاة"
+  },
+  "currency": {
+    "usd": "دولار أمريكي",
+    "syp": "ليرة سورية",
+    "eur": "يورو"
+  },
+  "inputType": {
+    "text": "نص",
+    "number": "رقم",
+    "email": "بريد إلكتروني",
+    "phone": "هاتف",
+    "file": "ملف"
+  }
+}

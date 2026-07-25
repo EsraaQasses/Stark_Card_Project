@@ -1,0 +1,241 @@
+{
+  "catalog": {
+    "title": "Requests Hub",
+    "category": "Request Management",
+    "buttons": {
+      "refreshData": "Refresh Data"
+    },
+    "stats": {
+      "total": "Total Requests",
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "rejected": "Rejected"
+    },
+    "filters": {
+      "status": "Filter by Status:",
+      "type": "Filter by Type:",
+      "clear": "Clear Filters",
+      "allStatus": "All Statuses",
+      "allTypes": "All Types"
+    },
+    "table": {
+      "loadingText": "Loading requests data...",
+      "emptyTitle": "No requests found",
+      "emptyNoRequests": "There are no requests in the system yet.",
+      "emptyNoMatch": "No requests match your current filters.",
+      "unknownUser": "Unknown User",
+      "noEmail": "No email",
+      "review": "Review",
+      "headers": {
+        "id": "Request ID",
+        "user": "User",
+        "type": "Request Type",
+        "status": "Status",
+        "title": "Title",
+        "amount": "Amount",
+        "submitted": "Submitted",
+        "actions": "Actions"
+      }
+    },
+    "modal": {
+      "title": "Review Request {{id}}",
+      "labels": {
+        "userInfo": "User Information:",
+        "requestType": "Request Type:",
+        "status": "Status:",
+        "submittedDate": "Submitted Date:",
+        "priority": "Priority:",
+        "amount": "Amount:",
+        "details": "Details:"
+      },
+      "fields": {
+        "decisionLabel": "Decision Notes / Reason:",
+        "decisionPlaceholder": "Enter your decision notes or rejection reason...",
+        "notesLabel": "Additional Notes (Optional):",
+        "notesPlaceholder": "Any additional comments or instructions..."
+      },
+      "buttons": {
+        "viewDetails": "View Full Details",
+        "reject": "Reject Request",
+        "approve": "Approve Request"
+      },
+      "alerts": {
+        "approveConfirm": "Approve without adding notes?",
+        "approveSuccess": "Request {{id}} Approved ✅\n\nDecision: {{decision}}",
+        "rejectReasonRequired": "Please provide a reason for rejection",
+        "rejectSuccess": "Request {{id}} Rejected ❌\n\nReason: {{reason}}",
+        "fullDetailsTitle": "Full Request Details:"
+      }
+    },
+    "alerts": {
+      "loadFailed": "Failed to load requests data",
+      "updateFailed": "Failed to update request status",
+      "commentFailed": "Failed to add comment"
+    }
+  },
+  "status": {
+    "pending": "Pending",
+    "shipping": "Shipping",
+    "in_progress": "In Progress",
+    "objection": "Objection",
+    "completed": "Completed",
+    "rejected": "Rejected"
+  },
+  "type": {
+    "payment": "Payment",
+    "support": "Support",
+    "refund": "Refund",
+    "other": "Other"
+  },
+  "priority": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "currency": {
+    "usd": "USD",
+    "syp": "SYP"
+  },
+  "requestsPages": {
+    "pending": {
+      "category": "Requests",
+      "title": "Pending Requests",
+      "loading": "Loading pending requests...",
+      "error": "Failed to load pending requests",
+      "tryAgain": "Try Again",
+      "stats": {
+        "total": "Total Pending",
+        "shipping": "Payment/Shipping",
+        "verification": "Support/Verification",
+        "refund": "Refund",
+        "other": "Other"
+      },
+      "table": {
+        "headers": {
+          "id": "ID",
+          "customer": "Customer",
+          "amount": "Amount",
+          "description": "Description",
+          "requestDate": "Request Date",
+          "actions": "Actions"
+        },
+        "buttons": {
+          "approve": "Approve",
+          "reject": "Reject"
+        }
+      },
+      "alerts": {
+        "approveConfirm": "Approve request #{{id}} from {{customer}}?",
+        "approveSuccess": "Request #{{id}} from {{customer}} approved successfully!",
+        "approveFailed": "Failed to approve request",
+        "rejectPrompt": "Please enter reason for rejecting {{customer}}'s request:",
+        "rejectSuccess": "Request #{{id}} rejected. Reason: {{reason}}",
+        "rejectFailed": "Failed to reject request",
+        "error": "Error"
+      }
+    },
+    "inProgress": {
+      "category": "Requests",
+      "title": "In Progress Requests",
+      "loading": "Loading in-progress requests...",
+      "error": "Failed to load in-progress requests",
+      "stats": {
+        "total": "Total In-Progress",
+        "usdTotal": "USD Amount",
+        "sypTotal": "SYP Amount",
+        "underReview": "Under Review"
+      },
+      "table": {
+        "headers": {
+          "id": "ID",
+          "customer": "Customer",
+          "amount": "Amount",
+          "description": "Description",
+          "requestDate": "Request Date",
+          "actions": "Actions"
+        },
+        "buttons": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "viewDetails": "View Details"
+        }
+      },
+      "alerts": {
+        "approveConfirm": "Approve payment of {{amount}} {{currency}} from {{customer}}?",
+        "approveSuccess": "Payment #{{id}} approved successfully!",
+        "approveFailed": "Failed to approve payment",
+        "rejectPrompt": "Please enter reason for rejecting {{customer}}'s payment:",
+        "rejectSuccess": "Payment #{{id}} rejected. Reason: {{reason}}",
+        "rejectFailed": "Failed to reject payment",
+        "detailsTitle": "Request Details #{{id}}:\n\nCustomer: {{customer}}\nAmount: {{amount}} {{currency}}\nDescription: {{description}}\nStatus: {{status}}\nDate: {{date}}\n\nNotes:\n{{notes}}",
+        "error": "Error"
+      }
+    },
+    "objection": {
+      "category": "Requests",
+      "title": "Objection Requests",
+      "loading": "Loading objection requests...",
+      "error": "Failed to load objection requests",
+      "stats": {
+        "total": "Total Objections",
+        "highPriority": "High Priority",
+        "underReview": "Under Review",
+        "resolved": "Resolved Objections"
+      },
+      "table": {
+        "headers": {
+          "id": "ID",
+          "customer": "Customer",
+          "amount": "Amount",
+          "reason": "Objection Reason",
+          "requestDate": "Request Date",
+          "actions": "Actions"
+        },
+        "buttons": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "viewDetails": "View Details"
+        }
+      },
+      "alerts": {
+        "approveConfirm": "Approve objection from {{customer}}?\nReason: {{reason}}",
+        "approveSuccess": "Objection #{{id}} approved. Refund/compensation processed.",
+        "approveFailed": "Failed to approve objection",
+        "rejectPrompt": "Please enter reason for rejecting {{customer}}'s objection:\n\nOriginal Reason: {{reason}}",
+        "rejectSuccess": "Objection #{{id}} rejected.\nRejection Reason: {{rejectionReason}}",
+        "rejectFailed": "Failed to reject objection",
+        "detailsTitle": "Customer: {{customer}}\nObjection Reason: {{reason}}\nAmount: {{amount}} {{currency}}\nStatus: {{status}}\nDate: {{date}}\n\nOriginal Request Details:\nTitle: {{title}}\nType: {{type}}",
+        "error": "Error"
+      }
+    },
+    "shipping": {
+      "category": "Shipping",
+      "title": "Shipping Requests Management",
+      "loading": "Loading shipping requests...",
+      "error": "Failed to load shipping requests",
+      "table": {
+        "headers": {
+          "id": "ID",
+          "customer": "Customer",
+          "amount": "Amount",
+          "description": "Description",
+          "requestDate": "Request Date",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "buttons": {
+          "approve": "Approve",
+          "reject": "Reject"
+        }
+      },
+      "alerts": {
+        "approveSuccess": "Shipping request #{{id}} approved successfully!",
+        "approveFailed": "Failed to approve shipping request",
+        "rejectPrompt": "Please enter rejection reason:",
+        "rejectSuccess": "Shipping request #{{id}} rejected.",
+        "rejectFailed": "Failed to reject shipping request",
+        "error": "Error"
+      }
+    }
+  }
+}

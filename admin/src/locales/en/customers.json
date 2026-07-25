@@ -1,0 +1,133 @@
+{
+  "catalog": {
+    "title": "Customers",
+    "category": "User Management",
+    "buttons": {
+      "refreshData": "Refresh Data"
+    },
+    "activity": {
+      "title": "User Activity Status",
+      "totalUsers": "Total Registered Users: {{count}}",
+      "noData": "No data available for chart",
+      "activeDesc": "Logged in within the last 30 days",
+      "dormantDesc": "Has not logged in for 30+ days",
+      "newDesc": "Registered within the last 7 days",
+      "activeLabel": "Active",
+      "dormantLabel": "Dormant",
+      "newLabel": "New (Last 7 Days)",
+      "tooltipFormat": "${point.x} : <b>${point.y} users</b><br>${point.percentage}%"
+    },
+    "insights": {
+      "title": "Activity Insights",
+      "active": "Active Users",
+      "usersCount": "{{count}} users",
+      "percentOfTotal": "{{percent}}% of total"
+    },
+    "stats": {
+      "total": "Total Customers",
+      "active": "Active Now",
+      "admins": "Admin Users",
+      "usdBalance": "Total USD Balance",
+      "sypBalance": "Total SYP Balance",
+      "syp": "SYP"
+    },
+    "table": {
+      "emptyTitle": "No customers found",
+      "emptySubtitle": "Customer data will appear here once available",
+      "neverLogin": "Never",
+      "notAvailable": "N/A",
+      "usdFormat": "${{balance}}",
+      "sypFormat": "{{balance}} SYP",
+      "headers": {
+        "id": "ID",
+        "username": "Username",
+        "fullName": "Full Name",
+        "email": "Email",
+        "phone": "Phone",
+        "country": "Country",
+        "role": "Role",
+        "status": "Status",
+        "usdBalance": "USD Balance",
+        "sypBalance": "SYP Balance",
+        "agentCode": "Agent Code",
+        "joinedDate": "Joined Date",
+        "lastLogin": "Last Login",
+        "delete": "Delete",
+        "block": "Block",
+        "unblock": "Unblock",
+        "makeAgent": "Make Agent",
+        "makeAdmin": "Make Admin",
+        "refresh": "Refresh"
+      }
+    },
+    "modal": {
+      "promoteTitle": "Promote to Admin",
+      "confirmMsg": "Are you sure you want to promote {{name}} to admin?",
+      "warningMsg": "This will give them full administrative access to the system.",
+      "setPasswordTitle": "Set Admin Security Password",
+      "setPasswordMsg": "Set a second password for {{name}}'s admin account.",
+      "buttons": {
+        "cancel": "Cancel",
+        "promote": "Promote to Admin",
+        "promoting": "Promoting...",
+        "back": "Back",
+        "setPassword": "Set Password",
+        "settingPassword": "Setting Password..."
+      },
+      "fields": {
+        "secondPassword": "Second Password",
+        "secondPasswordPlaceholder": "Enter second password",
+        "confirmPassword": "Confirm Password",
+        "confirmPasswordPlaceholder": "Confirm second password"
+      },
+      "criteria": {
+        "title": "Password must contain:",
+        "len": "At least 8 characters",
+        "case": "Uppercase and lowercase letters",
+        "num": "At least one number",
+        "spec": "At least one special character"
+      },
+      "errors": {
+        "len": "Password must be at least 8 characters long",
+        "mismatch": "Passwords do not match",
+        "complexity": "Password must contain uppercase, lowercase, number, and special character"
+      }
+    },
+    "alerts": {
+      "loadFailed": "Failed to load customers data. Please check if the admin user is logged in.",
+      "promoteFailed": "Error: {{error}}",
+      "setPasswordSuccess": "Second password set successfully!",
+      "setPasswordFailed": "Error: {{error}}",
+      "deleteConfirm": "Are you sure you want to delete {{count}} customer(s)?",
+      "deleteMarked": "{{count}} customer(s) marked for deletion.",
+      "deleteFailed": "Error deleting customers",
+      "blockSuccess": "{{count}} customer(s) blocked successfully.",
+      "blockFailed": "Error blocking customers",
+      "unblockSuccess": "{{count}} customer(s) unblocked successfully.",
+      "unblockFailed": "Error unblocking customers",
+      "selectOneAgent": "Please select only one user to make agent.",
+      "alreadyAgent": "{{name}} is already an agent.",
+      "adminCannotBeAgent": "Cannot change admin role to agent.",
+      "makeAgentConfirm": "Are you sure you want to make {{name}} an agent?",
+      "makeAgentSuccess": "Success! {{name}} is now an agent. Agent Code: {{code}}",
+      "makeAgentFailed": "Error: {{error}}",
+      "selectOneAdmin": "Please select only one user to make admin.",
+      "alreadyAdmin": "{{name}} is already an admin.",
+      "selectDelete": "Please select a customer to delete.",
+      "selectBlock": "Please select a customer to block.",
+      "selectUnblock": "Please select a customer to unblock.",
+      "selectAgent": "Please select a user to make agent.",
+      "selectAdmin": "Please select a user to make admin."
+    }
+  },
+  "role": {
+    "admin": "Admin",
+    "agent": "Agent",
+    "customer": "Customer",
+    "user": "User"
+  },
+  "status": {
+    "active": "Active",
+    "banned": "Banned"
+  }
+}

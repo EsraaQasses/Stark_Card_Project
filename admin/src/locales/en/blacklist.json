@@ -1,0 +1,58 @@
+{
+  "category": "Management",
+  "title": "Blacklisted Accounts",
+  "loading": "Loading blacklist data...",
+  "error": "Failed to load blacklist data",
+  "tryAgain": "Try Again",
+  "stats": {
+    "totalBanned": "Total Banned Users",
+    "refresh": "Refresh Data"
+  },
+  "table": {
+    "never": "Never",
+    "buttons": {
+      "unblock": "Unblock",
+      "delete": "Delete"
+    },
+    "headers": {
+      "id": "ID",
+      "username": "Username",
+      "fullName": "Full Name",
+      "email": "Email",
+      "phone": "Phone",
+      "country": "Country",
+      "role": "Role",
+      "status": "Status",
+      "joinedDate": "Joined Date",
+      "lastLogin": "Last Login"
+    }
+  },
+  "emptyState": {
+    "title": "No banned users found",
+    "desc": "All users are currently active and in good standing"
+  },
+  "about": {
+    "title": "About Blacklisted Accounts",
+    "rule1": "Banned users cannot login to the system",
+    "rule2": "You can unblock users to restore their access",
+    "rule3": "Use the Unblock button to restore user access",
+    "rule4": "Deleted users are permanently removed from the system"
+  },
+  "alerts": {
+    "deleteConfirm": "Are you sure you want to permanently delete {{count}} user(s)?",
+    "deleteMarked": "{{count}} user(s) marked for deletion.",
+    "deleteFailed": "Error deleting users",
+    "unblockSuccess": "{{count}} user(s) unblocked successfully.",
+    "unblockFailed": "Error unblocking users",
+    "selectToDelete": "Please select a user to delete.",
+    "selectToUnblock": "Please select a user to unblock."
+  },
+  "roles": {
+    "admin": "Admin",
+    "agent": "Agent",
+    "user": "User"
+  },
+  "status": {
+    "banned": "Banned"
+  }
+}

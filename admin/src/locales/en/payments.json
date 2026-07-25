@@ -1,0 +1,212 @@
+{
+  "methods": {
+    "category": "Payments Management",
+    "title": "Manual Payment Methods",
+    "refreshData": "Refresh Data",
+    "stats": {
+      "total": "Total Methods",
+      "active": "Active Methods",
+      "usd": "USD Methods",
+      "syp": "SYP Methods"
+    },
+    "searchPlaceholder": "Search methods by title, currency, or details...",
+    "addNewMethod": "Add New Method",
+    "table": {
+      "headers": {
+        "id": "ID",
+        "iconCurrency": "Icon & Currency",
+        "methodTitle": "Method Title",
+        "accountDetails": "Account Details",
+        "instructions": "Instructions",
+        "fields": "Fields",
+        "statusDate": "Status & Date",
+        "actions": "Actions"
+      },
+      "noTitle": "No Title",
+      "noDetails": "No details provided",
+      "noInstructions": "No instructions provided",
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "tooltips": {
+        "edit": "Edit payment method",
+        "deactivate": "Deactivate method",
+        "activate": "Activate method",
+        "delete": "Delete payment method"
+      }
+    },
+    "emptyState": {
+      "title": "No payment methods found",
+      "description": "Create your first payment method to get started",
+      "button": "Add Payment Method"
+    },
+    "alerts": {
+      "deleteConfirm": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
+      "deleteSuccess": "Payment method deleted successfully!",
+      "deleteFailed": "Failed to delete payment method",
+      "statusFailed": "Failed to update payment method status",
+      "saveSuccess": "Payment method saved successfully!",
+      "updateSuccess": "Payment method updated successfully!",
+      "createSuccess": "Payment method created successfully!",
+      "saveFailed": "Failed to save payment method",
+      "errorPrefix": "Error: {{message}}",
+      "unknownSaveError": "Failed to save payment method. Please check the console for details."
+    },
+    "modal": {
+      "titleAdd": "Add New Payment Method",
+      "titleEdit": "Edit Payment Method",
+      "labels": {
+        "methodTitle": "Method Title *",
+        "uniqueName": "Unique Name *",
+        "currency": "Currency *",
+        "iconUrl": "Icon URL",
+        "accountDetails": "Account/Service Details *",
+        "instructions": "Instructions *",
+        "description": "Description",
+        "note": "Note",
+        "formFields": "Form Fields",
+        "fieldName": "Field Name *",
+        "fieldKey": "Field Key",
+        "inputType": "Input Type *",
+        "placeholder": "Placeholder",
+        "requiredField": "Required Field",
+        "activeStatus": "Set as Active (users can see and use this method)"
+      },
+      "placeholders": {
+        "methodTitle": "e.g., Bank Transfer - Syrian Pounds",
+        "uniqueName": "e.g., bank_transfer_syp",
+        "accountDetails": "Account number, agent details, or service information...",
+        "instructions": "Step-by-step instructions for users...",
+        "description": "Optional description...",
+        "note": "Additional notes...",
+        "fieldName": "e.g., Account Number",
+        "fieldKey": "auto-generated",
+        "placeholder": "Optional placeholder text"
+      },
+      "helpers": {
+        "uniqueName": "Unique identifier (no spaces, use underscores)",
+        "formFieldsDesc": "Define the input fields users need to fill when using this payment method"
+      },
+      "emptyFields": "No form fields added yet",
+      "emptyFieldsDesc": "Add fields to collect user information",
+      "buttons": {
+        "addField": "Add Field",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "save": "Save Method",
+        "update": "Update Method"
+      }
+    }
+  },
+  "history": {
+    "category": "Payment Management",
+    "title": "All Payments",
+    "stats": {
+      "total": "Total Payments",
+      "totalDesc": "{{count}} successful",
+      "revenue": "Total Revenue",
+      "revenueDesc": "From successful payments",
+      "pending": "Pending",
+      "pendingDesc": "Awaiting processing",
+      "average": "Average Payment",
+      "averageDesc": "Per successful payment"
+    },
+    "filterSection": {
+      "title": "Filter Payments",
+      "buttons": {
+        "export": "Export CSV",
+        "refresh": "Refresh",
+        "clear": "Clear Filters"
+      },
+      "labels": {
+        "status": "Status",
+        "currency": "Currency",
+        "fromDate": "From Date",
+        "toDate": "To Date",
+        "search": "Search"
+      },
+      "options": {
+        "allStatuses": "All Statuses",
+        "allCurrencies": "All Currencies"
+      },
+      "placeholders": {
+        "search": "Search by user, product, transaction ID..."
+      },
+      "badges": {
+        "status": "Status: {{status}}",
+        "currency": "Currency: {{currency}}",
+        "from": "From: {{date}}",
+        "to": "To: {{date}}",
+        "search": "Search: {{query}}",
+        "showing": "Showing: {{count}} payments"
+      }
+    },
+    "table": {
+      "headers": {
+        "id": "Payment ID",
+        "user": "User",
+        "product": "Product",
+        "amount": "Amount",
+        "profit": "Profit",
+        "currency": "Currency",
+        "status": "Status",
+        "date": "Date",
+        "externalId": "External ID",
+        "actions": "Actions"
+      },
+      "userName": "User #{{id}}",
+      "productName": "Product Purchase",
+      "baseAmount": "Base: {{symbol}}{{amount}}",
+      "profitPercent": "+{{percent}}% profit",
+      "buttons": {
+        "details": "Details",
+        "process": "Process"
+      },
+      "tooltips": {
+        "details": "View payment details",
+        "process": "Process payment"
+      }
+    },
+    "alerts": {
+      "detailsTitle": "Payment Details",
+      "detailsMessage": "Payment Details:\nID: {{id}}\nUser: {{user}}\nProduct: {{product}}\nAmount: {{amount}}\nStatus: {{status}}",
+      "processing": "Processing payment {{id}}..."
+    }
+  },
+  "recent": {
+    "title": "Recent Payments",
+    "activeBadge": "{{count}} Active",
+    "loadingText": "Loading payments...",
+    "emptyTitle": "No payments found",
+    "emptyDesc": "Payments will appear here once they are processed",
+    "productPurchase": "Product Purchase",
+    "base": "Base: {{symbol}}{{amount}}",
+    "profit": "+{{percent}}% profit",
+    "externalId": "Ext: {{id}}",
+    "buttons": {
+      "viewAll": "View All Payments",
+      "refresh": "Refresh",
+      "retry": "Retry"
+    }
+  },
+  "status": {
+    "success": "Success",
+    "pending": "Pending",
+    "processing": "Processing",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "currency": {
+    "usd": "USD",
+    "syp": "SYP",
+    "eur": "EUR"
+  },
+  "inputType": {
+    "text": "Text",
+    "number": "Number",
+    "email": "Email",
+    "phone": "Phone",
+    "file": "File"
+  }
+}

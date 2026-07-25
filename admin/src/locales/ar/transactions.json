@@ -1,0 +1,116 @@
+{
+  "category": "الإدارة المالية",
+  "title": "سجل التحويلات المالية",
+  "stats": {
+    "total": "إجمالي التحويلات",
+    "totalDesc": "{{count}} مقبولة",
+    "inflowUSD": "واردات بالدولار",
+    "outflowUSD": "صادرات بالدولار",
+    "inflowSYP": "واردات بالليرة",
+    "outflowSYP": "صادرات بالليرة",
+    "pending": "معلقة",
+    "approvedDesc": "مقبولة",
+    "pendingDesc": "في انتظار الإجراء"
+  },
+  "filterSection": {
+    "title": "تصفية التحويلات",
+    "buttons": {
+      "export": "تصدير CSV",
+      "clear": "مسح الفلاتر"
+    },
+    "badges": {
+      "currency": "العملة: {{currency}}",
+      "status": "الحالة: {{status}}",
+      "type": "النوع: {{type}}",
+      "from": "من: {{date}}",
+      "to": "إلى: {{date}}"
+    }
+  },
+  "table": {
+    "headers": {
+      "id": "معرف العملية",
+      "dateTime": "التاريخ/الوقت",
+      "type": "النوع",
+      "source": "المصدر",
+      "destination": "الوجهة",
+      "amount": "المبلغ",
+      "currency": "العملة",
+      "status": "الحالة",
+      "actions": "الإجراءات"
+    },
+    "sourceEntity": {
+      "user": "المستخدم: {{name}}",
+      "agent": "الوكيل: {{name}}",
+      "system": "النظام"
+    },
+    "targetEntity": {
+      "user": "المستخدم: {{name}}",
+      "recipientWallet": "محفظة المستلم",
+      "storePurchase": "شراء من المتجر",
+      "walletDeposit": "شحن المحفظة",
+      "system": "النظام"
+    },
+    "unknown": "غير معروف",
+    "buttons": {
+      "details": "تفاصيل",
+      "approve": "قبول",
+      "reject": "رفض"
+    },
+    "tooltips": {
+      "details": "عرض تفاصيل العملية",
+      "approve": "قبول العملية",
+      "reject": "رفض العملية"
+    }
+  },
+  "modal": {
+    "title": "تفاصيل المعاملة المالية",
+    "sections": {
+      "basic": "المعلومات الأساسية",
+      "financial": "التفاصيل المالية",
+      "parties": "الأطراف المعنية",
+      "source": "المصدر",
+      "destination": "الوجهة",
+      "notes": "الملاحظات"
+    },
+    "labels": {
+      "id": "معرف العملية:",
+      "type": "النوع:",
+      "status": "الحالة:",
+      "dateTime": "التاريخ والوقت:",
+      "amount": "المبلغ:",
+      "currency": "العملة:",
+      "direction": "الاتجاه:",
+      "userId": "معرف المستخدم:"
+    },
+    "buttons": {
+      "close": "إغلاق"
+    }
+  },
+  "alerts": {
+    "loadFailed": "فشل تحميل التحويلات المالية",
+    "approveConfirm": "هل أنت متأكد من قبول هذه العملية؟",
+    "approveFailed": "فشل قبول العملية",
+    "rejectPrompt": "يرجى إدخال سبب الرفض:",
+    "rejectFailed": "فشل رفض العملية",
+    "errorPrefix": "خطأ: {{message}}"
+  },
+  "direction": {
+    "inflow": "واردة",
+    "outflow": "صادرة"
+  },
+  "status": {
+    "approved": "مقبولة",
+    "pending": "معلقة",
+    "rejected": "مرفوضة"
+  },
+  "type": {
+    "deposit": "شحن",
+    "transfer": "تحويل",
+    "purchase": "شراء"
+  },
+  "currency": {
+    "usd": "دولار أمريكي",
+    "syp": "ليرة سورية",
+    "eur": "يورو"
+  }
+}

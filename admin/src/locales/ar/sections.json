@@ -1,0 +1,133 @@
+{
+  "catalog": {
+    "title": "أقسام المتجر",
+    "category": "إدارة المتجر",
+    "stats": {
+      "total": "إجمالي الأقسام",
+      "active": "الأقسام النشطة",
+      "products": "إجمالي المنتجات",
+      "main": "الأقسام الرئيسية",
+      "sub": "الأقسام الفرعية"
+    },
+    "filters": {
+      "status": "الحالة",
+      "allStatus": "جميع الحالات",
+      "activeOnly": "النشطة فقط",
+      "inactiveOnly": "غير النشطة فقط"
+    },
+    "buttons": {
+      "addSection": "إضافة قسم جديد"
+    },
+    "table": {
+      "id": "المعرف",
+      "image": "الصورة",
+      "details": "تفاصيل القسم",
+      "products": "المنتجات",
+      "type": "النوع",
+      "created": "تاريخ الإنشاء",
+      "status": "الحالة",
+      "actions": "الإجراءات",
+      "noImage": "لا توجد صورة",
+      "mainType": "رئيسي",
+      "subType": "فرعي",
+      "mainLabel": "قسم رئيسي",
+      "subLabel": "قسم فرعي",
+      "productsCount": "{{count}} منتجات",
+      "active": "نشط",
+      "inactive": "غير نشط",
+      "loadingText": "جاري تحميل الأقسام...",
+      "emptyState": "لم يتم العثور على أقسام"
+    },
+    "actions": {
+      "edit": "تعديل",
+      "products": "المنتجات",
+      "hide": "إخفاء",
+      "show": "إظهار",
+      "delete": "حذف"
+    },
+    "alerts": {
+      "loadFailed": "فشل تحميل الأقسام",
+      "navProducts": "جاري الانتقال لمنتجات القسم ذو المعرف {{id}}",
+      "statusUpdated": "تم {{status}} القسم بنجاح",
+      "statusActivated": "تفعيل",
+      "statusDeactivated": "تعطيل",
+      "statusUpdateFailed": "فشل تحديث حالة القسم",
+      "deleteConfirm": "هل أنت متأكد من حذف القسم \"{{title}}\"؟ سيؤدي ذلك أيضاً لحذف جميع المنتجات التابعة له.",
+      "deleteSuccess": "تم حذف القسم بنجاح",
+      "deleteFailed": "فشل حذف القسم",
+      "imageTypeErr": "يرجى تحديد ملف صورة صالح (JPEG, PNG, إلخ...)",
+      "imageSizeErr": "يجب أن يكون حجم الصورة أقل من 5 ميجابايت",
+      "saveSuccess": "تم حفظ القسم بنجاح!",
+      "saveError": "خطأ: {{message}}"
+    },
+    "modal": {
+      "addTitle": "إضافة قسم متجر جديد",
+      "editTitle": "تعديل قسم المتجر",
+      "fields": {
+        "nameEn": "الاسم بالإنجليزي *",
+        "nameAr": "الاسم بالعربي *",
+        "desc": "الوصف",
+        "image": "صورة القسم",
+        "parent": "القسم الأب (الرئيسي)",
+        "isActive": "نشط (يظهر للعملاء في المتجر)",
+        "nameEnPlaceholder": "مثال: Mobile Gaming",
+        "nameArPlaceholder": "مثال: ألعاب الموبايل",
+        "descPlaceholder": "وصف تفصيلي للقسم...",
+        "noParentOption": "قسم رئيسي (بدون أب)",
+        "noFile": "لم يتم اختيار ملف",
+        "selected": "تم اختيار: {{name}}",
+        "currentKept": "سيتم الاحتفاظ بالصورة الحالية",
+        "preview": "معاينة:",
+        "currentImage": "الصورة الحالية:",
+        "cancel": "إلغاء",
+        "updateSection": "تحديث القسم",
+        "createSection": "إنشاء القسم"
+      }
+    }
+  },
+  "addSectionPage": {
+    "title": "إضافة قسم جديد",
+    "subtitle": "أنشئ قسمًا رئيسيًا أو فرعيًا ونظّم محتوى المتجر",
+    "breadcrumb": {
+      "sections": "الأقسام",
+      "add": "إضافة قسم"
+    },
+    "cards": {
+      "basicInfo": "المعلومات الأساسية",
+      "hierarchy": "التصنيف الهرمي",
+      "image": "صورة القسم"
+    },
+    "fields": {
+      "nameAr": "الاسم بالعربية *",
+      "nameEn": "الاسم بالإنجليزية *",
+      "description": "الوصف",
+      "parent": "القسم الأب (الرئيسي)",
+      "mainSection": "قسم رئيسي (بدون أب)",
+      "active": "نشط (يظهر للعملاء في المتجر)",
+      "inactive": "غير نشط (مخفي من المتجر)",
+      "subNotice": "سيتم إدراج هذا القسم كقسم فرعي تحت القسم الأب المحدد.",
+      "mainNotice": "سيكون هذا قسمًا رئيسيًا يظهر مباشرة في الصفحة الرئيسية للمتجر."
+    },
+    "image": {
+      "dropTitle": "اسحب وأفلت الصورة هنا أو",
+      "dropSubtitle": "انقر لاختيار ملف من جهازك",
+      "change": "تغيير الصورة",
+      "remove": "إزالة الصورة",
+      "allowedFormats": "الصيغ المدعومة: JPEG, PNG, WebP (بحد أقصى 5 ميجابايت)"
+    },
+    "buttons": {
+      "create": "إنشاء القسم",
+      "cancel": "إلغاء",
+      "back": "رجوع",
+      "creating": "جاري الإنشاء..."
+    },
+    "alerts": {
+      "success": "تم إنشاء القسم بنجاح!",
+      "failed": "خطأ: {{message}}"
+    },
+    "validation": {
+      "nameAr": "الاسم العربي مطلوب",
+      "nameEn": "الاسم الإنجليزي مطلوب"
+    }
+  }
+}

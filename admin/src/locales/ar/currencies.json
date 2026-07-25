@@ -1,0 +1,39 @@
+{
+  "title": "أرصدة المحفظة",
+  "subtitle": "متابعة الأرصدة وأسعار الصرف",
+  "buttons": {
+    "refreshData": "تحديث البيانات",
+    "updateRates": "تحديث الأسعار",
+    "updating": "جاري التحديث...",
+    "changeExchangeRate": "تغيير سعر الصرف",
+    "updateRate": "تحديث السعر",
+    "cancel": "إلغاء",
+    "tryAgain": "إعادة المحاولة"
+  },
+  "alerts": {
+    "loadFailed": "فشل تحميل بيانات المحفظة",
+    "refreshSuccess": "تم تحديث أسعار الصرف تلقائياً",
+    "refreshFailed": "فشل تحديث أسعار الصرف",
+    "invalidRate": "يرجى إدخال سعر صرف صالح أكبر من 0",
+    "updateSuccess": "تم تحديث سعر الصرف بنجاح",
+    "updateFailed": "فشل تحديث سعر الصرف"
+  },
+  "currency": {
+    "usd": "دولار أمريكي",
+    "syp": "ليرة سورية",
+    "available": "المتاح",
+    "pending": "المعلق"
+  },
+  "exchange": {
+    "title": "أسعار الصرف",
+    "updateManually": "تحديث سعر الصرف يدوياً",
+    "usdToSypRate": "سعر الدولار مقابل الليرة",
+    "usdToSypPlaceholder": "أدخل سعر الدولار مقابل الليرة",
+    "currentRate": "السعر الحالي",
+    "currentLabel": "الحالي: 1 دولار = {{rate}} ل.س",
+    "lastUpdated": "آخر تحديث: {{date}}",
+    "totalBalanceUsd": "إجمالي الرصيد (دولار)",
+    "totalBalanceSyp": "إجمالي الرصيد (ل.س)"
+  },
+  "loading": "جاري تحميل بيانات المحفظة..."
+}

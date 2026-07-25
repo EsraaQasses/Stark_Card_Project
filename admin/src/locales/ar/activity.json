@@ -1,0 +1,38 @@
+{
+  "title": "سجل عمليات المسؤولين",
+  "subtitle": "الأنشطة الإدارية الأخيرة",
+  "buttons": {
+    "refresh": "تحديث السجل",
+    "tryAgain": "إعادة المحاولة"
+  },
+  "alerts": {
+    "loadFailed": "فشل تحميل سجل العمليات"
+  },
+  "states": {
+    "noActions": "لا توجد عمليات حديثة",
+    "noActionsDesc": "ستظهر أنشطة المسؤولين هنا",
+    "loading": "جاري التحميل...",
+    "noDescription": "لا يوجد وصف متاح"
+  },
+  "stats": {
+    "total": "الإجمالي",
+    "today": "اليوم",
+    "thisWeek": "هذا الأسبوع"
+  },
+  "action": {
+    "ban": "حظر مستخدم",
+    "unban": "إلغاء حظر",
+    "promote": "ترقية",
+    "create": "إنشاء",
+    "update": "تعديل",
+    "delete": "حذف",
+    "action": "عملية",
+    "target": "الهدف: {{name}}"
+  },
+  "time": {
+    "justNow": "الآن",
+    "minutesAgo": "منذ {{count}} د",
+    "hoursAgo": "منذ {{count}} سا",
+    "daysAgo": "منذ {{count}} ي"
+  }
+}

@@ -1,0 +1,134 @@
+# Migration Checklist
+
+Use this checklist for each future feature or screen migration.
+
+- [ ] App builds or passes the selected validation command.
+- [ ] Route still opens from the same Expo Router URL.
+- [ ] Screen visual behavior is unchanged unless explicitly planned.
+- [ ] No route URL changed.
+- [ ] No new direct route string is added when a shared route constant exists.
+- [ ] No new `useNavigationShim` usage is added to new code.
+- [ ] Bottom navigation changes use `BOTTOM_NAV_ROUTE_MAP`.
+- [ ] Route files remain thin and do not gain feature business logic.
+- [ ] No direct `AsyncStorage` usage added to screens.
+- [ ] No direct auth/session token storage added outside `authStorage`.
+- [ ] New feature API calls return `ApiResult<T>`.
+- [ ] Expected API errors are normalized through `normalizeApiError`.
+- [ ] Screens do not depend on raw Axios response shape.
+- [ ] Agent calls use the agents feature API boundary.
+- [ ] New agent API functions return `ApiResult<T>`.
+- [ ] Agent screens do not depend on new raw Axios response shapes.
+- [ ] Notification calls use the notifications feature API boundary.
+- [ ] New notification API functions return `ApiResult<T>`.
+- [ ] Notification UI components do not depend on new raw Axios response shapes.
+- [ ] Notification polling and cache behavior is unchanged unless explicitly scoped.
+- [ ] Notifications FlatList tuning preserves notification API, cache, read, delete, mark-all-read, and polling behavior.
+- [ ] Notifications.js received safe UI/theme adoption; notification API, cache, read/delete, mark-all-read, polling, pull-to-refresh, and displayed data behavior must remain unchanged.
+- [ ] Profile.js received safe UI/theme adoption; profile loading, displayed user data, auth/session reset, logout, delete account, alerts, and navigation behavior must remain unchanged.
+- [ ] Profile/current-user calls use the profile feature API boundary.
+- [ ] Store/product calls use the store feature API boundary.
+- [ ] New store/product API functions return `ApiResult<T>`.
+- [ ] Store/product screens do not depend on new raw Axios response shapes.
+- [ ] Store screens keep UI state, rendering, navigation, cache, storage, and API side effects unless explicitly scoped.
+- [ ] Store business rules are extracted into `src/features/store/model`.
+- [ ] Store formatting helpers are extracted into `src/features/store/utils`.
+- [ ] Store hooks preserve existing fetch order, cache keys, cache TTLs, loading behavior, and response shapes.
+- [ ] Store data hooks use `src/features/store/api/storeApi.ts` only when `ApiResult.data` preserves the exact legacy response shape.
+- [ ] Store `ApiResult` unwrapping preserves existing fallback/error behavior.
+- [ ] Store pricing display hooks preserve synchronous `displayPrice` behavior and do not introduce async pricing API calls.
+- [ ] Store screens keep UI rendering and navigation payload construction unless explicitly scoped.
+- [ ] Product list price fallback rendering remains in the screen until UI/component extraction is explicitly scoped.
+- [ ] Products list uses FlatList virtualization; product UI behavior and payment navigation payloads remain unchanged.
+- [ ] Product and section images display fully without cropping.
+- [ ] Product image fallback order is product image -> section/category image -> placeholder.
+- [ ] Product image display changes do not alter product/payment navigation payloads.
+- [ ] Home/Products image card sizing was adjusted to reduce blank image areas while keeping product/category images fully visible.
+- [ ] Product/category image sizing must preserve `resizeMode="contain"` for main product/category images and must not reintroduce cropping.
+- [ ] Card image sizing changes must preserve section navigation, search/filter behavior, product fallback order, and Payment navigation payloads.
+- [ ] Home.js and Products.js received an Arabic/RTL UI consistency pass; search, header, card text, navigation, and payment payload behavior must remain unchanged.
+- [ ] Arabic/RTL UI changes must preserve Home section navigation, Products search/filter behavior, active subsection behavior, image fallback behavior, and Payment navigation payloads.
+- [ ] Home.js received a manual direction/layout page-level fix; ads, wallet, unread notifications, search, section navigation, cache keys, and cache TTLs must remain unchanged.
+- [ ] Home category/section card gaps were improved so the two-column grid has intentional horizontal and vertical spacing.
+- [ ] Home category/section image inner padding was reduced while keeping images non-cropped with `resizeMode="contain"`.
+- [ ] Home numbers and currency display require manual QA after RTL/card spacing changes.
+- [ ] Home.js had recent forced RTL visual overrides reverted to LTR-safe layout after product direction changed.
+- [ ] Home section title/action placement must be manually QA-tested in LTR mode: section title on the left, favorite action on the right, with no overlap.
+- [ ] Home search box and `FlatList` `numColumns` ordering require device QA after direction changes.
+- [ ] Visual correctness overrides blind direction-helper usage when explicit per-screen layout is safer.
+- [ ] Currency and number direction requires manual QA after every Arabic/RTL pass.
+- [ ] Home FlatList tuning preserves Home API, cache, polling, ads, wallet, unread notification, and navigation behavior.
+- [ ] Store cache extraction preserves existing keys, TTLs, fetch order, loading behavior, and response shapes.
+- [ ] Store cache behavior is snapshotted before API-boundary migrations.
+- [ ] Full store API migration is deferred unless legacy and normalized behavior are proven identical.
+- [ ] Product-list display pricing does not call `calculateProductPrice`, `convertPrice`, or `getPriceCalculator` unless explicitly scoped.
+- [ ] Wallet calls use the wallet feature API boundary.
+- [ ] Wallet mutations use the wallet feature API boundary.
+- [ ] Wallet business rules are extracted into `src/features/wallet/model`.
+- [ ] Wallet formatting helpers are extracted into `src/features/wallet/utils`.
+- [ ] Wallet data orchestration hooks preserve existing fetch order, cache keys, loading/error behavior, and refresh behavior.
+- [ ] Wallet screens keep UI layout, navigation, alerts, animations, and rendering-specific state unless explicitly scoped.
+- [ ] Wallet optimistic UI behavior preserves rollback behavior and user-facing messages.
+- [ ] Wallet cache or polling logic is not added directly to UI components.
+- [ ] Wallet polling intervals are unchanged unless the migration explicitly scopes a polling redesign.
+- [ ] Wallet cache redesign is deferred to a later dedicated phase.
+- [ ] MyWallet render-only optimization preserves wallet API, cache, polling, refresh, currency mutation, alerts, and LayoutAnimation behavior.
+- [ ] Payment-method calls use the payments feature API boundary.
+- [ ] Payment business rules are extracted into `src/features/payments/model`.
+- [ ] Payment formatting helpers are extracted into `src/features/payments/utils`.
+- [ ] Payment hooks contain derived state only unless a later migration explicitly approves side effects.
+- [ ] Payment hooks do not contain navigation, alerts, storage writes, or submit side effects.
+- [ ] Payment submit flow remains unchanged unless the migration is specifically scoped for submit extraction.
+- [ ] Payment screens keep API calls, navigation, alerts, and state side effects out of extracted pure helpers.
+- [ ] MyPayments FlatList/render tuning preserves payment API, cache, filter, pagination, card expansion, and displayed data behavior.
+- [ ] CornerSpinner is intentionally kept as part of the visual identity; only render/animation optimizations are allowed unless design approves asset replacement.
+- [ ] Transaction calls use the transactions feature API boundary.
+- [ ] New transaction API functions return `ApiResult<T>`.
+- [ ] Transaction screens do not depend on new raw Axios response shapes.
+- [ ] Legacy transaction exports remain compatible until all call sites migrate.
+- [ ] No new API contract inconsistency introduced.
+- [ ] Loading state is handled.
+- [ ] Error state is handled.
+- [ ] Empty state is handled where applicable.
+- [ ] Feature logic is extracted into `hooks`, `model`, or `api`.
+- [ ] Shared logic is placed under `src/shared`.
+- [ ] Shared theme tokens are used for new UI work; `src/ui/Theme.js` remains a compatibility layer.
+- [ ] Shared UI primitives under `src/shared/ui` are preferred for new page headers, cards, icon buttons, section titles, empty states, and search boxes.
+- [ ] Shared UI primitive adoption preserves API, navigation, storage/cache, route, and displayed-data behavior.
+- [ ] Default typography is system/WhatsApp-like; shared typography tokens should not force Almarai by default.
+- [ ] Almarai files may remain available under `assets/fonts`, but Almarai is optional and should only be used deliberately.
+- [ ] Shared typography tokens should be used for future typography adoption while preserving the system-font default.
+- [ ] Existing raw `Text` screens should adopt the font screen by screen instead of through broad mass edits.
+- [ ] Direction support must be considered in every UI pass: text alignment, row direction, icon/text order, search placeholders, numbers/currencies, and corrupted Arabic text.
+- [ ] Shared UI primitives are the first place to fix direction consistency before broad screen-level edits.
+- [ ] App direction is LTR by product decision; shared direction helpers return LTR values by default.
+- [ ] Do not force Arabic RTL globally with `I18nManager.forceRTL` or `I18nManager.allowRTL`.
+- [ ] Future screen UI passes should preserve LTR layout unless the user explicitly requests RTL again.
+- [ ] Older screen-level `I18nManager.isRTL` checks should be audited screen by screen before changing behavior.
+- [ ] Responsive dimensions use shared scale helpers and theme spacing/layout tokens instead of new per-screen scaling systems.
+- [ ] CornerSpinner remains visible as a visual identity element; layout-level adoption must avoid duplicate manual spinners.
+- [ ] Screen redesigns happen one screen at a time, not as broad visual rewrites.
+- [ ] Payment/auth/wallet sensitive flows are not redesigned first unless explicitly scoped and tested.
+- [ ] Favorite.js is the first safe theme adoption screen; UI/theming passes must preserve behavior and continue screen-by-screen.
+- [ ] Favorite.js now uses shared `AppHeader` and `AppEmptyState` as a low-risk shared UI primitive adoption example.
+- [ ] Downloads.js received safe UI adoption; file/download logic and navigation behavior must remain unchanged.
+- [ ] File/download logic must not be changed during UI/theme passes unless explicitly scoped.
+- [ ] OurAgents.js received safe UI/theme adoption; API, navigation, loading, search/filter, QR/connect behavior, CornerSpinner behavior, and displayed agent data must remain unchanged.
+- [ ] UI adoption must preserve auth/session/agent behavior while shared UI primitives continue to be adopted screen-by-screen.
+- [ ] Login/auth input UI polish must preserve login API calls, validation, auth state updates, and navigation behavior.
+- [ ] Password visibility controls must keep a consistent tappable area and must not collide with input text.
+- [ ] Shared loading UI polish must not change data-fetching, cache, route, or auth boot behavior.
+- [ ] SideMenu row layout uses icon left, label next to icon, and chevron right while preserving existing menu actions.
+- [ ] System typography and shared theme tokens should be adopted screen by screen, not through broad UI rewrites.
+- [ ] No new duplicated route constants are added.
+- [ ] No new production-visible mock data is added.
+- [ ] Tests are added for extracted pure logic when practical.
+- [ ] Auth/session behavior is unchanged.
+- [ ] Navigation behavior through `useNavigationShim` remains compatible.
+- [ ] Existing layout wrapper behavior remains unchanged unless explicitly migrated.
+- [ ] Login redirects once to Home without duplicate Home pushes.
+- [ ] Pressing the active bottom nav tab is a no-op.
+- [ ] Back behavior remains natural after bottom nav navigation.
+- [ ] Parameterized routes still receive params.
+- [ ] Auth-protected routes still redirect correctly.
+- [ ] No invalid icon warnings are introduced.
+- [ ] Repeated render logs are removed or gated behind `__DEV__`.
