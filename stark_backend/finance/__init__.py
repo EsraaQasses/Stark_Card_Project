@@ -1,0 +1,1 @@
+"""Shared financial safety primitives."""

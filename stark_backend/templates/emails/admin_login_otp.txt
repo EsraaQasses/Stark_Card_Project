@@ -1,0 +1,9 @@
+Hello {{ user_name }},
+
+Your admin login verification code is: {{ otp_code }}
+
+This code expires in {{ expiry_minutes }} minutes.
+IP address: {{ ip_address|default:"Unknown" }}
+Device: {{ device_info|default:"Unknown" }}
+
+If you did not request this, please secure your account immediately.

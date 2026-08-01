@@ -1,0 +1,7 @@
+Stark Backend Settings Loaded - DEBUG: True
+Email configured for: noreply@stark-card-app.com
+Admin Security: 3-Step Login Enabled
+Allowed Hosts: ['localhost', '127.0.0.1', 'stark-card-app.com', 'www.stark-card-app.com', '37.120.185.235']
+Email Backend: django.core.mail.backends.smtp.EmailBackend
+SMTP Server: smtp.gmail.com:587
+Media and Static configuration loaded
