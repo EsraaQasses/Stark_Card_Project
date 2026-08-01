@@ -9,7 +9,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import generics, status, serializers
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -26,7 +25,7 @@ from ..models import OTPCode, User, UserLoginSession
 from ..permissions import IsAdminUser
 from ..utils.audit_logger import AuditLogger
 from ..utils.email_service import EmailService
-from ..authentication import issue_tokens
+from ..authentication import issue_tokens, logout_user
 from ..throttles import AdminLoginThrottle, OTPRequestThrottle
 
 logger = logging.getLogger(__name__)
@@ -194,30 +193,10 @@ class AdminLoginView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
-
-        refresh, access = issue_tokens(user)
-        
-        # Audit log for legacy admin login
-        AuditLogger.log(
-            request=request,
-            action='LOGIN',
-            resource_type='user',
-            resource_id=user.id,
-            details={'login_type': 'legacy', 'success': True}
-        )
-        
         return Response({
-            "refresh": str(refresh),
-            "access": str(access),
-            "user": {
-                "id": user.id,
-                "name": user.name,
-                "role": user.role
-            }
-        }, status=status.HTTP_200_OK)
+            "code": "ADMIN_LOGIN_DEPRECATED",
+            "detail": "Use the canonical three-step admin login flow.",
+        }, status=status.HTTP_410_GONE)
 
 
 # -------------------- Logout --------------------
@@ -226,51 +205,17 @@ class LogoutView(APIView):
 
     def post(self, request):
         refresh_token = request.data.get("refresh")
-        access_token = request.data.get("access")
 
         try:
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                
-                # Audit log for logout
-                AuditLogger.log(
-                    request=request,
-                    action='LOGOUT',
-                    resource_type='user',
-                    resource_id=request.user.id,
-                    details={'token_type': 'refresh'}
-                )
-                
-                return Response({"message": "Logged out (refresh token blacklisted)"}, status=status.HTTP_200_OK)
-            elif access_token:
-                token = AccessToken(access_token)
-                token.blacklist()
-                
-                # Audit log for logout
-                AuditLogger.log(
-                    request=request,
-                    action='LOGOUT',
-                    resource_type='user',
-                    resource_id=request.user.id,
-                    details={'token_type': 'access'}
-                )
-                
-                return Response({"message": "Logged out (access token blacklisted)"}, status=status.HTTP_200_OK)
-            else:
-                # Audit log for client-side logout
-                AuditLogger.log(
-                    request=request,
-                    action='LOGOUT',
-                    resource_type='user',
-                    resource_id=request.user.id,
-                    details={'token_type': 'client_side'}
-                )
-                
-                return Response({"message": "Logged out (client side)"}, status=status.HTTP_200_OK)
+            logout_user(request.user, refresh_token=refresh_token)
+            AuditLogger.log(request=request, action='LOGOUT', resource_type='user', resource_id=request.user.id,
+                            details={'scope': 'all_sessions', 'refresh_supplied': bool(refresh_token)})
+            return Response({"code": "LOGOUT_SUCCESS", "message": "Logged out from all sessions."}, status=status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({"code": str(exc), "detail": "The supplied refresh token does not belong to this account."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Logout error: {str(e)}")
-            return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"code": "LOGOUT_TOKEN_INVALID", "detail": "The supplied refresh token is invalid or expired."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # -------------------- Email Verification --------------------

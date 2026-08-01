@@ -6,12 +6,11 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.hashers import check_password, make_password
-from django.contrib.sessions.models import Session
 from django.db import transaction
 from django.utils import timezone
-from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
-from ..models import PasswordResetAuthorization, PasswordResetChallenge, User, UserLoginSession
+from ..models import PasswordResetAuthorization, PasswordResetChallenge, User
+from ..authentication import revoke_user_authentication
 from ..utils.email_service import EmailService
 
 
@@ -25,10 +24,7 @@ def generate_code():
 
 def invalidate_user_authentication(user):
     """Blacklist outstanding JWTs and remove server-side sessions where available."""
-    for token in OutstandingToken.objects.filter(user=user):
-        BlacklistedToken.objects.get_or_create(token=token)
-    UserLoginSession.objects.filter(user=user).delete()
-    Session.objects.filter(session_data__contains=f'"_auth_user_id": "{user.pk}"').delete()
+    revoke_user_authentication(user, increment_auth_version=False)
 
 
 def invalidate_challenges(user):

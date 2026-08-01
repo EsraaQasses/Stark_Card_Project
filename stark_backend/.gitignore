@@ -4,4 +4,8 @@ db.sqlite3
 starkenv/
 .env
 .env.local
+.env.*
+/.venv/
+/st-env/
 /media/
+*.log

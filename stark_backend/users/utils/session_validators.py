@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.utils import timezone
+from ..authentication import cleanup_expired_auth_sessions
 from ..models import AdminLoginSession
 
 class SessionValidatorMixin:
@@ -7,6 +7,7 @@ class SessionValidatorMixin:
     
     def validate_session(self, session_token, required_steps=None):
         """Validate admin session with required steps"""
+        cleanup_expired_auth_sessions()
         try:
             session = AdminLoginSession.objects.get(session_token=session_token)
             
@@ -26,8 +27,4 @@ class SessionValidatorMixin:
             
     def cleanup_expired_sessions(self, user=None):
         """Clean up expired sessions"""
-        query = AdminLoginSession.objects.filter(expires_at__lt=timezone.now())
-        if user:
-            query = query.filter(user=user)
-        deleted_count = query.delete()[0]
-        return deleted_count
+        return cleanup_expired_auth_sessions(user=user)
