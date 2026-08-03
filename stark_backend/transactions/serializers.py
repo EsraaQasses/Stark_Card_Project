@@ -4,6 +4,26 @@ from .models import Transaction
 from wallets.models import Wallet
 import re
 
+
+class TransactionListSerializer(serializers.ListSerializer):
+    """Prefetch commission source transactions once for a list response."""
+
+    def to_representation(self, data):
+        items = list(data)
+        source_ids = set()
+        for item in items:
+            note = item.note or ""
+            if "commission" not in note.lower():
+                continue
+            match = re.search(r"(?:order)?\s*(\d+)", note)
+            if match:
+                source_ids.add(int(match.group(1)))
+        if source_ids:
+            self.child._commission_source_by_id.update(
+                Transaction.objects.filter(id__in=source_ids).select_related("user").in_bulk()
+            )
+        return super().to_representation(items)
+
 class TransactionSerializer(serializers.ModelSerializer):
     amount = serializers.SerializerMethodField()
     recipient_name = serializers.SerializerMethodField()
@@ -15,6 +35,11 @@ class TransactionSerializer(serializers.ModelSerializer):
     commission_source_note = serializers.SerializerMethodField()
     commission_source_product_name = serializers.SerializerMethodField()
     commission_source_created_at = serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._commission_source_cache = {}
+        self._commission_source_by_id = {}
 
     def get_amount(self, obj):
         return abs(obj.amount) if obj.amount is not None else obj.amount
@@ -39,6 +64,8 @@ class TransactionSerializer(serializers.ModelSerializer):
             return None
 
     def _get_commission_source_tx(self, obj):
+        if obj.pk in self._commission_source_cache:
+            return self._commission_source_cache[obj.pk]
         try:
             note = obj.note or ""
             if "عمولة" not in note and "commission" not in note.lower():
@@ -47,8 +74,13 @@ class TransactionSerializer(serializers.ModelSerializer):
             if not m:
                 return None
             tx_id = int(m.group(1))
-            return Transaction.objects.filter(id=tx_id).select_related("user").first()
+            source = self._commission_source_by_id.get(tx_id)
+            if source is None:
+                source = Transaction.objects.filter(id=tx_id).select_related("user").first()
+            self._commission_source_cache[obj.pk] = source
+            return source
         except Exception:
+            self._commission_source_cache[obj.pk] = None
             return None
 
     def get_commission_source_tx_id(self, obj):
@@ -84,6 +116,7 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transaction
+        list_serializer_class = TransactionListSerializer
         fields = [
             "id", "user", "wallet", "wallet_currency",
             "transaction_type", "currency", "amount", "amount_usd", "amount_syp", "exchange_rate_used",

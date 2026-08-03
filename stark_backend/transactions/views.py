@@ -951,7 +951,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
             elif str(direction).lower() == "out":
                 qs = qs.filter(amount__lt=0)
 
-        return qs
+        return qs.select_related(
+            "user", "wallet", "recipient", "recipient_wallet", "payment", "exchange_rate_quote"
+        ).order_by("-created_at", "-id")
 
 
 class TransferLookupView(APIView):

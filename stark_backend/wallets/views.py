@@ -334,7 +334,9 @@ class WalletTransactionsView(APIView):
             
             transactions = Transaction.objects.filter(
                 user=user
-            ).select_related('wallet').order_by('-created_at')
+            ).select_related(
+                'wallet', 'recipient', 'recipient_wallet', 'payment', 'exchange_rate_quote'
+            ).order_by('-created_at', '-id')
 
             currency = request.GET.get('currency')
             if currency:
