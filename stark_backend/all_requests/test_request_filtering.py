@@ -110,19 +110,19 @@ class RequestFilteringPaginationTests(TestCase):
         self.client.force_authenticate(self.admin)
         response = self.client.get("/api/all_requests/admin/requests/?amount_min=20&amount_max=10")
         self.assertEqual(response.status_code, 400)
-        self.assertIn("filters", response.data)
+        self.assertIn("filters", response.data["error"]["fields"])
 
         response = self.client.get("/api/all_requests/admin/requests/?created_from=2026-01-01&created_to=2026-04-02")
         self.assertEqual(response.status_code, 400)
-        self.assertIn("filters", response.data)
+        self.assertIn("filters", response.data["error"]["fields"])
 
         response = self.client.get("/api/all_requests/admin/requests/?status=not-a-status")
         self.assertEqual(response.status_code, 400)
-        self.assertIn("filters", response.data)
+        self.assertIn("filters", response.data["error"]["fields"])
 
         response = self.client.get("/api/all_requests/admin/requests/?ordering=wallet_balance")
         self.assertEqual(response.status_code, 400)
-        self.assertIn("filters", response.data)
+        self.assertIn("filters", response.data["error"]["fields"])
 
     def test_shipping_and_cashout_lists_are_paginated_and_read_only(self):
         self.client.force_authenticate(self.admin)

@@ -78,7 +78,7 @@ class ExchangeRateQuoteTests(TestCase):
         client.force_authenticate(self.admin)
         response = client.get("/api/wallets/exchange-rates/current/")
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.data["code"], "FX_RATE_UNAVAILABLE")
+        self.assertEqual(response.data["error"]["code"], "FX_RATE_UNAVAILABLE")
 
     def test_exchange_service_caches_quote_identity_and_legacy_aliases(self):
         quote = ExchangeRateQuoteService.activate_quote(
@@ -185,7 +185,7 @@ class ExchangeRateQuoteTests(TestCase):
             "activation_note": "Stale", "expected_current_quote_id": first.data["quote_id"] - 1,
         }, format="json")
         self.assertEqual(stale.status_code, 409)
-        self.assertEqual(stale.data["code"], "FX_RATE_STALE_CURRENT_QUOTE")
+        self.assertEqual(stale.data["error"]["code"], "FX_RATE_STALE_CURRENT_QUOTE")
 
 
 @skipUnless(connection.vendor == "postgresql", "PostgreSQL quote activation concurrency coverage")

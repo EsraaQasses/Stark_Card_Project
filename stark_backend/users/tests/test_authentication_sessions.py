@@ -25,7 +25,7 @@ class AuthenticationConsolidationTests(TestCase):
         )
         response = self.client.post(reverse("admin-login"), {"name": admin.name, "password": "Password-9!"}, format="json")
         self.assertEqual(response.status_code, 410)
-        self.assertEqual(response.data["code"], "ADMIN_LOGIN_DEPRECATED")
+        self.assertEqual(response.data["error"]["code"], "ADMIN_LOGIN_DEPRECATED")
 
     def test_logout_revokes_access_refresh_and_temporary_sessions(self):
         refresh, access = issue_tokens(self.user)
@@ -56,7 +56,7 @@ class AuthenticationConsolidationTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {own_access}")
         response = self.client.post(reverse("logout"), {"refresh": str(other_refresh)}, format="json")
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["code"], "LOGOUT_TOKEN_USER_MISMATCH")
+        self.assertEqual(response.data["error"]["code"], "LOGOUT_TOKEN_USER_MISMATCH")
         self.assertEqual(APIClient().post(reverse("token_refresh"), {"refresh": str(own_refresh)}, format="json").status_code, 200)
 
     def test_refresh_tokens_rotate_and_old_token_is_rejected(self):

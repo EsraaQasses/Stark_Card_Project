@@ -46,7 +46,7 @@ class PasswordLifecycleTests(TestCase):
         for _ in range(5):
             response = self.client.post(reverse("password-reset-verify"), {"request_id": challenge.request_id, "code": "000000"}, format="json")
         challenge.refresh_from_db()
-        self.assertEqual(response.data["code"], "PASSWORD_RESET_CODE_INVALID")
+        self.assertEqual(response.data["error"]["code"], "PASSWORD_RESET_CODE_INVALID")
         self.assertIsNotNone(challenge.locked_at)
         self.assertEqual(challenge.attempts, 5)
 
@@ -64,7 +64,7 @@ class PasswordLifecycleTests(TestCase):
         self.assertEqual(completed.status_code, 200)
         self.assertTrue(self.user.__class__.objects.get(pk=self.user.pk).check_password("New-password-9!"))
         reused = self.client.post(reverse("password-reset-confirm"), {"reset_token": token, "new_password": "Another-password-9!", "confirm_password": "Another-password-9!"}, format="json")
-        self.assertEqual(reused.data["code"], "PASSWORD_RESET_TOKEN_INVALID")
+        self.assertEqual(reused.data["error"]["code"], "PASSWORD_RESET_TOKEN_INVALID")
         notify.assert_called_once()
 
     @patch("users.services.password_reset.EmailService.send_secure_password_reset_code", return_value=True)
@@ -74,7 +74,7 @@ class PasswordLifecycleTests(TestCase):
         challenge.expires_at = timezone.now() - timedelta(seconds=1)
         challenge.save(update_fields=["expires_at"])
         response = self.client.post(reverse("password-reset-verify"), {"request_id": challenge.request_id, "code": "123456"}, format="json")
-        self.assertEqual(response.data["code"], "PASSWORD_RESET_CODE_EXPIRED")
+        self.assertEqual(response.data["error"]["code"], "PASSWORD_RESET_CODE_EXPIRED")
 
     @patch("users.services.password_reset.EmailService.send_password_changed_notification", return_value=True)
     def test_authenticated_password_change_uses_set_password_and_revokes_auth_state(self, notify):

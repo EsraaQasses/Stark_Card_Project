@@ -165,6 +165,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'api.middleware.RequestIDMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -229,6 +230,7 @@ AUTH_USER_MODEL = 'users.User'
 
 # REST Framework settings
 REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "api.exceptions.api_exception_handler",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "users.authentication.VersionedJWTAuthentication",
     ),
