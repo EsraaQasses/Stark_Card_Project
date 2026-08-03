@@ -1,7 +1,9 @@
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -38,6 +40,23 @@ class CustomerAdministrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["history_limit"], 100)
         self.assertLessEqual(len(response.data["audit_history"]), 100)
+
+    def test_aggregate_query_count_is_bounded_by_history_limit(self):
+        self.client.force_authenticate(self.operator)
+        with CaptureQueriesContext(connection) as small_queries:
+            small_response = self.client.get(
+                f"/api/users/admin/customers/{self.customer.id}/?limit=1"
+            )
+        with CaptureQueriesContext(connection) as large_queries:
+            large_response = self.client.get(
+                f"/api/users/admin/customers/{self.customer.id}/?limit=100"
+            )
+
+        self.assertEqual(small_response.status_code, 200)
+        self.assertEqual(large_response.status_code, 200)
+        # Each bounded relation is fetched once; increasing the per-relation
+        # history limit must not introduce per-row queries.
+        self.assertLessEqual(len(large_queries), len(small_queries) + 1)
 
     def test_ban_unban_and_activation_are_explicit_and_idempotent(self):
         CustomerAdministrationService.set_banned(self.operator, self.customer.id, True, "fraud review")

@@ -9,7 +9,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
-from django.db.models import Sum
+from django.db.models import Count, Prefetch, Sum
 from system.models import Notification
 from users.utils import generate_agent_code
 from users.models import CustomerCategory
@@ -65,13 +65,34 @@ class AgentListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        # Ensure all agent users have AgentProfile objects
-        agent_users = User.objects.filter(role='agent').select_related('category', 'category_assigned_by')
-        for user in agent_users:
-            AgentProfile.objects.get_or_create(user=user)
+        # Preserve the legacy guarantee that promoted agents have profiles, but
+        # create missing rows in one bounded operation instead of one lookup per
+        # agent during a read request.
+        agent_ids = list(User.objects.filter(role='agent').values_list('id', flat=True))
+        existing_profile_ids = set(
+            AgentProfile.objects.filter(user_id__in=agent_ids).values_list('user_id', flat=True)
+        )
+        missing_profiles = [
+            AgentProfile(user_id=agent_id)
+            for agent_id in agent_ids
+            if agent_id not in existing_profile_ids
+        ]
+        if missing_profiles:
+            AgentProfile.objects.bulk_create(missing_profiles, ignore_conflicts=True)
 
-        agent_profiles = AgentProfile.objects.select_related('user', 'user__category', 'user__category_assigned_by').all()
+        agent_profiles = AgentProfile.objects.filter(user_id__in=agent_ids).select_related(
+            'user', 'user__category', 'user__category_assigned_by'
+        ).annotate(
+            clients_count_optimized=Count('user__subordinates', distinct=True),
+            products_count_optimized=Count('user__agentproductassignment', distinct=True),
+            category_users_count_optimized=Count('user__category__users', distinct=True),
+        ).prefetch_related(
+            Prefetch('user__wallets', to_attr='prefetched_agent_wallets')
+        )
         data = []
+        default_category = CustomerCategory.objects.filter(
+            is_default=True, is_active=True
+        ).annotate(users_count_optimized=Count('users', distinct=True)).first()
 
         for agent_profile in agent_profiles:
             agent_user = agent_profile.user
@@ -88,10 +109,10 @@ class AgentListView(APIView):
             full_name = agent_user.full_name or agent_user.name
 
             # 2. Number of clients (subordinates)
-            clients_count = agent_user.subordinates.count()
+            clients_count = agent_profile.clients_count_optimized
 
             # 3. Wallet balance - use total_balance property
-            wallets = Wallet.objects.filter(user=agent_user)
+            wallets = getattr(agent_user, 'prefetched_agent_wallets', [])
             total_balance = sum(float(wallet.total_balance) for wallet in wallets) if wallets else 0.0
             usd_wallet = next((w for w in wallets if w.currency == "USD"), None)
             syp_wallet = next((w for w in wallets if w.currency == "SYP"), None)
@@ -100,24 +121,40 @@ class AgentListView(APIView):
             commission_rate = float(agent_profile.commission_rate or 0)
 
             # 5. Number of assigned products
-            products_count = AgentProductAssignment.objects.filter(agent=agent_user).count()
+            products_count = agent_profile.products_count_optimized
 
-            # Use UserSerializer to get consistent category_details
-            user_serializer = UserSerializer(agent_user, context={'request': request})
-            user_data = user_serializer.data
-            category_details = user_data.get('category_details')
+            category = agent_user.category
+            category_details = None
+            if category:
+                category_details = {
+                    'id': category.id,
+                    'name': category.name,
+                    'display_name': category.display_name,
+                    'profit_percentage': category.profit_percentage,
+                    'description': category.description,
+                    'is_active': category.is_active,
+                    'users_count': agent_profile.category_users_count_optimized,
+                    'is_default': category.is_default,
+                    'created_at': category.created_at,
+                    'updated_at': category.updated_at,
+                }
             
             has_assigned_category = agent_user.category is not None
             
             if not category_details:
                 # Use default category object to match UserSerializer behavior
-                default_cat = CustomerCategory.objects.filter(is_default=True, is_active=True).first()
-                if default_cat:
+                if default_category:
                     category_details = {
-                        "id": default_cat.id,
-                        "name": default_cat.name,
-                        "display_name": default_cat.display_name,
-                        "profit_percentage": float(default_cat.profit_percentage),
+                        "id": default_category.id,
+                        "name": default_category.name,
+                        "display_name": default_category.display_name,
+                        "profit_percentage": float(default_category.profit_percentage),
+                        "description": default_category.description,
+                        "is_active": default_category.is_active,
+                        "users_count": default_category.users_count_optimized,
+                        "is_default": default_category.is_default,
+                        "created_at": default_category.created_at,
+                        "updated_at": default_category.updated_at,
                     }
 
             data.append({
