@@ -59,7 +59,23 @@ class ProductImageFallbackTests(TestCase):
         self.assertTrue(result["image_available"])
         self.assertFalse(result["image_is_fallback"])
 
-    def test_provider_image_is_used_when_local_image_is_missing(self):
+    def test_immediate_section_image_precedes_provider_image(self):
+        self.section.image = "sections/immediate.png"
+        self.section.save(update_fields=["image"])
+        result = ProductImageResolver.resolve(self.store_product, self.request)
+        self.assertEqual(result["image_source"], "section")
+        self.assertEqual(result["image_url"], "http://testserver/media/sections/immediate.png")
+        self.assertTrue(result["image_is_fallback"])
+
+    def test_parent_section_image_is_used_when_immediate_section_has_none(self):
+        parent = Section.objects.create(name_en="Parent", name_ar="والد", image="sections/parent.png")
+        self.section.father_section = parent
+        self.section.save(update_fields=["father_section"])
+        result = ProductImageResolver.resolve(self.store_product, self.request)
+        self.assertEqual(result["image_source"], "section")
+        self.assertEqual(result["image_url"], "http://testserver/media/sections/parent.png")
+
+    def test_provider_image_is_used_when_section_hierarchy_has_no_image(self):
         result = ProductImageResolver.resolve(self.store_product, self.request)
         self.assertEqual(result["image_source"], "provider")
         self.assertEqual(result["image_url"], "https://cdn.example.test/provider.png")
@@ -98,6 +114,20 @@ class ProductImageFallbackTests(TestCase):
             data = serializer_class(instance, context={"request": self.request}).data
             self.assertTrue(expected.issubset(data.keys()))
             self.assertEqual(data["image_source"], "provider")
+
+    def test_product_serializer_uses_section_fallback_consistently(self):
+        self.section.image = "sections/catalog.png"
+        self.section.save(update_fields=["image"])
+        product = Product.objects.create(
+            section=self.section,
+            external_product=self.external,
+            name_en="Catalog",
+            name_ar="كتالوج",
+            base_price=Decimal("2"),
+        )
+        data = ProductSerializer(product, context={"request": self.request}).data
+        self.assertEqual(data["image_source"], "section")
+        self.assertEqual(data["image_url"], "http://testserver/media/sections/catalog.png")
 
     def test_purchase_persists_same_image_snapshot_on_transaction_and_payment(self):
         with patch(

@@ -164,6 +164,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         """Optimize queries with related data."""
         queryset = Product.objects.select_related(
             'section',
+            'section__father_section',
             'api_config',
             'external_product'
         ).prefetch_related('requirements')
@@ -590,6 +591,7 @@ class UserProductListView(viewsets.ReadOnlyModelViewSet):
             is_active=True
         ).select_related(
             'section',
+            'section__father_section',
             'api_config',
             'external_product'
         ).prefetch_related('requirements')
@@ -1721,6 +1723,7 @@ class StoreProductViewSet(viewsets.ModelViewSet):
         """Optimize queries with related data."""
         return StoreProduct.objects.select_related(
             'section',
+            'section__father_section',
             'external_product',
             'external_product__api_config'
         ).order_by('name')
@@ -1741,6 +1744,7 @@ class StoreProductViewSet(viewsets.ModelViewSet):
             is_active=True
         ).select_related(
             'section',
+            'section__father_section',
             'external_product',
             'external_product__api_config'
         ).order_by('name')

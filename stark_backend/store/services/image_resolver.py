@@ -14,6 +14,10 @@ class ProductImageResolver:
             resolved = cls._absolute(candidate, request)
             if resolved:
                 return cls._result(resolved, "local", True, False)
+        for candidate in cls._section_candidates(product):
+            resolved = cls._absolute(candidate, request)
+            if resolved:
+                return cls._result(resolved, "section", True, True)
         for candidate in cls._provider_candidates(product):
             resolved = cls._absolute(candidate, request)
             if resolved:
@@ -46,6 +50,23 @@ class ProductImageResolver:
             if isinstance(original, dict):
                 candidates.extend(original.get(key) for key in cls.PROVIDER_KEYS)
         return [candidate for candidate in candidates if isinstance(candidate, str) and candidate.strip()]
+
+    @classmethod
+    def _section_candidates(cls, product):
+        """Return the immediate section image, then its parent images."""
+        section = getattr(product, "section", None)
+        candidates = []
+        visited = set()
+        while section is not None and getattr(section, "pk", None) not in visited:
+            visited.add(section.pk)
+            image = getattr(section, "image", None)
+            if image and getattr(image, "name", None):
+                try:
+                    candidates.append(image.url)
+                except (AttributeError, ValueError, OSError):
+                    pass
+            section = getattr(section, "father_section", None)
+        return candidates
 
     @classmethod
     def _absolute(cls, candidate, request):
