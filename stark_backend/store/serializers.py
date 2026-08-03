@@ -125,7 +125,9 @@ class SectionSerializer(serializers.ModelSerializer):
 
     def get_subsections(self, obj):
         """Get only active subsections"""
-        subsections = obj.subsections.filter(is_active=True)
+        subsections = getattr(obj, "active_subsections", None)
+        if subsections is None:
+            subsections = obj.subsections.filter(is_active=True)
         return SectionSerializer(
             subsections,
             many=True,
@@ -134,10 +136,16 @@ class SectionSerializer(serializers.ModelSerializer):
 
     def get_products_count(self, obj):
         """Count of active products in this section"""
+        annotated = getattr(obj, "active_products_count_optimized", None)
+        if annotated is not None:
+            return annotated
         return obj.products.filter(is_active=True).count()
 
     def get_store_products_count(self, obj):
         """Count of active store products in this section"""
+        annotated = getattr(obj, "active_store_products_count_optimized", None)
+        if annotated is not None:
+            return annotated
         return obj.store_products.filter(is_active=True).count()
 
 
@@ -201,6 +209,7 @@ class ProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         provided_quote = self.context.get("exchange_rate_quote")
         self._display_quote = provided_quote if provided_quote is not None else (ExchangeRateQuoteService.get_active_quote() or False)
+        self._price_info_cache = {}
     
     class Meta:
         model = Product
@@ -221,8 +230,16 @@ class ProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializer):
         """Check if current user has favorited this product"""
         request = self.context.get("request")
         if request and hasattr(request, 'user') and request.user.is_authenticated:
+            prefetched = getattr(obj, "current_user_favorites", None)
+            if prefetched is not None:
+                return bool(prefetched)
             return obj.favorited_by.filter(user=request.user).exists()
         return False
+
+    def _get_cached_price_info(self, obj):
+        if obj.pk not in self._price_info_cache:
+            self._price_info_cache[obj.pk] = self.get_price_info(obj)
+        return self._price_info_cache[obj.pk]
 
     def get_price_info(self, obj):
         """Get comprehensive price information"""
@@ -247,7 +264,7 @@ class ProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             try:
-                price_info = self.get_price_info(obj)
+                price_info = self._get_cached_price_info(obj)
                 user_final_prices = price_info.get('user_final_prices')
                 if user_final_prices:
                     # Return price in product's base currency
@@ -540,6 +557,7 @@ class UserProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializ
         super().__init__(*args, **kwargs)
         provided_quote = self.context.get("exchange_rate_quote")
         self._display_quote = provided_quote if provided_quote is not None else (ExchangeRateQuoteService.get_active_quote() or False)
+        self._price_info_cache = {}
     
     class Meta:
         model = Product
@@ -558,8 +576,16 @@ class UserProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializ
         """Check if current user has favorited this product"""
         request = self.context.get("request")
         if request and hasattr(request, 'user') and request.user.is_authenticated:
+            prefetched = getattr(obj, "current_user_favorites", None)
+            if prefetched is not None:
+                return bool(prefetched)
             return obj.favorited_by.filter(user=request.user).exists()
         return False
+
+    def _get_cached_price_info(self, obj):
+        if obj.pk not in self._price_info_cache:
+            self._price_info_cache[obj.pk] = self.get_price_info(obj)
+        return self._price_info_cache[obj.pk]
 
     def get_price_info(self, obj):
         """Get comprehensive price information for users"""
@@ -600,7 +626,7 @@ class UserProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializ
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             try:
-                price_info = self.get_price_info(obj)
+                price_info = self._get_cached_price_info(obj)
                 user_final_prices = price_info.get('user_final_prices')
                 if user_final_prices:
                     return user_final_prices.get(obj.currency, obj.base_price)

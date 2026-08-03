@@ -5,7 +5,7 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from django.db.models import Q
+from django.db.models import Count, Prefetch, Q
 from django.db import transaction
 from decimal import Decimal, InvalidOperation
 import time
@@ -65,8 +65,28 @@ class SectionViewSet(viewsets.ModelViewSet):
         return Section.objects.select_related(
             'father_section'
         ).prefetch_related(
-            'subsections',
+            Prefetch(
+                'subsections',
+                queryset=Section.objects.filter(is_active=True)
+                .annotate(
+                    active_products_count_optimized=Count(
+                        'products', filter=Q(products__is_active=True), distinct=True
+                    ),
+                    active_store_products_count_optimized=Count(
+                        'store_products', filter=Q(store_products__is_active=True), distinct=True
+                    ),
+                )
+                .order_by('name_en'),
+                to_attr='active_subsections',
+            ),
             'products'
+        ).annotate(
+            active_products_count_optimized=Count(
+                'products', filter=Q(products__is_active=True), distinct=True
+            ),
+            active_store_products_count_optimized=Count(
+                'store_products', filter=Q(store_products__is_active=True), distinct=True
+            ),
         ).order_by('name_en')
 
     def get_serializer_context(self):
@@ -146,9 +166,16 @@ class ProductViewSet(viewsets.ModelViewSet):
             'section',
             'api_config',
             'external_product'
-        ).prefetch_related(
-            'requirements'
-        ).order_by('name_en')
+        ).prefetch_related('requirements')
+        if self.request.user.is_authenticated:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'favorited_by',
+                    queryset=Favorite.objects.filter(user=self.request.user),
+                    to_attr='current_user_favorites',
+                )
+            )
+        queryset = queryset.order_by('name_en')
         
         # Apply filters if provided
         is_active = self.request.query_params.get('is_active')
@@ -516,8 +543,28 @@ class UserSectionListView(viewsets.ReadOnlyModelViewSet):
             is_active=True,
             father_section__isnull=True  # Only main sections
         ).prefetch_related(
-            'subsections',
+            Prefetch(
+                'subsections',
+                queryset=Section.objects.filter(is_active=True)
+                .annotate(
+                    active_products_count_optimized=Count(
+                        'products', filter=Q(products__is_active=True), distinct=True
+                    ),
+                    active_store_products_count_optimized=Count(
+                        'store_products', filter=Q(store_products__is_active=True), distinct=True
+                    ),
+                )
+                .order_by('name_en'),
+                to_attr='active_subsections',
+            ),
             'products'
+        ).annotate(
+            active_products_count_optimized=Count(
+                'products', filter=Q(products__is_active=True), distinct=True
+            ),
+            active_store_products_count_optimized=Count(
+                'store_products', filter=Q(store_products__is_active=True), distinct=True
+            ),
         ).order_by('name_en').distinct()
 
 
@@ -545,9 +592,16 @@ class UserProductListView(viewsets.ReadOnlyModelViewSet):
             'section',
             'api_config',
             'external_product'
-        ).prefetch_related(
-            'requirements'
-        ).order_by('name_en')
+        ).prefetch_related('requirements')
+        if self.request.user.is_authenticated:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'favorited_by',
+                    queryset=Favorite.objects.filter(user=self.request.user),
+                    to_attr='current_user_favorites',
+                )
+            )
+        queryset = queryset.order_by('name_en')
         
         # Apply filters
         if section_id:
