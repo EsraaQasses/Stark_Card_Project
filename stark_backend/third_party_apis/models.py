@@ -5,6 +5,7 @@ from .utils.encryption import encrypt_text, decrypt_text
 class ThirdPartyAPI(models.Model):
     
     PROVIDER_CHOICES = [
+        ("wawp", "WAWP"),
         ("daily", "Daily"),
         ("alfaour", "Alfaour"),
         ("alaaeddin", "Alaaeddin"),
@@ -16,6 +17,8 @@ class ThirdPartyAPI(models.Model):
     description = models.TextField(blank=True)
     
     base_url = models.URLField()
+    # WAWP uses a provider-managed instance identifier in addition to its token.
+    instance_id = models.CharField(max_length=64, blank=True, null=True)
     encrypted_api_key = models.TextField(blank=True, null=True)
     
     is_active = models.BooleanField(default=True)
@@ -33,6 +36,13 @@ class ThirdPartyAPI(models.Model):
         indexes = [
             models.Index(fields=['provider', 'is_active']),
             models.Index(fields=['is_active', 'priority']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider"],
+                condition=models.Q(provider="wawp", is_active=True),
+                name="one_active_wawp_configuration",
+            ),
         ]
     
     def __str__(self):

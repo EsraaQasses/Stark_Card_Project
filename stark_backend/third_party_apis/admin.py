@@ -13,7 +13,7 @@ class ThirdPartyAPIAdmin(admin.ModelAdmin):
             'fields': ('name', 'provider', 'description', 'is_active')
         }),
         ('API Configuration', {
-            'fields': ('base_url', 'encrypted_api_key', 'max_daily_limit', 'priority')
+            'fields': ('base_url', 'instance_id', 'encrypted_api_key', 'max_daily_limit', 'priority')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
