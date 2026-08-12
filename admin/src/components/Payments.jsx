@@ -46,8 +46,8 @@ const Payments = ({ onClose }) => {
   const fetchRecentPayments = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get('payment/history/?limit=5');
-      setPayments(response.data.results || response.data);
+      const response = await axiosInstance.get('payment/payment/recent/');
+      setPayments(Array.isArray(response.data) ? response.data.slice(0, 5) : []);
     } catch (err) {
       const errorMessage = err.response?.data?.detail
         || err.response?.data?.error
@@ -218,7 +218,7 @@ const Payments = ({ onClose }) => {
         ) : (
           <>
             {payments?.map((payment) => {
-              const currencyColor = getCurrencyColor(payment.wallet_currency);
+              const currencyColor = getCurrencyColor(payment.currency);
 
               return (
                 <div
@@ -228,7 +228,7 @@ const Payments = ({ onClose }) => {
                   <div className="flex-shrink-0 mt-0.5">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${currencyColor.bg}`}>
                       <span className={`font-bold text-sm ${currencyColor.text}`}>
-                        {getCurrencySymbol(payment.wallet_currency)}
+                        {getCurrencySymbol(payment.currency)}
                       </span>
                     </div>
                   </div>
@@ -239,7 +239,7 @@ const Payments = ({ onClose }) => {
                         {payment.user_name || `${t('common:user', 'User')} #${payment.user}`}
                       </p>
                       <p className="font-bold dark:text-white text-sm flex-shrink-0">
-                        {formatAmount(payment.final_price, payment.wallet_currency)}
+                        {formatAmount(payment.final_price, payment.currency)}
                       </p>
                     </div>
 
@@ -249,7 +249,7 @@ const Payments = ({ onClose }) => {
 
                     <div className="flex justify-between items-center mt-1">
                       <p className="text-gray-400 dark:text-gray-550 text-[11px]">
-                        {t('recent.base', { symbol: '', amount: formatAmount(payment.base_price, payment.wallet_currency) })}
+                        {t('recent.base', { symbol: '', amount: formatAmount(payment.base_price, payment.currency) })}
                       </p>
                       {getStatusBadge(payment.status)}
                     </div>

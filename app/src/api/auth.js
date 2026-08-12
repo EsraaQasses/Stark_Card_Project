@@ -127,9 +127,9 @@ export async function refreshToken(refresh) {
   const { data } = await api.post(buildUrl(USERS_PREFIX, "token/refresh/"), { refresh });
   // إذا الباك يرجّع access فقط، خليه يحدّث التخزين (اختياري)
   if (data?.access) {
-    await setTokens({ access: data.access, refresh });
+    await setTokens({ access: data.access, refresh: data.refresh || refresh });
   }
-  return data; // { access }
+  return data;
 }
 
 /**
@@ -155,37 +155,45 @@ export async function apiLogout(refresh) {
  */
 export async function requestPasswordReset(email) {
   const { data } = await api.post(
-    buildUrl(USERS_PREFIX, "forgot-password/"),
+    buildUrl(USERS_PREFIX, "password-reset/request/"),
     { email }
   );
   return data;
 }
 
-/** Reset password with email token */
-export async function resetPassword({ token, new_password, confirm_password }) {
+export async function verifyPasswordResetCode({ request_id, code }) {
   const { data } = await api.post(
-    buildUrl(USERS_PREFIX, "reset-password/"),
-    { token, new_password, confirm_password }
+    buildUrl(USERS_PREFIX, "password-reset/verify/"),
+    { request_id, code }
   );
   return data;
 }
 
-/** Request reset code (legacy OTP compatibility) */
-export async function requestPasswordResetCode(email) {
+export async function resendPasswordResetCode(request_id) {
   const { data } = await api.post(
-    buildUrl(USERS_PREFIX, "forgot-password-code/"),
-    { email }
+    buildUrl(USERS_PREFIX, "password-reset/resend/"),
+    { request_id }
   );
   return data;
 }
 
-/** Reset password with code (legacy OTP compatibility) */
-export async function resetPasswordWithCode({ email, code, new_password, confirm_password }) {
+export async function resetPassword({ reset_token, token, new_password, confirm_password }) {
   const { data } = await api.post(
-    buildUrl(USERS_PREFIX, "reset-password-code/"),
-    { email, code, new_password, confirm_password }
+    buildUrl(USERS_PREFIX, "password-reset/confirm/"),
+    { reset_token: reset_token || token, new_password, confirm_password }
   );
   return data;
+}
+
+export const requestPasswordResetCode = requestPasswordReset;
+
+export async function resetPasswordWithCode({ request_id, code, new_password, confirm_password }) {
+  const verification = await verifyPasswordResetCode({ request_id, code });
+  return resetPassword({
+    reset_token: verification.reset_token,
+    new_password,
+    confirm_password,
+  });
 }
 
 export default api;

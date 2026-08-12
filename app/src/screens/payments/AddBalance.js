@@ -4,7 +4,6 @@ import { View, Text, TextInput, Pressable, Alert, ScrollView, ActivityIndicator 
 import PageLayout from "../../ui/PageLayout";
 import { listUserPaymentMethods } from "../../api/paymentMethods";
 import { createDepositRequest } from "../../api/deposits";
-import { notifyAdminsDeposit as notifyAdminDeposit } from "../../api/adminNotify";
 let DocumentPicker = null;
 try {
   DocumentPicker = require("expo-document-picker");
@@ -67,23 +66,24 @@ const handleSubmit = async () => {
 
   try {
     setSending(true);
+    const receipt = Object.values(fields).find((value) => value?.uri) || null;
+    const extra = Object.fromEntries(
+      Object.entries(fields).filter(([, value]) => !value?.uri)
+    );
 
-    const { ok, data, error } = await createDepositRequest({
+    const { ok, error } = await createDepositRequest({
       amount: amt,
       currency: (currency || "usd").toLowerCase(),
-      method: method?.id || method?.name || null,
-      fields,
+      method: method?.name || "manual",
+      payment_method: method?.id,
+      extra,
+      receipt,
     });
 
     if (!ok) {
       Alert.alert("خطأ", error || "تعذر إرسال طلب الإيداع.");
       return;
     }
-
-    // تنبيه الأدمن
-    try {
-      await notifyAdminDeposit(data?.id || data);
-    } catch {}
 
     Alert.alert("تم", "تم إرسال طلب الإيداع للمراجعة ✅");
     navigation.goBack();

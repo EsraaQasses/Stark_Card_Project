@@ -17,13 +17,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { apiLogout } from "../api/auth";
 import { useAuth } from "../context/AuthProvider";
 import {
-  clearAuthTokens,
   getAccessToken,
   getFirstCompatibleUserSession,
-  getRefreshToken,
 } from "../shared/storage/authStorage";
 import { useNavigationShim } from "../utils/navigation";
 import { isRTL as getAppIsRTL } from "../shared/utils/rtl";
@@ -267,9 +264,6 @@ export default function SideMenu({ visible, onClose, navigation }) {
   const doLogout = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     try {
-      const refresh = await getRefreshToken();
-      try { if (refresh) await apiLogout(refresh); } catch { }
-      await clearAuthTokens();
       await signOut?.();
       safeClose();
       if (nav?.reset) {
@@ -295,6 +289,7 @@ export default function SideMenu({ visible, onClose, navigation }) {
     { key: "favorite", label: t("menu.favorite", "المفضلة"), icon: "heart-outline", route: "Favorite", color: "#EC4899" },
     ...(isAgent ? [{ key: "agent_clients", label: t("menu.agentClients", "????????????"), icon: "people-outline", route: "AgentUsers", color: "#16A34A" }] : []),
     ...(isAgent ? [{ key: "agent_requests", label: t("menu.agentRequests", "طلبات الوكيل"), icon: "inbox-outline", route: "AgentRequests", color: "#0B63D8" }] : []),
+    ...(isAgent ? [{ key: "agent_cashouts", label: t("menu.agentCashouts", "طلبات سحب العملاء"), icon: "cash-outline", route: "AgentCashouts", color: "#16A34A" }] : []),
     ...(isAgent ? [{ key: "my_financial", label: t("menu.myFinancial", "????? ??????"), icon: "stats-chart-outline", route: "MyFinancial", color: "#0B63D8" }] : []),
     ...(isAgent ? [] : [{ key: "agents", label: t("menu.ourAgents", "وكلاؤنا"), icon: "globe-outline", route: "OurAgents", color: "#10B981" }]),
     { key: "transfers", label: t("menu.transactions", "المعاملات"), icon: "swap-horizontal-outline", route: "TransactionsList", color: "#0EA5E9" },

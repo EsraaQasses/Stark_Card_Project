@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   GridComponent,
@@ -20,6 +20,7 @@ const ShippingRequests = () => {
   const [shippingData, setShippingData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
   const toolbarOptions = ['Search'];
 
   useEffect(() => {
@@ -30,8 +31,51 @@ const ShippingRequests = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axiosInstance.get('/shipping/');
-      setShippingData(response.data);
+      const requestTypes = [
+        { type: 'standard', path: '/shipping/standard/' },
+        { type: 'via-agent', path: '/shipping/via-agent/' },
+        { type: 'agent-admin', path: '/shipping/agent-admin/' },
+      ];
+      const fetchAllPages = async (path) => {
+        const rows = [];
+        let next = path;
+        let params = { page_size: 100 };
+        while (next) {
+          const response = await axiosInstance.get(next, { params });
+          const pageRows = Array.isArray(response.data?.results)
+            ? response.data.results
+            : Array.isArray(response.data)
+              ? response.data
+              : [];
+          rows.push(...pageRows);
+          next = response.data?.next || null;
+          params = undefined;
+        }
+        return rows;
+      };
+      const responses = await Promise.all(
+        requestTypes.map(async ({ type, path }) => {
+          const rows = await fetchAllPages(path);
+          return rows.map((row) => ({
+            ...row,
+            row_id: `${type}-${row.id}`,
+            _shipping_type: type,
+            user_name: row.user_name || row.agent_name,
+            user_email: row.user_email || row.agent_email,
+            user_phone: row.user_phone || row.agent_phone,
+            request_details: {
+              title: type === 'standard'
+                ? t('requestsPages.shipping.types.standard', { defaultValue: 'Standard deposit' })
+                : type === 'via-agent'
+                  ? t('requestsPages.shipping.types.viaAgent', { defaultValue: 'Via agent' })
+                  : t('requestsPages.shipping.types.agentAdmin', { defaultValue: 'Agent via admin' }),
+              payment_method_title: row.payment_method_title,
+              user_phone: row.user_phone || row.agent_phone,
+            },
+          }));
+        })
+      );
+      setShippingData(responses.flat().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     } catch (err) {
       setError(t('requestsPages.shipping.error'));
     } finally {
@@ -39,36 +83,53 @@ const ShippingRequests = () => {
     }
   };
 
-  const handleApprove = async (shippingId) => {
+  const getStatusPath = (shipping) => `/shipping/${shipping._shipping_type}/${shipping.id}/update_status/`;
+
+  const handleApprove = async (shipping) => {
+    if (actionLoading) return;
+    const confirmed = window.confirm(
+      t('requestsPages.shipping.alerts.approveConfirm', {
+        defaultValue: `Approve shipping request #${shipping.id}? This updates a financial request.`,
+      })
+    );
+    if (!confirmed) return;
+
+    setActionLoading(shipping.row_id);
     try {
-      await axiosInstance.post(`/shipping/${shippingId}/update_status/`, {
+      await axiosInstance.post(getStatusPath(shipping), {
         status: 'approved',
         admin_notes: 'Payment verified and approved',
       });
 
-      alert(t('requestsPages.shipping.alerts.approveSuccess', { id: shippingId }));
-      fetchShippingData();
+      alert(t('requestsPages.shipping.alerts.approveSuccess', { id: shipping.id }));
+      await fetchShippingData();
     } catch (err) {
-      const errorMessage = err.response?.data?.message || t('requestsPages.shipping.alerts.approveFailed');
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || t('requestsPages.shipping.alerts.approveFailed');
       alert(`${t('requestsPages.shipping.alerts.error')}: ${errorMessage}`);
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleReject = async (shippingId) => {
+  const handleReject = async (shipping) => {
+    if (actionLoading) return;
     const reason = prompt(t('requestsPages.shipping.alerts.rejectPrompt'));
     if (!reason) return;
 
+    setActionLoading(shipping.row_id);
     try {
-      await axiosInstance.post(`/shipping/${shippingId}/update_status/`, {
+      await axiosInstance.post(getStatusPath(shipping), {
         status: 'rejected',
         admin_notes: reason,
       });
 
-      alert(t('requestsPages.shipping.alerts.rejectSuccess', { id: shippingId }));
-      fetchShippingData();
+      alert(t('requestsPages.shipping.alerts.rejectSuccess', { id: shipping.id }));
+      await fetchShippingData();
     } catch (err) {
-      const errorMessage = err.response?.data?.message || t('requestsPages.shipping.alerts.rejectFailed');
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || t('requestsPages.shipping.alerts.rejectFailed');
       alert(`${t('requestsPages.shipping.alerts.error')}: ${errorMessage}`);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -144,10 +205,16 @@ const ShippingRequests = () => {
   const actionTemplate = (props) => {
     const shipping = props;
     const isPending = shipping.status === 'pending';
+    const isAdminAction = shipping._shipping_type !== 'via-agent';
+    const isMutating = actionLoading === shipping.row_id;
 
-    if (!isPending) {
+    if (!isPending || !isAdminAction) {
       return (
-        <span className="text-gray-400 text-sm capitalize">{t(`status.${shipping.status}`, shipping.status)}</span>
+        <span className="text-gray-400 text-sm capitalize">
+          {!isAdminAction && isPending
+            ? t('requestsPages.shipping.agentActionRequired', { defaultValue: 'Agent action required' })
+            : t(`status.${shipping.status}`, shipping.status)}
+        </span>
       );
     }
 
@@ -155,15 +222,17 @@ const ShippingRequests = () => {
       <div className="flex gap-2 justify-center">
         <button
           type="button"
-          className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs"
-          onClick={() => handleApprove(shipping.id)}
+          disabled={Boolean(actionLoading)}
+          className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => handleApprove(shipping)}
         >
-          {t('requestsPages.shipping.table.buttons.approve')}
+          {isMutating ? t('common:loading', 'Loading...') : t('requestsPages.shipping.table.buttons.approve')}
         </button>
         <button
           type="button"
-          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs"
-          onClick={() => handleReject(shipping.id)}
+          disabled={Boolean(actionLoading)}
+          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => handleReject(shipping)}
         >
           {t('requestsPages.shipping.table.buttons.reject')}
         </button>
@@ -235,7 +304,7 @@ const ShippingRequests = () => {
       >
         <ColumnsDirective>
           <ColumnDirective
-            field="id"
+            field="row_id"
             headerText={t('requestsPages.shipping.table.headers.id')}
             width="80"
             textAlign="Center"

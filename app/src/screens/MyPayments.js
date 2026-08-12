@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import PageLayout from "../ui/PageLayout"; // ✅ غلاف موحّد (BottomNav + SideMenu)
 import CornerSpinner from "../ui/CornerSpinner";
 import Theme from "../ui/Theme";
-import { listUserPurchases } from "../api/store";
+import { getPaymentsStatusSummary, listPaymentsHistory } from "../api/payment";
 import { getCache, setCache, cacheKey } from "../utils/cache";
 
 const { colors: tcolors = {} } = Theme;
@@ -141,8 +141,8 @@ function buildLocalSummary(items, totalOverride) {
   for (const it of items || []) {
     counts.total += 1;
     const st = normalizeStatus(it);
-    if (st === "approved") counts.success += 1;
-    else if (st === "failed") counts.failed += 1;
+    if (st === "approved" || st === "refunded") counts.success += 1;
+    else if (st === "failed" || st === "cancelled") counts.failed += 1;
     else counts.pending += 1;
   }
   if (Number.isFinite(Number(totalOverride))) counts.total = Number(totalOverride);
@@ -536,8 +536,8 @@ export default function MyPayments({ navigation }) {
     async ({ reset = false, pageOverride } = {}) => {
       try {
         if (reset) setError("");
-        const currentPage = reset ? 1 : pageOverride ?? page;
-        const cacheK = cacheKey("payments", statusFilter, dateFilter, String(currentPage));
+        const currentPage = reset ? 1 : pageOverride ?? 1;
+        const cacheK = cacheKey("payment-history-v2", statusFilter, dateFilter, String(currentPage));
         if (reset) {
           const cached = await getCache(cacheK, 1000 * 60 * 5);
           if (cached && Array.isArray(cached)) {
@@ -559,7 +559,7 @@ export default function MyPayments({ navigation }) {
         };
 
 
-        const h = await listUserPurchases(params);
+        const h = await listPaymentsHistory(params);
 
         if (!h.ok) {
           const msg = extractServerMessage(h.error || h);
@@ -571,6 +571,8 @@ export default function MyPayments({ navigation }) {
           pageItems = pageItems.filter((it) => normalizeStatus(it) === statusFilter);
         }
         const p = h.pagination || {};
+        const summaryResponse = await getPaymentsStatusSummary();
+        const serverSummary = summaryResponse?.ok ? summaryResponse.data : null;
 
         const _hasNext =
           !!p.next ||
@@ -581,7 +583,7 @@ export default function MyPayments({ navigation }) {
         if (reset) {
           const nextItems = sortByCreatedDesc(pageItems);
           setItems(nextItems);
-          setSummary(buildLocalSummary(nextItems, p?.count));
+          setSummary(serverSummary || buildLocalSummary(nextItems, p?.count));
           setPage(1);
           await setCache(cacheK, nextItems);
         } else {
@@ -590,7 +592,7 @@ export default function MyPayments({ navigation }) {
             const merged = [...prev];
             for (const it of pageItems) if (!seen.has(it.id)) merged.push(it);
             const nextItems = sortByCreatedDesc(merged);
-            setSummary(buildLocalSummary(nextItems, p?.count));
+            setSummary(serverSummary || buildLocalSummary(nextItems, p?.count));
             return nextItems;
           });
         }
@@ -603,7 +605,7 @@ export default function MyPayments({ navigation }) {
         setLoadingMore(false);
       }
     },
-    [page, statusFilter, dateFilter]
+    [statusFilter, dateFilter]
   );
 
   // Refetch when status or date filter changes
@@ -735,6 +737,16 @@ export default function MyPayments({ navigation }) {
             }}
           >
             <Text style={{ color: "#991B1B", fontWeight: "800" }}>{error}</Text>
+            <Pressable
+              onPress={() => {
+                setLoading(true);
+                fetchPage({ reset: true });
+              }}
+              disabled={loading}
+              style={{ alignSelf: "flex-start", marginTop: 8, borderRadius: 8, backgroundColor: "#991B1B", paddingHorizontal: 12, paddingVertical: 7 }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>{L("common.retry", "إعادة المحاولة")}</Text>
+            </Pressable>
           </View>
         )}
 
@@ -796,6 +808,10 @@ export default function MyPayments({ navigation }) {
           <View style={S.center}>
             <ActivityIndicator size="large" />
             {!!error && <Text style={S.errorText}>{error}</Text>}
+          </View>
+        ) : error && items.length === 0 ? (
+          <View style={S.center}>
+            <Text style={S.errorText}>{L("payments.loadFailed", "تعذر تحميل سجل المدفوعات.")}</Text>
           </View>
         ) : filteredItems.length === 0 ? (
           <EmptyState
@@ -953,6 +969,9 @@ const PaymentCard = React.memo(function PaymentCard({ item, sx, sy, sp, isRTL, l
       >
         {created}
       </Text>
+      <Text style={{ color: COLORS.primary, fontSize: sp(16), fontWeight: "900", marginTop: sy(4), textAlign: "right" }}>
+        {paidAmount != null ? `${fmtNum(paidAmount)} ${paidCurrency}`.trim() : "—"}
+      </Text>
 
       {/* ===== التفاصيل عند الضغط ===== */}
       {expanded && (
@@ -970,6 +989,11 @@ const PaymentCard = React.memo(function PaymentCard({ item, sx, sy, sp, isRTL, l
           />
           <DetailRow label="حالة الدفعة" value={statusMeta.label || "—"} sp={sp} sy={sy} />
           <DetailRow label="تاريخ الدفع" value={created} sp={sp} sy={sy} />
+          {!!item?.gamer_id && <DetailRow label="معرّف اللاعب" value={String(item.gamer_id)} sp={sp} sy={sy} />}
+          {!!item?.selected_option && <DetailRow label="الخيار" value={String(item.selected_option)} sp={sp} sy={sy} />}
+          {!!item?.external_transaction_id && <DetailRow label="رقم العملية الخارجي" value={String(item.external_transaction_id)} sp={sp} sy={sy} />}
+          {!!item?.notes && <DetailRow label="ملاحظات" value={String(item.notes)} sp={sp} sy={sy} />}
+          {!!item?.error_message && <DetailRow label="سبب الفشل" value={String(item.error_message)} sp={sp} sy={sy} />}
         </View>
       )}
 
@@ -1077,6 +1101,8 @@ function getStatusMeta(status, L) {
       return { label: L("payments.status.cancelled", "ملغاة"), tint: COLORS.cancelled };
     case "processing":
       return { label: L("payments.status.processing", "قيد المعالجة"), tint: COLORS.processing };
+    case "refunded":
+      return { label: L("payments.status.refunded", "مستردة"), tint: COLORS.info };
     default:
       return { label: status || "—", tint: COLORS.textMuted };
   }
@@ -1091,9 +1117,10 @@ function normalizeStatus(item) {
   ).toLowerCase();
   if (["approved", "success", "successful", "completed", "paid", "done"].includes(raw)) return "approved";
   if (["pending", "awaiting", "created"].includes(raw)) return "pending";
-  if (["processing", "in_progress", "inprogress"].includes(raw)) return "pending";
+  if (["processing", "in_progress", "inprogress"].includes(raw)) return "processing";
   if (["failed", "error", "declined", "rejected"].includes(raw)) return "failed";
-  if (["cancelled", "canceled", "cancel"].includes(raw)) return "failed";
+  if (["cancelled", "canceled", "cancel"].includes(raw)) return "cancelled";
+  if (["refunded", "refund"].includes(raw)) return "refunded";
   return raw || "pending";
 }
 function pickCurrency(...vals) {

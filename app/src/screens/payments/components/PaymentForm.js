@@ -1,6 +1,6 @@
 // src/screens/payments/components/PaymentForm.js
 import React, { useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet, I18nManager } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, I18nManager, ActivityIndicator } from "react-native";
  
 const isRTL = I18nManager.isRTL !== false; // اعتبر RTL افتراضي حالياً
 
@@ -13,6 +13,7 @@ export default function PaymentForm({
   setMethod,                     // setter خارجي
   onPickMethod,                  // يفتح قائمة الوسائل
   onSubmit,                      // ({ quantity, selected_options, method_fields }) => void
+  submitting = false,
 }) {
   const [qty, setQty] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState({});
@@ -43,6 +44,7 @@ export default function PaymentForm({
   const inc = () => setQty(q => Number(q) + 1);
 
   const validateAndSubmit = () => {
+    if (submitting) return;
     if (!method?.id) {
       alert("اختر وسيلة دفع أولاً.");
       return;
@@ -195,8 +197,12 @@ export default function PaymentForm({
       </View>
 
       {/* زر الدفع */}
-      <Pressable onPress={validateAndSubmit} style={[styles.btn, { backgroundColor: "#1274f5ff" }]}>
-        <Text style={[styles.btnText, { color: "#fff" }]}>ادفع الآن</Text>
+      <Pressable
+        onPress={validateAndSubmit}
+        disabled={submitting}
+        style={[styles.btn, { backgroundColor: "#1274f5ff", opacity: submitting ? 0.65 : 1 }]}
+      >
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={[styles.btnText, { color: "#fff" }]}>ادفع الآن</Text>}
       </Pressable>
     </View>
   );

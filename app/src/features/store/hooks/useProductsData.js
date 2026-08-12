@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { getCache, setCache, cacheKey } from "../../../utils/cache";
 import {
@@ -13,11 +13,14 @@ export function useProductsData({ initialSectionId, mode }) {
   const [activeSection, setActiveSection] = useState(initialSectionId);
   const [directProducts, setDirectProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
+        if (alive) setError("");
         const cached = await getCache(cacheKey("sections", "list"), 1000 * 60 * 60 * 6);
         if (cached && Array.isArray(cached)) {
           setSections(cached);
@@ -29,13 +32,14 @@ export function useProductsData({ initialSectionId, mode }) {
         const list = Array.isArray(data) ? data : data?.results || [];
         setSections(list);
         await setCache(cacheKey("sections", "list"), list);
-      } finally {
+      } catch (loadError) {
+        if (alive) setError(String(loadError?.message || loadError || "Failed to load catalog"));
       }
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [retryKey]);
 
   useEffect(() => {
     if (!initialSectionId && sections.length > 0 && !activeSection) {
@@ -48,6 +52,7 @@ export function useProductsData({ initialSectionId, mode }) {
     let alive = true;
     (async () => {
       setLoading(true);
+      setError("");
       try {
         const cached = await getCache(cacheKey("products", activeSection), 1000 * 60 * 10);
         if (cached && Array.isArray(cached)) {
@@ -62,6 +67,8 @@ export function useProductsData({ initialSectionId, mode }) {
 
         setDirectProducts(normalized);
         await setCache(cacheKey("products", activeSection), normalized);
+      } catch (loadError) {
+        if (alive) setError(String(loadError?.message || loadError || "Failed to load products"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -69,12 +76,16 @@ export function useProductsData({ initialSectionId, mode }) {
     return () => {
       alive = false;
     };
-  }, [activeSection, mode]);
+  }, [activeSection, mode, retryKey]);
+
+  const retry = useCallback(() => setRetryKey((value) => value + 1), []);
 
   return {
     activeSection,
     directProducts,
+    error,
     loading,
+    retry,
     sections,
     setActiveSection,
   };

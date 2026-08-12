@@ -51,6 +51,7 @@ export default function MyShippings({ navigation }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -64,7 +65,8 @@ export default function MyShippings({ navigation }) {
   const fetchPage = useCallback(
     async ({ reset = false, pageOverride } = {}) => {
       try {
-        const currentPage = reset ? 1 : pageOverride ?? page;
+        if (reset) setError("");
+        const currentPage = reset ? 1 : pageOverride ?? 1;
         const cacheK = cacheKey("shippings", String(currentPage));
         if (reset) {
           const cached = await getCache(cacheK, 1000 * 60 * 5);
@@ -111,16 +113,17 @@ export default function MyShippings({ navigation }) {
           });
         }
       } catch (_e) {
-        const cacheK = cacheKey("shippings", String(pageOverride ?? page));
+        setError(String(_e?.message || "تعذر تحميل الشحنات."));
+        const cacheK = cacheKey("shippings", String(pageOverride ?? 1));
         const cached = await getCache(cacheK);
-        setItems(Array.isArray(cached) ? cached : []);
+        if (Array.isArray(cached)) setItems(cached);
       } finally {
         setLoading(false);
         setRefreshing(false);
         setLoadingMore(false);
       }
     },
-    [page, getItemKey]
+    [getItemKey, isAgent]
   );
 
   useEffect(() => {
@@ -211,6 +214,14 @@ export default function MyShippings({ navigation }) {
             </View>
           }
         />
+      )}
+      {!!error && (
+        <View style={[S.center, { paddingHorizontal: sx(18), paddingBottom: sy(18) }]}>
+          <Text style={[S.listEndText, { color: COLORS.rejected }]}>{error}</Text>
+          <Pressable style={[styles.button, { marginTop: sy(10) }]} onPress={() => fetchPage({ reset: true })}>
+            <Text style={styles.buttonText}>إعادة المحاولة</Text>
+          </Pressable>
+        </View>
       )}
     </PageLayout>
   );

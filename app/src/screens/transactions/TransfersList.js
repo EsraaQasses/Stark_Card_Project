@@ -1,5 +1,5 @@
 // src/screens/transactions/TransfersList.js
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View, Text, FlatList, RefreshControl, Pressable, ActivityIndicator, StyleSheet
 } from "react-native";
@@ -9,32 +9,75 @@ import { getCache, setCache, cacheKey } from "../../utils/cache";
 
 const STATUS = ["all", "pending", "approved", "rejected"];
 const DIRECTION = ["all", "in", "out"];
+const PAGE_SIZE = 20;
 
 export default function TransfersList({ navigation }) {
   const [items, setItems] = useState([]);
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
   const [status, setStatus] = useState("all");
   const [direction, setDirection] = useState("all");
+  const [page, setPage] = useState(1);
+  const [hasNext, setHasNext] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreLockRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setPending(true);
+  const load = useCallback(async ({ reset = false, pageOverride } = {}) => {
+    const currentPage = reset ? 1 : pageOverride ?? 1;
+    const cacheK = cacheKey("transfers", status, String(currentPage));
+    if (reset) {
+      setPending(true);
+      setError("");
+    }
     try {
-      const params = { transaction_type: "transfer" };
+      const params = { transaction_type: "transfer", page: currentPage, page_size: PAGE_SIZE };
       if (status !== "all") params.status = status;
-      const cacheK = cacheKey("transfers", status);
-      const cached = await getCache(cacheK, 1000 * 60 * 5);
-      if (cached && Array.isArray(cached)) setItems(cached);
+      if (reset) {
+        const cached = await getCache(cacheK, 1000 * 60 * 5);
+        if (cached && Array.isArray(cached)) setItems(cached);
+      }
       const res = await getTransactions(params);
+      if (!res?.ok) throw new Error(res?.error || "Failed to load transfers");
       const list = Array.isArray(res?.data) ? res.data : [];
-      setItems(list);
+      const pagination = res?.pagination || {};
+      const total = Number(pagination.count) || list.length;
+      setHasNext(Boolean(pagination.next) || currentPage * PAGE_SIZE < total);
+      if (reset) {
+        setItems(list);
+        setPage(1);
+      } else {
+        setItems((previous) => {
+          const ids = new Set(previous.map((item) => item.id));
+          return [...previous, ...list.filter((item) => !ids.has(item.id))];
+        });
+      }
       await setCache(cacheK, list);
-    } catch (_e) {
+    } catch (loadError) {
+      setError(String(loadError?.message || "تعذر تحميل التحويلات."));
     } finally {
       setPending(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+      loadMoreLockRef.current = false;
     }
   }, [status]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load({ reset: true }); }, [load]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load({ reset: true });
+  }, [load]);
+
+  const loadMore = useCallback(() => {
+    if (!hasNext || loadingMore || loadMoreLockRef.current) return;
+    loadMoreLockRef.current = true;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    setPage(nextPage);
+    load({ pageOverride: nextPage });
+  }, [hasNext, load, loadingMore, page]);
 
   const filteredItems = direction === "all"
     ? items
@@ -79,6 +122,15 @@ export default function TransfersList({ navigation }) {
         />
       </View>
 
+      {!!error && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable disabled={pending} onPress={() => load({ reset: true })} style={styles.retryBtn}>
+            <Text style={styles.retryText}>إعادة المحاولة</Text>
+          </Pressable>
+        </View>
+      )}
+
       {pending && filteredItems.length === 0 ? (
         <View style={styles.loader}><ActivityIndicator /></View>
       ) : (
@@ -87,12 +139,17 @@ export default function TransfersList({ navigation }) {
           keyExtractor={(it) => String(it.id)}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 140 }}
-          refreshControl={<RefreshControl refreshing={pending} onRefresh={load} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", marginTop: 40, color: "#667" }}>
+            !error ? <Text style={{ textAlign: "center", marginTop: 40, color: "#667" }}>
               لا توجد تحويلات.
-            </Text>
+            </Text> : null
           }
+          ListFooterComponent={hasNext ? (
+            <Pressable disabled={loadingMore} onPress={loadMore} style={[styles.loadMore, loadingMore && { opacity: 0.65 }]}>
+              {loadingMore ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryTxt}>تحميل المزيد</Text>}
+            </Pressable>
+          ) : null}
         />
       )}
 
@@ -157,6 +214,11 @@ const styles = StyleSheet.create({
   amount: { marginTop: 8, fontSize: 18, fontWeight: "800", color: "#0B63D8" },
   muted: { marginTop: 4, color: "#64748b" },
   loader: { flex: 1, alignItems: "center", justifyContent: "center" },
+  errorBox: { marginHorizontal: 16, borderWidth: 1, borderColor: "#fecaca", backgroundColor: "#fef2f2", borderRadius: 12, padding: 12 },
+  errorText: { color: "#991b1b", textAlign: "center", fontWeight: "700" },
+  retryBtn: { alignSelf: "center", marginTop: 8, borderRadius: 9, backgroundColor: "#0B63D8", paddingHorizontal: 14, paddingVertical: 8 },
+  retryText: { color: "#fff", fontWeight: "800" },
+  loadMore: { marginTop: 8, borderRadius: 12, backgroundColor: "#0B63D8", paddingVertical: 11, alignItems: "center" },
   actions: {
     position: "absolute",
     left: 16,

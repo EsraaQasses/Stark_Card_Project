@@ -20,6 +20,7 @@ const InProgress = () => {
   const [inProgressData, setInProgressData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     usdTotal: 0,
@@ -61,7 +62,9 @@ const InProgress = () => {
   };
 
   const handleApprovePayment = async (requestId, customerName, amount, currency) => {
+    if (actionLoading) return;
     if (window.confirm(t('requestsPages.inProgress.alerts.approveConfirm', { amount, currency: currency?.toUpperCase(), customer: customerName }))) {
+      setActionLoading(requestId);
       try {
         await axiosInstance.post(`/all_requests/admin/requests/${requestId}/update_status/`, {
           status: 'completed',
@@ -69,18 +72,22 @@ const InProgress = () => {
         });
 
         alert(t('requestsPages.inProgress.alerts.approveSuccess', { id: requestId }));
-        fetchInProgressRequests();
+        await fetchInProgressRequests();
       } catch (err) {
-        const errorMessage = err.response?.data?.message || t('requestsPages.inProgress.alerts.approveFailed');
+        const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || t('requestsPages.inProgress.alerts.approveFailed');
         alert(`${t('requestsPages.inProgress.alerts.error')}: ${errorMessage}`);
+      } finally {
+        setActionLoading(null);
       }
     }
   };
 
   const handleRejectPayment = async (requestId, customerName) => {
+    if (actionLoading) return;
     const reason = prompt(t('requestsPages.inProgress.alerts.rejectPrompt', { customer: customerName }));
     if (!reason) return;
 
+    setActionLoading(requestId);
     try {
       await axiosInstance.post(`/all_requests/admin/requests/${requestId}/update_status/`, {
         status: 'rejected',
@@ -89,10 +96,12 @@ const InProgress = () => {
       });
 
       alert(t('requestsPages.inProgress.alerts.rejectSuccess', { id: requestId, reason }));
-      fetchInProgressRequests();
+      await fetchInProgressRequests();
     } catch (err) {
-      const errorMessage = err.response?.data?.message || t('requestsPages.inProgress.alerts.rejectFailed');
+      const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || t('requestsPages.inProgress.alerts.rejectFailed');
       alert(`${t('requestsPages.inProgress.alerts.error')}: ${errorMessage}`);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -120,7 +129,9 @@ const InProgress = () => {
   };
 
   const handleEscalate = async (requestId, customerName) => {
+    if (actionLoading) return;
     if (window.confirm(t('requestsPages.inProgress.alerts.escalateConfirm', { defaultValue: 'Escalate request #{{id}} from {{customer}} to supervisor?', id: requestId, customer: customerName }))) {
+      setActionLoading(requestId);
       try {
         await axiosInstance.post(`/all_requests/admin/requests/${requestId}/add_comment/`, {
           comment: 'ESCALATED: Request escalated to supervisor for further review.',
@@ -128,9 +139,12 @@ const InProgress = () => {
         });
 
         alert(t('requestsPages.inProgress.alerts.escalateSuccess', { defaultValue: 'Request #{{id}} escalated to supervisor!', id: requestId }));
-        fetchInProgressRequests();
+        await fetchInProgressRequests();
       } catch (err) {
-        alert(t('requestsPages.inProgress.alerts.escalateFailed', { defaultValue: 'Error escalating request #{{id}}', id: requestId }));
+        const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || t('requestsPages.inProgress.alerts.escalateFailed', { defaultValue: 'Error escalating request #{{id}}', id: requestId });
+        alert(errorMessage);
+      } finally {
+        setActionLoading(null);
       }
     }
   };
@@ -255,21 +269,24 @@ const InProgress = () => {
     const request = props;
     const canApprove = request.status === 'pending' || request.status === 'in_progress';
     const canEscalate = request.amount > 500;
+    const isMutating = actionLoading === request.id;
 
     return (
       <div className="flex flex-col gap-2 justify-center">
         {canApprove && (
           <button
             type="button"
-            className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium"
+            disabled={Boolean(actionLoading)}
+            className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
             onClick={() => handleApprovePayment(request.id, request.user_name, request.amount, request.currency)}
           >
-            ✓ {t('requestsPages.inProgress.table.buttons.approve')}
+            {isMutating ? t('common:loading', 'Loading...') : `✓ ${t('requestsPages.inProgress.table.buttons.approve')}`}
           </button>
         )}
 
         <button
           type="button"
+          disabled={isMutating}
           className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-medium"
           onClick={() => handleViewDetails(request.id)}
         >
@@ -279,7 +296,8 @@ const InProgress = () => {
         {canEscalate && (
           <button
             type="button"
-            className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-xs font-medium"
+            disabled={Boolean(actionLoading)}
+            className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
             onClick={() => handleEscalate(request.id, request.user_name)}
           >
             ⚠️ {t('requestsPages.inProgress.table.buttons.escalate', 'Escalate')}
@@ -288,7 +306,8 @@ const InProgress = () => {
 
         <button
           type="button"
-          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs font-medium"
+          disabled={Boolean(actionLoading)}
+          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => handleRejectPayment(request.id, request.user_name)}
         >
           ✗ {t('requestsPages.inProgress.table.buttons.reject')}

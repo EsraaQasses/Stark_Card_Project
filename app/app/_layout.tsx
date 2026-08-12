@@ -73,6 +73,10 @@ function RootLayoutNav() {
     }
   }, [user, booting, segments, pathname, safeReplace]);
 
+  if (booting) {
+    return <AppLoadingState style={undefined} />;
+  }
+
   return (
     <Stack
       screenOptions={{
@@ -120,7 +124,7 @@ export default function RootLayout() {
   }, [fontError]);
 
   if (!i18nReady || (!fontsLoaded && !fontError)) {
-    return <AppLoadingState />;
+    return <AppLoadingState style={undefined} />;
   }
 
   return (

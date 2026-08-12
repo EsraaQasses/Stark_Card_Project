@@ -9,43 +9,16 @@ function asList(data) {
 }
 
 /* ========== قائمة الوكلاء ========== */
-/** يحاول أولاً /agents/ ثم يسقط لـ / في حال 404 (اختلاف روتينغ السيرفر) */
 export async function getAgents(params = {}) {
-  try {
-    const { data } = await agentsApi.get("/agents/", { params });
-    return asList(data);
-  } catch (e) {
-    const s = e?.response?.status || 0;
-    if (s === 404) {
-      const { data } = await agentsApi.get("/", { params });
-      return asList(data);
-    }
-    throw e;
-  }
+  const { data } = await agentsApi.get("/agents/", { params });
+  return asList(data);
 }
 
 /* ========== عملاء وكيل ========== */
 export async function getAgentUsers(agentId) {
   if (agentId == null) throw new Error("agentId ?????");
-  try {
-    console.log("[AgentUsers] GET /{agent_id}/users", { agentId });
-    const { data } = await agentsApi.get(`/${agentId}/users/`);
-    return asList(data);
-  } catch (e) {
-    const s = e?.response?.status || 0;
-    console.log("[AgentUsers] primary failed", {
-      agentId,
-      status: s,
-      data: e?.response?.data,
-      message: e?.message,
-    });
-    if (s === 404) {
-      console.log("[AgentUsers] GET /agent/{agent_id}/users fallback", { agentId });
-      const { data } = await agentsApi.get(`/agent/${agentId}/users/`);
-      return asList(data);
-    }
-    throw e;
-  }
+  const { data } = await agentsApi.get(`/${agentId}/users/`);
+  return asList(data);
 }
 
 /* ========== جلب بعنوان كامل (يدعم روابط مطلقة/نسبية) ========== */

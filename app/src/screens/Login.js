@@ -4,13 +4,14 @@ import React, { useState } from "react";
 import { Image, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { getMe, login } from "../api/auth";
 import { useAuth } from "../context/AuthProvider";
+import { normalizeApiError } from "../shared/api/errors/apiError";
 import Button from "../ui/Button";
 import Screen from "../ui/Screen";
 import { colors as themeColors, typography } from "../ui/Theme";
 import { sp, sx, sy } from "../ui/scale";
 
 /* ========== Helpers ========== */
-function normalizeApiErrors(data, status, fallbackMsg) {
+export function normalizeApiErrors(data, status, fallbackMsg) {
   const fields = {};
   const messages = [];
 
@@ -88,10 +89,16 @@ export default function Login({ navigation, onLoginSuccess }) {
       if (isNetwork) {
         setInfoBanner(["خطأ في الشبكة. تأكّد أن الهاتف والخادوم على نفس الشبكة/IP."]);
       } else {
-        const status = e?.response?.status ?? 0;
-        const data = e?.response?.data;
-        const { fields, messages } = normalizeApiErrors(data, status, e?.message);
-        if (status === 401 || messages.join(" ").toLowerCase().includes("password")) {
+        const normalized = normalizeApiError(e, "ar");
+        const status = normalized.status ?? 0;
+        const fields = Object.fromEntries(
+          Object.entries(normalized.fields || {}).map(([key, value]) => [
+            key,
+            (Array.isArray(value) ? value : [value]).map(String),
+          ])
+        );
+        const messages = [normalized.message].filter(Boolean);
+        if (status === 400 || status === 401 || messages.join(" ").toLowerCase().includes("password")) {
           fields.name = fields.name || ["تحقّق من اسم المستخدم."];
           fields.password = fields.password || ["تحقّق من كلمة المرور."];
         }

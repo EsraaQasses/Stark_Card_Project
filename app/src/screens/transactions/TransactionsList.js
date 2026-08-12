@@ -11,6 +11,7 @@ import {
   ScrollView,
   Platform,
   I18nManager,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Screenn from "../../ui/Screenn";
@@ -65,11 +66,12 @@ export default function TransactionsList({ navigation }) {
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [cancelingId, setCancelingId] = useState(null);
 
   const load = useCallback(
     async ({ reset = false, pageOverride } = {}) => {
       if (reset) setError("");
-      const currentPage = reset ? 1 : pageOverride ?? page;
+      const currentPage = reset ? 1 : pageOverride ?? 1;
       try {
         if (reset) setLoading(true);
         const params = {
@@ -130,7 +132,7 @@ export default function TransactionsList({ navigation }) {
         setLoadingMore(false);
       }
     },
-    [page, status, type]
+    [status, type]
   );
 
   useEffect(() => {
@@ -162,13 +164,28 @@ export default function TransactionsList({ navigation }) {
     load({ pageOverride: next });
   };
 
-  const onCancelCashout = async (id) => {
-    try {
-      await cancelCashout(id);
-      await load({ reset: true });
-    } catch {
-      // silent
-    }
+  const onCancelCashout = (id) => {
+    if (cancelingId) return;
+    Alert.alert("تأكيد الإلغاء", "هل تريد إلغاء طلب السحب المعلق؟", [
+      { text: "تراجع", style: "cancel" },
+      {
+        text: "إلغاء الطلب",
+        style: "destructive",
+        onPress: async () => {
+          setCancelingId(id);
+          try {
+            await cancelCashout(id);
+            await load({ reset: true });
+            Alert.alert("تم", "تم إلغاء طلب السحب.");
+          } catch (cancelError) {
+            const message = cancelError?.response?.data?.error || cancelError?.message || "تعذر إلغاء طلب السحب.";
+            Alert.alert("خطأ", String(message));
+          } finally {
+            setCancelingId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const summary = useMemo(() => {
@@ -245,6 +262,7 @@ export default function TransactionsList({ navigation }) {
                 navigation.navigate("TransactionDetail", { id: item.id })
               }
               onCancelCashout={onCancelCashout}
+              cancelingId={cancelingId}
             />
           )}
           contentContainerStyle={{ padding: 16, paddingBottom: 140 }}
@@ -307,7 +325,7 @@ function FilterGroup({ label, options, value, onChange }) {
   );
 }
 
-function TransactionCard({ item, onPress, onCancelCashout }) {
+function TransactionCard({ item, onPress, onCancelCashout, cancelingId }) {
   const meta = getTypeMeta(item?.transaction_type);
   const statusMeta = getStatusMeta(item?.status);
   const amount = Number(item?.amount || 0);
@@ -351,7 +369,7 @@ function TransactionCard({ item, onPress, onCancelCashout }) {
         </Text>
       )}
       {item?.transaction_type === "cashout" && String(item?.status).toLowerCase() === "pending" && (
-        <Pressable onPress={() => onCancelCashout(item.id)} style={styles.cancelBtn}>
+        <Pressable disabled={Boolean(cancelingId)} onPress={() => onCancelCashout(item.id)} style={[styles.cancelBtn, cancelingId && { opacity: 0.6 }]}>
           <Text style={styles.cancelTxt}>إلغاء السحب</Text>
         </Pressable>
       )}

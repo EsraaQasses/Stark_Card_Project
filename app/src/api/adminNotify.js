@@ -5,7 +5,7 @@ import api from "./client";
  * في حال ثبّتوا لاحقاً Endpoint ثابت، حددوه هون:
  *   setAdminNotifyEndpoint("/system/admin/notify/");
  */
-let FIXED_ENDPOINT = "/system/notifications/"; // ⇦ يضرب POST على /api/system/notifications/
+let FIXED_ENDPOINT = null;
 export function setAdminNotifyEndpoint(path) {
   FIXED_ENDPOINT = path || null;
 }
@@ -14,13 +14,6 @@ export function setAdminNotifyEndpoint(path) {
  * مرشّحات منطقية تحت /api/system/ بما أن الإشعارات ضمن system
  * نجرّبها بالتسلسل، وإذا ما في ولا واحد—منسكت بصمت.
  */
-const CANDIDATES = [
-  "/system/admin/notify/",
-  "/system/notifications/admin/",
-  "/system/notifications/",        // قد يقبل POST عام وينشئ إشعاراً موجهاً بالأدوار
-  "/system/alerts/admin/",
-];
-
 /**
  * يحاول تبليغ الأدمن بوجود طلب إيداع جديد.
  * يرجّع true لو نجح، false إن لم يوجد Endpoint صالح. لا يرمي أخطاء للواجهة.
@@ -43,7 +36,7 @@ export async function notifyAdminsDeposit({ userId, walletId, amount, note }) {
     },
   ];
 
-  const paths = FIXED_ENDPOINT ? [FIXED_ENDPOINT] : CANDIDATES;
+  const paths = FIXED_ENDPOINT ? [FIXED_ENDPOINT] : [];
 
   for (const path of paths) {
     for (const body of payloads) {

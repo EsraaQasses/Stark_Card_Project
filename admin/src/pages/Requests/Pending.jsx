@@ -20,6 +20,7 @@ const Pending = () => {
   const [pendingData, setPendingData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     shipping: 0,
@@ -60,7 +61,9 @@ const Pending = () => {
   };
 
   const handleApprove = async (requestId, customerName) => {
+    if (actionLoading) return;
     if (window.confirm(t('requestsPages.pending.alerts.approveConfirm', { id: requestId, customer: customerName }))) {
+      setActionLoading(requestId);
       try {
         await axiosInstance.post(`/all_requests/admin/requests/${requestId}/update_status/`, {
           status: 'completed',
@@ -68,18 +71,22 @@ const Pending = () => {
         });
 
         alert(t('requestsPages.pending.alerts.approveSuccess', { id: requestId, customer: customerName }));
-        fetchPendingRequests();
+        await fetchPendingRequests();
       } catch (err) {
-        const errorMessage = err.response?.data?.message || t('requestsPages.pending.alerts.approveFailed');
+        const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || t('requestsPages.pending.alerts.approveFailed');
         alert(`${t('requestsPages.pending.alerts.error')}: ${errorMessage}`);
+      } finally {
+        setActionLoading(null);
       }
     }
   };
 
   const handleReject = async (requestId, customerName) => {
+    if (actionLoading) return;
     const reason = prompt(t('requestsPages.pending.alerts.rejectPrompt', { customer: customerName }));
     if (!reason) return;
 
+    setActionLoading(requestId);
     try {
       await axiosInstance.post(`/all_requests/admin/requests/${requestId}/update_status/`, {
         status: 'rejected',
@@ -88,10 +95,12 @@ const Pending = () => {
       });
 
       alert(t('requestsPages.pending.alerts.rejectSuccess', { id: requestId, reason }));
-      fetchPendingRequests();
+      await fetchPendingRequests();
     } catch (err) {
-      const errorMessage = err.response?.data?.message || t('requestsPages.pending.alerts.rejectFailed');
+      const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || t('requestsPages.pending.alerts.rejectFailed');
       alert(`${t('requestsPages.pending.alerts.error')}: ${errorMessage}`);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -124,18 +133,21 @@ const Pending = () => {
 
   const actionTemplate = (props) => {
     const request = props;
+    const isMutating = actionLoading === request.id;
     return (
       <div className="flex gap-2 justify-center">
         <button
           type="button"
-          className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium"
+          disabled={Boolean(actionLoading)}
+          className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => handleApprove(request.id, request.user_name)}
         >
-          ✓ {t('requestsPages.pending.table.buttons.approve')}
+          {isMutating ? t('common:loading', 'Loading...') : `✓ ${t('requestsPages.pending.table.buttons.approve')}`}
         </button>
         <button
           type="button"
-          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs font-medium"
+          disabled={Boolean(actionLoading)}
+          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => handleReject(request.id, request.user_name)}
         >
           ✗ {t('requestsPages.pending.table.buttons.reject')}

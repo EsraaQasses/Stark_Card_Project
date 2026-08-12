@@ -312,11 +312,21 @@ export async function createAgentAdminShippingRequest({
  */
 export async function listDepositRequests(params = {}) {
   try {
-    const [std, viaAgent, agentAdmin] = await Promise.all([
-      api.get("shipping/standard/", { params }).catch(() => ({ data: [] })),
-      api.get("shipping/via-agent/", { params }).catch(() => ({ data: [] })),
-      api.get("shipping/agent-admin/", { params }).catch(() => ({ data: [] })),
+    const results = await Promise.allSettled([
+      api.get("shipping/standard/", { params }),
+      api.get("shipping/via-agent/", { params }),
+      api.get("shipping/agent-admin/", { params }),
     ]);
+
+    const failures = results.filter((result) => result.status === "rejected");
+    if (failures.length === results.length) {
+      const firstError = failures[0]?.reason?.response?.data || failures[0]?.reason;
+      return { ok: false, error: extractMsg(firstError) || "Failed to load shippings", raw: firstError };
+    }
+
+    const [std, viaAgent, agentAdmin] = results.map((result) =>
+      result.status === "fulfilled" ? result.value : { data: [] }
+    );
 
     const stdArr = Array.isArray(std?.data) ? std.data : std?.data?.results || [];
     const agentArr = Array.isArray(viaAgent?.data) ? viaAgent.data : viaAgent?.data?.results || [];
@@ -349,7 +359,27 @@ export async function listDepositRequests(params = {}) {
       return db - da;
     });
 
-    return { ok: true, data: merged, raw: { standard: std.data, via_agent: viaAgent.data, agent_admin: agentAdmin.data }, pagination: normalizePagination(merged, params) };
+    const successfulPayloads = results
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value?.data);
+    const pagination = {
+      count: successfulPayloads.reduce(
+        (total, payload) => total + (Number(payload?.count) || (Array.isArray(payload) ? payload.length : payload?.results?.length || 0)),
+        0
+      ),
+      next: successfulPayloads.some((payload) => Boolean(payload?.next)),
+      previous: successfulPayloads.some((payload) => Boolean(payload?.previous)),
+      page: Number(params?.page) || 1,
+      page_size: Number(params?.page_size) || merged.length,
+    };
+
+    return {
+      ok: true,
+      data: merged,
+      raw: { standard: std.data, via_agent: viaAgent.data, agent_admin: agentAdmin.data },
+      pagination,
+      partial: failures.length > 0,
+    };
   } catch (_e) {
     return { ok: false, error: "Failed to load shippings" };
   }
@@ -424,44 +454,4 @@ function extractMsg(payload) {
     if (fieldErrors.length) return fieldErrors.join(" | ");
   }
   return "Request failed";
-}
-
-function normalizePagination(data, params) {
-  if (Array.isArray(data)) {
-    return {
-      count: data.length,
-      next: null,
-      previous: null,
-      page: 1,
-      page_size: data.length,
-    };
-  }
-  const count = Number.isFinite(data?.count)
-    ? data.count
-    : data?.results?.length ?? 0;
-  const next = data?.next ?? null;
-  const previous = data?.previous ?? null;
-  const page =
-    Number(params?.page) ||
-    extractQueryNumber(next, "page") ||
-    extractQueryNumber(previous, "page") ||
-    1;
-  const page_size =
-    Number(params?.page_size) ||
-    extractQueryNumber(next, "page_size") ||
-    extractQueryNumber(previous, "page_size") ||
-    (Array.isArray(data?.results) ? data.results.length : 0);
-  return { count, next, previous, page, page_size };
-}
-
-function extractQueryNumber(url, key) {
-  if (!url || typeof url !== "string") return null;
-  try {
-    const u = new URL(url);
-    const v = u.searchParams.get(key);
-    return v != null ? Number(v) : null;
-  } catch {
-    const m = url.match(new RegExp(`[?&]${key}=([^&]+)`));
-    return m ? Number(m[1]) : null;
-  }
 }

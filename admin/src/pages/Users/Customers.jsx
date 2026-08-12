@@ -227,6 +227,7 @@ const Customers = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [bulkAction, setBulkAction] = useState('');
   const [adminModal, setAdminModal] = useState({
     isOpen: false,
     user: null,
@@ -374,13 +375,21 @@ const Customers = () => {
   const newPercentage = totalUsers > 0 ? ((userActivityData[2].y / totalUsers) * 100).toFixed(1) : 0;
 
   const handleDeleteUsers = async (selected) => {
-    if (window.confirm(t('catalog.alerts.deleteConfirm', { count: selected.length }))) {
-      try {
-        alert(t('catalog.alerts.deleteMarked', { count: selected.length }));
-      } catch (err) {
-        console.error('Error deleting customers:', err);
-        alert(t('catalog.alerts.deleteFailed'));
-      }
+    if (bulkAction || !window.confirm(t('catalog.alerts.deleteConfirm', {
+      count: selected.length,
+      defaultValue: `Permanently delete ${selected.length} selected customer(s)? This cannot be undone.`,
+    }))) return;
+    setBulkAction('delete');
+    try {
+      await Promise.all(selected.map((customer) => axiosInstance.delete(`/users/delete/${customer.id}/`)));
+      await fetchCustomers();
+      alert(t('catalog.alerts.deleteSuccess', { count: selected.length, defaultValue: `${selected.length} customer(s) deleted.` }));
+    } catch (err) {
+      console.error('Error deleting customers:', err);
+      await fetchCustomers();
+      alert(err.response?.data?.error || t('catalog.alerts.deleteFailed'));
+    } finally {
+      setBulkAction('');
     }
   };
 
@@ -456,7 +465,7 @@ const Customers = () => {
   };
 
   const toolbarClick = async (args) => {
-    if (!gridInstance) return;
+    if (!gridInstance || bulkAction) return;
 
     const selected = gridInstance.getSelectedRecords();
 

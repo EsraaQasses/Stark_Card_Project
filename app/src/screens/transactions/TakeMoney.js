@@ -1,5 +1,5 @@
 // src/screens/transactions/TakeMoney.js
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ export default function TakeMoney({ navigation }) {
   const [note, setNote] = useState("");
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   const isAgent = user?.role === "agent" || user?.is_agent === true;
   const connectedAgent =
@@ -69,6 +70,7 @@ export default function TakeMoney({ navigation }) {
   const selectedCurrency = selected?.currency || wallets[0]?.currency || "";
 
   const onSubmit = async () => {
+    if (submitting || submitLockRef.current) return;
     if (!isAgent && !hasAgent) {
       Alert.alert("تنبيه", "لا يمكنك سحب الأموال بدون وكيل مرتبط بحسابك.");
       return;
@@ -81,6 +83,19 @@ export default function TakeMoney({ navigation }) {
       Alert.alert("خطأ", "أدخل مبلغاً صحيحاً.");
       return;
     }
+    const confirmed = await new Promise((resolve) => {
+      Alert.alert(
+        "تأكيد طلب السحب",
+        `إرسال طلب سحب بقيمة ${safeAmount.toFixed(2)} ${selectedCurrency}؟`,
+        [
+          { text: "إلغاء", style: "cancel", onPress: () => resolve(false) },
+          { text: "تأكيد", onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) }
+      );
+    });
+    if (!confirmed) return;
+    submitLockRef.current = true;
     try {
       setSubmitting(true);
       if (isAgent) {
@@ -92,6 +107,7 @@ export default function TakeMoney({ navigation }) {
         };
         console.log("[TakeMoney] agent cashout payload:", payload);
         const res = await createAgentCashoutRequest(payload);
+        if (!res?.ok) throw new Error(res?.error || "تعذر إرسال طلب السحب.");
         console.log("[TakeMoney] agent cashout response:", res);
         Alert.alert("تم", "تم إرسال طلب السحب للإدارة.");
       } else {
@@ -112,6 +128,7 @@ export default function TakeMoney({ navigation }) {
       const msg = e?.response?.data?.error || e?.message || "تعذر إرسال الطلب.";
       Alert.alert("خطأ", String(msg));
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   };

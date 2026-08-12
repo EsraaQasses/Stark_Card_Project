@@ -33,11 +33,8 @@ import {
 } from "../shared/theme";
 import api from "../api/client";
 import { disconnectFromAgent } from "../api/agent";
-import {
-  clearAuthTokens,
-  getAccessToken,
-  removeAccessAndRefreshTokens,
-} from "../shared/storage/authStorage";
+import { useAuth } from "../context/AuthProvider";
+import { getAccessToken } from "../shared/storage/authStorage";
 
 const COLOR = {
   primary: themeColors.brand.primary,
@@ -54,6 +51,7 @@ const COLOR = {
 const BASE_W = 390, BASE_H = 844;
 
 export default function Profile({ navigation }) {
+  const { signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { width: W, height: H } = useWindowDimensions();
@@ -67,7 +65,7 @@ export default function Profile({ navigation }) {
   // UI state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [saving] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -84,6 +82,11 @@ export default function Profile({ navigation }) {
   const [country, setCountry] = useState("");
   const [optionalPhone, setOptionalPhone] = useState("");
   const [dark, setDark] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const GAP_SM = sy(8);
   const GAP_XS = sy(6);
@@ -112,7 +115,7 @@ export default function Profile({ navigation }) {
       assignFromUser(u);
     } catch (e) {
       if (e?.message === "NO_TOKEN" || e?.response?.status === 401) {
-        await removeAccessAndRefreshTokens();
+        await signOut();
         Alert.alert(t("common.system") || "System", t("menu.logoutBody") || "Please login again.");
         navigation.reset({ index: 0, routes: [{ name: "Login" }] });
         return;
@@ -122,7 +125,7 @@ export default function Profile({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [assignFromUser, navigation, t]);
+  }, [assignFromUser, navigation, signOut, t]);
 
   useEffect(() => {
     setLoading(true);
@@ -148,7 +151,33 @@ export default function Profile({ navigation }) {
   const onSave = async () => {
     if (!isEmailValid(email)) return Alert.alert(t("common.system"), t("profile.invalidEmail") || "Please enter a valid email address.");
     if (!isPhoneValid(phone)) return Alert.alert(t("common.system"), t("profile.invalidPhone") || "Please enter a valid phone number.");
-    Alert.alert(t("common.system"), t("profile.notSupported") || "Saving profile is not enabled on the server yet.\nThe endpoint ‘/users/me/’ is read-only.");
+    try {
+      setSaving(true);
+      setError("");
+      const payload = {
+        full_name: [first.trim(), last.trim()].filter(Boolean).join(" "),
+        name: userName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        country: country.trim(),
+        optional_phone: optionalPhone.trim(),
+      };
+      const { data } = await api.patch("/users/me/", payload);
+      setRaw(data);
+      assignFromUser(data);
+      setDirty(false);
+      setEditMode(false);
+      Alert.alert(t("common.ok", "OK"), t("profile.saved", "Profile updated."));
+    } catch (e) {
+      const responseData = e?.response?.data;
+      const message = responseData?.detail
+        || responseData?.error
+        || Object.values(responseData || {}).flat().join(", ")
+        || t("profile.saveFailed", "Failed to update profile.");
+      Alert.alert(t("common.error", "Error"), String(message));
+    } finally {
+      setSaving(false);
+    }
   };
 
 
@@ -176,7 +205,43 @@ export default function Profile({ navigation }) {
     );
   };
 
+  const onChangePassword = async () => {
+    if (!currentPassword || newPassword.length < 8 || newPassword !== confirmPassword) {
+      Alert.alert(t("common.error", "Error"), t("profile.passwordValidation", "Check the current password, use at least 8 characters, and confirm the new password."));
+      return;
+    }
+    try {
+      setChangingPassword(true);
+      await api.post("/users/password-change/", {
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      Alert.alert(t("common.ok", "OK"), t("profile.passwordChanged", "Password changed. Please sign in again."), [
+        {
+          text: t("auth.login", "Sign in"),
+          onPress: async () => {
+            await signOut();
+            navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+          },
+        },
+      ]);
+    } catch (e) {
+      const data = e?.response?.data;
+      Alert.alert(
+        t("common.error", "Error"),
+        String(data?.message?.ar || data?.message?.en || data?.detail || data?.error || t("profile.passwordChangeFailed", "Failed to change password."))
+      );
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const onDeleteAccount = async () => {
+    if (deletingAccount) return;
     Alert.alert(
       t("profile.deleteTitle", "Delete account?"),
       t("profile.deleteBody", "This action is permanent and will remove your account."),
@@ -186,14 +251,18 @@ export default function Profile({ navigation }) {
           text: t("profile.deleteCta", "Delete"),
           style: "destructive",
           onPress: async () => {
+            if (deletingAccount) return;
+            setDeletingAccount(true);
             try {
               const token = await getAccessToken();
               await api.delete("/users/me/delete/", { headers: { Authorization: `Bearer ${token}` } });
-              await clearAuthTokens();
+              await signOut();
               navigation.reset({ index: 0, routes: [{ name: "Login" }] });
             } catch (e) {
               const msg = e?.response?.data?.error || e?.message || "Failed to delete account.";
               Alert.alert(t("common.error", "Error"), String(msg));
+            } finally {
+              setDeletingAccount(false);
             }
           },
         },
@@ -464,6 +533,49 @@ export default function Profile({ navigation }) {
             </View>
             </AppCard>
 
+            <AppCard style={styles.formCard}>
+              <AppSectionTitle title={t("profile.changePassword", "Change password")} />
+              <Field
+                label={t("profile.currentPassword", "Current password")}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                sx={sx}
+                sy={sy}
+                secureTextEntry
+                containerStyle={{ marginBottom: GAP_SM }}
+                pillStyle={{ borderRadius: R }}
+              />
+              <Field
+                label={t("profile.newPassword", "New password")}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                sx={sx}
+                sy={sy}
+                secureTextEntry
+                containerStyle={{ marginBottom: GAP_SM }}
+                pillStyle={{ borderRadius: R }}
+              />
+              <Field
+                label={t("profile.confirmPassword", "Confirm password")}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                sx={sx}
+                sy={sy}
+                secureTextEntry
+                containerStyle={{ marginBottom: GAP_SM }}
+                pillStyle={{ borderRadius: R }}
+              />
+              <Pressable
+                onPress={onChangePassword}
+                disabled={changingPassword}
+                style={[styles.saveBtn, { height: sy(44), borderRadius: sx(18), opacity: changingPassword ? 0.5 : 1 }]}
+              >
+                <Text style={styles.saveText}>
+                  {changingPassword ? t("profile.saving", "Saving...") : t("profile.changePassword", "Change password")}
+                </Text>
+              </Pressable>
+            </AppCard>
+
 
             {/* Agent actions */}
             {!!raw?.connected_agent && (
@@ -488,6 +600,7 @@ export default function Profile({ navigation }) {
             {/* Delete account */}
             <Pressable
               onPress={onDeleteAccount}
+              disabled={deletingAccount}
               style={{
                 marginTop: sy(6),
                 marginBottom: sy(12),
@@ -498,9 +611,10 @@ export default function Profile({ navigation }) {
                 backgroundColor: "#FFF0F0",
                 borderWidth: 1,
                 borderColor: "#FFD6D6",
+                opacity: deletingAccount ? 0.6 : 1,
               }}
             >
-              <Text style={[styles.actionText, { color: COLOR.danger }]}>{t("profile.delete", "Delete account")}</Text>
+              <Text style={[styles.actionText, { color: COLOR.danger }]}>{deletingAccount ? t("common.loading", "Deleting…") : t("profile.delete", "Delete account")}</Text>
             </Pressable>
 
             {/* Save */}
@@ -542,6 +656,7 @@ function Field({
   sx,
   sy,
   editable = true,
+  secureTextEntry = false,
 }) {
   const RTL = I18nManager.isRTL;
   return (
@@ -569,6 +684,7 @@ function Field({
           placeholder={placeholder}
           placeholderTextColor="rgba(0,0,0,0.5)"
           keyboardType={keyboardType}
+          secureTextEntry={secureTextEntry}
           style={[styles.fieldInput, { fontSize: sx(16), textAlign: RTL ? "right" : "left" }]}
           editable={editable}
         />

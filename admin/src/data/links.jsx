@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiCreditCard, FiHome, FiGrid, FiPackage, FiUser, FiShield, FiSlash, FiServer, FiInbox, FiBarChart2, FiRefreshCw } from 'react-icons/fi';
+import { FiActivity, FiCreditCard, FiDollarSign, FiHome, FiGrid, FiPackage, FiUser, FiShield, FiSlash, FiServer, FiInbox, FiBarChart2, FiRefreshCw, FiTag, FiTool } from 'react-icons/fi';
 // import { FiBox } from 'react-icons/fi';
 
 export const links = [
@@ -30,6 +30,14 @@ export const links = [
         name: 'ads',
         icon: <FiBarChart2 />,
       },
+      {
+        name: 'finance-controls',
+        icon: <FiDollarSign />,
+      },
+      {
+        name: 'operational-logs',
+        icon: <FiActivity />,
+      },
     ],
   },
   {
@@ -50,6 +58,14 @@ export const links = [
       {
         name: 'admins',
         icon: <FiShield />,
+      },
+      {
+        name: 'customer-categories',
+        icon: <FiTag />,
+      },
+      {
+        name: 'agent-operations',
+        icon: <FiTool />,
       },
     ],
   },

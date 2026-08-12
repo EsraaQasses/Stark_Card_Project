@@ -25,78 +25,64 @@ const Home = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [metricErrors, setMetricErrors] = useState({});
 
   const fetchAllStats = async () => {
     try {
       setLoading(true);
       setError(null);
+      setMetricErrors({});
 
-      console.log('Starting to fetch dashboard stats...');
+      const results = await Promise.allSettled([
+        Promise.all([
+          axiosInstance.get('/shipping/standard/', { params: { status: 'pending', page_size: 1 } }),
+          axiosInstance.get('/shipping/via-agent/', { params: { status: 'pending', page_size: 1 } }),
+          axiosInstance.get('/shipping/agent-admin/', { params: { status: 'pending', page_size: 1 } }),
+        ]).then(responses => {
+          const pendingCount = responses.reduce((sum, response) => (
+            sum + (response.data?.count ?? (Array.isArray(response.data) ? response.data.length : 0))
+          ), 0);
+          return { data: { pending_count: pendingCount } };
+        }),
+        axiosInstance.get("/all_requests/admin/requests/?status=pending&page_size=100"),
+        axiosInstance.get("/all_requests/admin/requests/?status=in_progress&page_size=100"),
+        axiosInstance.get("/all_requests/admin/requests/?status=objection&page_size=100"),
+        axiosInstance.get("/users/stats/"),
+      ]);
 
-      const requests = [
-        // Shipping count
-        axiosInstance.get("/shipping/count/").then(response => {
-          console.log('Shipping count response:', response.data);
-          return response;
-        }).catch((error) => {
-          console.warn("Shipping count failed:", error.response?.status, error.message);
-          return { data: { pending_count: 0 } };
-        }),
-        
-        // Pending requests
-        axiosInstance.get("/all_requests/admin/requests/?status=pending").then(response => {
-          console.log('Pending requests response:', response.data?.results?.length || 0);
-          return response;
-        }).catch((error) => {
-          console.warn("Pending requests failed:", error.response?.status, error.message);
-          return { data: { results: [] } };
-        }),
-        
-        // In progress requests
-        axiosInstance.get("/all_requests/admin/requests/?status=in_progress").then(response => {
-          console.log('In progress response:', response.data?.results?.length || 0);
-          return response;
-        }).catch((error) => {
-          console.warn("In progress requests failed:", error.response?.status, error.message);
-          return { data: { results: [] } };
-        }),
-        
-        // Objection requests
-        axiosInstance.get("/all_requests/admin/requests/?status=objection").then(response => {
-          console.log('Objection response:', response.data?.results?.length || 0);
-          return response;
-        }).catch((error) => {
-          console.warn("Objection requests failed:", error.response?.status, error.message);
-          return { data: { results: [] } };
-        }),
-        
-        // User stats
-        axiosInstance.get("/users/stats/").then(response => {
-          console.log('User stats response:', response.data);
-          return response;
-        }).catch((error) => {
-          console.warn("User stats failed:", error.response?.status, error.message);
-          return { data: { total_users: 0 } };
-        }),
-      ];
+      const metricKeys = ['shipping', 'pending', 'inProgress', 'objection', 'totalUsers'];
+      const failedMetrics = {};
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          failedMetrics[metricKeys[index]] = true;
+          console.warn(`${metricKeys[index]} dashboard request failed:`, result.reason?.response?.status, result.reason?.message);
+        }
+      });
+      if (failedMetrics.pending || failedMetrics.inProgress || failedMetrics.objection) {
+        failedMetrics.totalRevenue = true;
+      }
+      setMetricErrors(failedMetrics);
 
-      const responses = await Promise.all(requests);
-      console.log('All API responses received:', responses.map(r => r.status));
+      const valueAt = (index) => results[index].status === 'fulfilled' ? results[index].value : null;
+      const shippingResponse = valueAt(0);
+      const pendingResponse = valueAt(1);
+      const inProgressResponse = valueAt(2);
+      const objectionResponse = valueAt(3);
+      const usersResponse = valueAt(4);
+      const listFrom = (response) => {
+        const payload = response?.data;
+        if (Array.isArray(payload?.results)) return payload.results;
+        return Array.isArray(payload) ? payload : [];
+      };
 
-      const [
-        shippingResponse,
-        pendingResponse,
-        inProgressResponse,
-        objectionResponse,
-        usersResponse,
-      ] = responses;
-
-      // Extract data with proper fallbacks
-      const shippingCount = shippingResponse.data?.pending_count || shippingResponse.data?.count || 0;
-      const pendingData = pendingResponse.data?.results || pendingResponse.data || [];
-      const inProgressData = inProgressResponse.data?.results || inProgressResponse.data || [];
-      const objectionData = objectionResponse.data?.results || objectionResponse.data || [];
-      const userCount = usersResponse.data?.total_users || 0;
+      const pendingData = listFrom(pendingResponse);
+      const inProgressData = listFrom(inProgressResponse);
+      const objectionData = listFrom(objectionResponse);
+      const shippingCount = shippingResponse?.data?.pending_count ?? shippingResponse?.data?.count ?? 0;
+      const pendingCount = pendingResponse?.data?.count ?? pendingData.length;
+      const inProgressCount = inProgressResponse?.data?.count ?? inProgressData.length;
+      const objectionCount = objectionResponse?.data?.count ?? objectionData.length;
+      const userCount = usersResponse?.data?.total_users ?? 0;
 
       const allRequests = [
         ...(Array.isArray(pendingData) ? pendingData : []),
@@ -109,7 +95,6 @@ const Home = () => {
         0
       );
 
-      // Group allRequests by month
       const monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'july'];
       const monthMap = {
         'Jan': 'jan', 'Feb': 'feb', 'Mar': 'mar', 'Apr': 'apr', 'May': 'may', 'Jun': 'jun', 'Jul': 'july', 'July': 'july'
@@ -157,23 +142,14 @@ const Home = () => {
         }
       });
 
-      console.log('Processed stats:', {
-        shipping: shippingCount,
-        pending: pendingData.length,
-        inProgress: inProgressData.length,
-        objection: objectionData.length,
-        totalUsers: userCount,
-        totalRevenue
-      });
-
-      setStats({
-        shipping: shippingCount,
-        pending: pendingData.length,
-        inProgress: inProgressData.length,
-        objection: objectionData.length,
-        totalUsers: userCount,
-        totalRevenue,
-      });
+      setStats((previous) => ({
+        shipping: failedMetrics.shipping ? previous.shipping : shippingCount,
+        pending: failedMetrics.pending ? previous.pending : pendingCount,
+        inProgress: failedMetrics.inProgress ? previous.inProgress : inProgressCount,
+        objection: failedMetrics.objection ? previous.objection : objectionCount,
+        totalUsers: failedMetrics.totalUsers ? previous.totalUsers : userCount,
+        totalRevenue: failedMetrics.totalRevenue ? previous.totalRevenue : totalRevenue,
+      }));
 
       setChartData({
         salesData,
@@ -181,25 +157,20 @@ const Home = () => {
         hasEnoughData: hasData && distinctMonthsWithData >= 3,
       });
 
-    } catch (error) {
-      console.error("Error fetching stats:", error);
+      const failedLabels = Object.keys(failedMetrics).filter((key) => key !== 'totalRevenue');
+      if (failedLabels.length) {
+        setError(t(
+          "overview.status.partialFailure",
+          `Some dashboard data could not be loaded: ${failedLabels.join(', ')}. Available sections remain visible.`
+        ));
+      }
+
+    } catch (loadError) {
+      console.error("Error fetching stats:", loadError);
       setError(
         t("overview.status.failedToLoadData", "Failed to load dashboard data. Please check your connection and try again.")
       );
-      // Set default stats on error
-      setStats({
-        shipping: 0,
-        pending: 0,
-        inProgress: 0,
-        objection: 0,
-        totalUsers: 0,
-        totalRevenue: 0,
-      });
-      setChartData({
-        salesData: [],
-        customersData: [],
-        hasEnoughData: false,
-      });
+      setMetricErrors({ shipping: true, pending: true, inProgress: true, objection: true, totalUsers: true, totalRevenue: true });
     } finally {
       setLoading(false);
     }
@@ -216,42 +187,48 @@ const Home = () => {
     if (titleKey.includes("shipping")) {
       return {
         ...item,
-        amount: loading ? "..." : stats.shipping.toString(),
+        amount: loading ? "..." : metricErrors.shipping ? "—" : stats.shipping.toString(),
+        hasError: Boolean(metricErrors.shipping),
         description: t("overview.cards.shipping-requests.desc", { count: stats.shipping }),
       };
     }
     if (titleKey.includes("pending")) {
       return {
         ...item,
-        amount: loading ? "..." : stats.pending.toString(),
+        amount: loading ? "..." : metricErrors.pending ? "—" : stats.pending.toString(),
+        hasError: Boolean(metricErrors.pending),
         description: t("overview.cards.pending.desc", { count: stats.pending }),
       };
     }
     if (titleKey.includes("progress")) {
       return {
         ...item,
-        amount: loading ? "..." : stats.inProgress.toString(),
+        amount: loading ? "..." : metricErrors.inProgress ? "—" : stats.inProgress.toString(),
+        hasError: Boolean(metricErrors.inProgress),
         description: t("overview.cards.in-progress.desc", { count: stats.inProgress }),
       };
     }
     if (titleKey.includes("objection")) {
       return {
         ...item,
-        amount: loading ? "..." : stats.objection.toString(),
+        amount: loading ? "..." : metricErrors.objection ? "—" : stats.objection.toString(),
+        hasError: Boolean(metricErrors.objection),
         description: t("overview.cards.objection-requests.desc", { count: stats.objection }),
       };
     }
     if (titleKey.includes("customer") || titleKey.includes("user")) {
       return {
         ...item,
-        amount: loading ? "..." : stats.totalUsers.toString(),
+        amount: loading ? "..." : metricErrors.totalUsers ? "—" : stats.totalUsers.toString(),
+        hasError: Boolean(metricErrors.totalUsers),
         description: t("overview.revenue.registeredUsersDesc", { count: stats.totalUsers }),
       };
     }
     if (titleKey.includes("revenue") || titleKey.includes("sales")) {
       return {
         ...item,
-        amount: loading ? "..." : `$${stats.totalRevenue.toLocaleString()}`,
+        amount: loading ? "..." : metricErrors.totalRevenue ? "—" : `$${stats.totalRevenue.toLocaleString()}`,
+        hasError: Boolean(metricErrors.totalRevenue),
         description: t("overview.revenue.pendingDesc", "Total pending revenue"),
       };
     }
@@ -349,6 +326,7 @@ const Home = () => {
             const count = getCountForTitle(titleKey);
             const priorityLevel = getPriorityLevel(count);
             const priorityClass = getPriorityClass(priorityLevel);
+            const metricFailed = Boolean(item.hasError);
 
             return (
               <Link
@@ -358,10 +336,12 @@ const Home = () => {
               >
                 {!item.title.toLowerCase().includes("revenue") && (
                   <div className="flex justify-between items-start gap-2 mb-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] md:text-xs font-semibold ${priorityClass}`}>
-                      {t("overview.priority." + priorityLevel.toLowerCase(), `${priorityLevel} Priority`)}
+                    <span className={`px-2 py-0.5 rounded text-[10px] md:text-xs font-semibold ${metricFailed ? 'bg-red-100 text-red-800' : priorityClass}`}>
+                      {metricFailed
+                        ? t("overview.status.unavailable", "Unavailable")
+                        : t("overview.priority." + priorityLevel.toLowerCase(), `${priorityLevel} Priority`)}
                     </span>
-                    {count > 0 && (
+                    {!metricFailed && count > 0 && (
                       <span className="bg-red-500 text-white text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
                         {t("overview.status.pendingCount", { count })}
                       </span>
@@ -398,18 +378,22 @@ const Home = () => {
                   <div className="flex items-center justify-between border-t border-gray-50 dark:border-gray-850 pt-3 mt-auto">
                     <div className="flex items-center min-w-0">
                       <div
-                        className={`w-2.5 h-2.5 rounded-full me-1.5 flex-shrink-0 ${getStatusColor(
-                          count
-                        )}`}
+                        className={`w-2.5 h-2.5 rounded-full me-1.5 flex-shrink-0 ${metricFailed ? 'bg-red-500' : getStatusColor(count)}`}
                       />
                       <span className="text-[10px] md:text-xs text-gray-500 truncate">
-                        {count > 0
+                        {metricFailed
+                          ? t("overview.status.requestFailed", "Request failed")
+                          : count > 0
                           ? t("overview.status.needsAttention", { count })
                           : t("overview.status.allCaughtUp")}
                       </span>
                     </div>
                     <div className="text-[10px] text-gray-400 flex-shrink-0">
-                      {loading ? t("overview.status.updating") : t("overview.status.live")}
+                      {loading
+                        ? t("overview.status.updating")
+                        : metricFailed
+                          ? t("overview.status.unavailable", "Unavailable")
+                          : t("overview.status.live")}
                     </div>
                   </div>
                 )}
@@ -448,8 +432,8 @@ const Home = () => {
               <div className="mb-6">
                 <p>
                   <span className="text-3xl font-semibold">
-                    $
-                    {stats.totalRevenue.toLocaleString(undefined, {
+                    {!metricErrors.totalRevenue && '$'}
+                    {metricErrors.totalRevenue ? '—' : stats.totalRevenue.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -461,7 +445,7 @@ const Home = () => {
                 <p className="text-gray-500 mt-1">{t("overview.revenue.pending", "Pending Revenue")}</p>
               </div>
               <div>
-                <p className="text-2xl font-semibold">{stats.totalUsers}</p>
+                <p className="text-2xl font-semibold">{metricErrors.totalUsers ? '—' : stats.totalUsers}</p>
                 <p className="text-gray-500 mt-1">{t("overview.revenue.registeredUsers", "Registered Users")}</p>
               </div>
             </div>
@@ -471,7 +455,7 @@ const Home = () => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2" />
                   <span className="text-gray-500 text-sm">{t("overview.status.loading", "Loading chart data...")}</span>
                 </div>
-              ) : error ? (
+              ) : metricErrors.pending && metricErrors.inProgress && metricErrors.objection ? (
                 <div className="text-red-500 text-sm text-center">
                   {t("overview.status.failedToLoadData", "Failed to load chart data")}
                 </div>
@@ -509,7 +493,7 @@ const Home = () => {
                 {t("overview.summary.shipping", "Shipping Requests")}
               </span>
               <span className="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-sm font-bold">
-                {stats.shipping}
+                {metricErrors.shipping ? '—' : stats.shipping}
               </span>
             </div>
             <div className="flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
@@ -517,7 +501,7 @@ const Home = () => {
                 {t("overview.summary.pending", "Pending Reviews")}
               </span>
               <span className="bg-yellow-100 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded text-sm font-bold">
-                {stats.pending}
+                {metricErrors.pending ? '—' : stats.pending}
               </span>
             </div>
             <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -525,7 +509,7 @@ const Home = () => {
                 {t("overview.summary.inProgress", "In Progress")}
               </span>
               <span className="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-1 rounded text-sm font-bold">
-                {stats.inProgress}
+                {metricErrors.inProgress ? '—' : stats.inProgress}
               </span>
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -533,7 +517,7 @@ const Home = () => {
                 {t("overview.summary.objections", "Objections")}
               </span>
               <span className="bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-200 px-2 py-1 rounded text-sm font-bold">
-                {stats.objection}
+                {metricErrors.objection ? '—' : stats.objection}
               </span>
             </div>
           </div>

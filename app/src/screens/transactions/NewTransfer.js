@@ -1,5 +1,5 @@
 // src/screens/transactions/NewTransfer.js
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -42,6 +42,7 @@ export default function NewTransfer({ navigation, route }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const submitLockRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -101,7 +102,7 @@ export default function NewTransfer({ navigation, route }) {
     parsedAmount > 0;
 
   const submit = async () => {
-    if (loading) return;
+    if (loading || submitLockRef.current) return;
 
     const amt = Number(amount);
     const walletId = Number(selectedWalletId);
@@ -114,6 +115,23 @@ export default function NewTransfer({ navigation, route }) {
     }
     if (!amt || amt <= 0) {
       return Alert.alert("تنبيه", "المبلغ يجب أن يكون أكبر من صفر.");
+    }
+
+    submitLockRef.current = true;
+    const confirmed = await new Promise((resolve) => {
+      Alert.alert(
+        "تأكيد التحويل",
+        `تحويل ${amt.toFixed(2)} ${selectedWallet?.currency || ""} إلى ${recipient?.name || "المستلم"}؟`,
+        [
+          { text: "تراجع", style: "cancel", onPress: () => resolve(false) },
+          { text: "تحويل", onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) }
+      );
+    });
+    if (!confirmed) {
+      submitLockRef.current = false;
+      return;
     }
 
     try {
@@ -143,6 +161,7 @@ export default function NewTransfer({ navigation, route }) {
       Alert.alert("خطأ", e?.message || "حدث خطأ");
     } finally {
       setLoading(false);
+      submitLockRef.current = false;
     }
   };
 

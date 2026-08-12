@@ -33,20 +33,23 @@ export async function resolveRecipient({ phone, wallet_id }) {
       return { ok: true, wallet_id: Number(wallet_id) };
     }
 
-    const candidates = [(p) => api.get(`users/resolve-phone/`, { params: { phone: p } })];
-
     if (phone) {
       const cleanedPhone = String(phone).trim();
       if (cleanedPhone.length < 9) {
         return { ok: false, error: "رقم الهاتف قصير جداً" };
       }
 
-      for (const call of candidates) {
-        try {
-          const { data } = await call(cleanedPhone);
-          const wid = Number(data?.wallet_id ?? data?.id);
-          if (wid > 0) return { ok: true, wallet_id: wid };
-        } catch (_) {}
+      const { data } = await api.get("transactions/transfer/lookup/", {
+        params: { phone: cleanedPhone },
+      });
+      const recipientWallet = Array.isArray(data?.wallets) ? data.wallets[0] : null;
+      const wid = Number(recipientWallet?.id);
+      if (wid > 0) {
+        return {
+          ok: true,
+          wallet_id: wid,
+          recipient: data,
+        };
       }
     }
 

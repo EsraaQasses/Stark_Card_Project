@@ -10,6 +10,7 @@ import {
 } from '@syncfusion/ej2-react-charts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { Header } from '../../components';
 import { useAuth } from '../../contexts/AuthContext';
@@ -497,6 +498,7 @@ const AddApiModal = ({ isOpen, onClose, onSave, loading }) => {
 };
 
 const Api = () => {
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation(['api', 'common']);
   const isArabic = i18n.resolvedLanguage === 'ar';
 
@@ -710,7 +712,7 @@ const Api = () => {
   };
 
   const handleViewTransactions = (apiId, apiName) => {
-    window.location.href = `/api-transactions?api=${apiId}`;
+    navigate(`/api-transactions?api=${apiId}&name=${encodeURIComponent(apiName)}`);
   };
 
   const showNotification = (type, title, message) => {

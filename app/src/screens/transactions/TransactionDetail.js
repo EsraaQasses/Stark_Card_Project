@@ -14,14 +14,20 @@ export default function TransactionDetail({ route, navigation }) {
   const id = route?.params?.id;
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const { user } = useAuth() || {};
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await getTransactionById(id);
+      if (!res?.ok) throw new Error(res?.error || "Failed to load transaction");
       setItem(res?.data || null);
+    } catch (loadError) {
+      setItem(null);
+      setError(String(loadError?.message || "Failed to load transaction"));
     } finally {
       setLoading(false);
     }
@@ -38,7 +44,8 @@ export default function TransactionDetail({ route, navigation }) {
   const act = async (action) => {
     try {
       setSending(true);
-      await approveTransaction(item.id, action); // approve/reject
+      const result = await approveTransaction(item.id, action); // approve/reject
+      if (!result?.ok) throw new Error(result?.error || "Failed to update transaction");
       await load();
       Alert.alert("تم", action === "approve" ? "تمت الموافقة" : "تم الرفض");
     } catch (_e) {
@@ -61,7 +68,8 @@ export default function TransactionDetail({ route, navigation }) {
   if (!item) {
     return (
       <Screenn>
-        <Text style={{ textAlign: "center", marginTop: 40 }}>العنصر غير موجود.</Text>
+        <Text style={{ textAlign: "center", marginTop: 40 }}>{error || "العنصر غير موجود."}</Text>
+        {!!error && <Btn title="Retry" onPress={load} disabled={loading} />}
       </Screenn>
     );
   }

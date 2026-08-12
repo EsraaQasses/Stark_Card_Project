@@ -84,15 +84,14 @@ export default function Notifications({ navigation }) {
         setItems(cached);
       }
       const res = await getNotifications();
-      const list = res?.ok
-        ? (Array.isArray(res.data)
+      if (!res?.ok) throw new Error(res?.error || "Failed to load notifications");
+      const list = Array.isArray(res.data)
           ? res.data
           : Array.isArray(res.raw?.results)
             ? res.raw.results
             : Array.isArray(res.raw?.data)
               ? res.raw.data
-              : [])
-        : [];
+              : [];
       setItems(list);
       await setCache(cacheKey("notifications", "list"), list);
     } catch (e) {
@@ -129,14 +128,16 @@ export default function Notifications({ navigation }) {
 
   const onPressItem = useCallback(async (id) => {
     try {
-      await markNotificationAsRead(id);
+      const result = await markNotificationAsRead(id);
+      if (!result?.ok) throw new Error(result?.error || "Failed to mark notification as read");
       const next = (items || []).map((x) => (x.id === id ? { ...x, is_read: true } : x));
       setItems(next);
       await setCache(cacheKey("notifications", "list"), next);
     } catch (e) {
       console.warn("markNotificationRead:", e?.response?.status || e?.message);
+      Alert.alert(t("common.error", "Error"), t("notificationsScreen.markReadFailed", "Could not update this notification."));
     }
-  }, [items]);
+  }, [items, t]);
 
   const onDelete = useCallback((id) => {
     Alert.alert(
@@ -149,10 +150,16 @@ export default function Notifications({ navigation }) {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteNotification(id);
-              setItems((prev) => prev.filter((x) => x.id !== id));
+              const result = await deleteNotification(id);
+              if (!result?.ok) throw new Error(result?.error || "Failed to delete notification");
+              setItems((prev) => {
+                const next = prev.filter((x) => x.id !== id);
+                setCache(cacheKey("notifications", "list"), next);
+                return next;
+              });
             } catch (e) {
               console.warn("deleteNotification:", e?.response?.status || e?.message);
+              Alert.alert(t("common.error", "Error"), t("notificationsScreen.deleteFailed", "Could not delete this notification."));
             }
           },
         },
@@ -164,12 +171,17 @@ export default function Notifications({ navigation }) {
     const unread = (items || []).filter((x) => x?.is_read === false || x?.read_at === null);
     if (!unread.length) return;
     try {
-      await Promise.allSettled(unread.map((n) => markNotificationAsRead(n.id)));
-      const next = (items || []).map((x) => ({ ...x, is_read: true }));
+      const results = await Promise.allSettled(unread.map((n) => markNotificationAsRead(n.id)));
+      const succeeded = new Set(
+        unread
+          .filter((_, index) => results[index].status === "fulfilled" && results[index].value?.ok)
+          .map((notification) => notification.id)
+      );
+      const next = (items || []).map((x) => succeeded.has(x.id) ? { ...x, is_read: true } : x);
       setItems(next);
       await setCache(cacheKey("notifications", "list"), next);
-    } catch {
-      // silent
+    } catch (e) {
+      console.warn("markAllNotificationsRead:", e?.message);
     }
   }, [items]);
 

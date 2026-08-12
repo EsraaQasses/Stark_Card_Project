@@ -1,11 +1,13 @@
 // src/screens/Favorites.js
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Alert, FlatList, RefreshControl, StyleSheet, useWindowDimensions } from "react-native";
+import { View, Text, Alert, FlatList, RefreshControl, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import ProductCard from "../components/ProductCard";
 import { readGuestFavs, removeGuestFav } from "../utils/guestFavs";
+import { listFavorites, removeFavorite } from "../api/store";
 import { useCurrency } from "../context/CurrencyProvider";
+import { useAuth } from "../context/AuthProvider";
 import PageLayout from "../ui/PageLayout"; // âœ… Ø§Ù„ØºÙ„Ø§Ù Ø§Ù„Ù…ÙˆØ­Ø¯ (BottomNav + SideMenu)
 import CornerSpinner from "../ui/CornerSpinner";
 import { spacing } from "../shared/theme";
@@ -16,17 +18,28 @@ import { AppEmptyState } from "../shared/ui/primitives";
 
 export default function Favorites({ navigation }) {
   const { currency } = useCurrency();
+  const { user } = useAuth();
+  const isAuthenticated = Boolean(user?.id || user?.raw?.id || user?.username || user?.email || user?.phone);
   const { width: W } = useWindowDimensions();
   const sx = (n) => (W / 390) * n;
   const [items, setItems] = useState([]); // [{ product, saved_at }]
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [removingId, setRemovingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const list = await readGuestFavs();
-    setItems(list);
-    setLoading(false);
-  }, []);
+    setError("");
+    try {
+      const list = isAuthenticated ? await listFavorites() : await readGuestFavs();
+      setItems(Array.isArray(list) ? list : []);
+    } catch (loadError) {
+      if (isAuthenticated) setItems([]);
+      setError(String(loadError?.response?.data?.detail || loadError?.response?.data?.error || loadError?.message || "تعذر تحميل المفضلة."));
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,9 +53,23 @@ export default function Favorites({ navigation }) {
   }, [navigation]);
 
   const removeOne = useCallback(async (prod) => {
-    await removeGuestFav(prod);
-    await load();
-  }, [load]);
+    if (removingId) return;
+    const productId = prod?.id;
+    setRemovingId(productId || "pending");
+    try {
+      if (isAuthenticated) {
+        if (!productId) throw new Error("معرّف المنتج غير متوفر.");
+        await removeFavorite(productId);
+      } else {
+        await removeGuestFav(prod);
+      }
+      await load();
+    } catch (removeError) {
+      Alert.alert("خطأ", String(removeError?.response?.data?.detail || removeError?.response?.data?.error || removeError?.message || "تعذر حذف المنتج من المفضلة."));
+    } finally {
+      setRemovingId(null);
+    }
+  }, [isAuthenticated, load, removingId]);
 
   const confirmRemove = useCallback((prod) => {
     Alert.alert("حذف من المفضلة", "متأكدة؟", [
@@ -97,13 +124,22 @@ export default function Favorites({ navigation }) {
         subtitle={"\u0627\u0644\u0645\u0646\u062a\u062c\u0627\u062a \u0627\u0644\u062a\u064a \u062d\u0641\u0638\u062a\u0647\u0627 \u0633\u0627\u0628\u0642\u0627"}
       />
 
+      {!!error && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable disabled={loading} onPress={load} style={styles.retryBtn}>
+            <Text style={styles.retryText}>إعادة المحاولة</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* ===== List ===== */}
       <FlatList
         data={items}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={emptyComponent}
+        ListEmptyComponent={error ? null : emptyComponent}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
       />
     </PageLayout>
@@ -127,5 +163,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxl + spacing.sm,
     marginHorizontal: spacing.sm,
   },
+  errorBox: {
+    marginHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2",
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  errorText: { color: "#991b1b", textAlign: "center", fontWeight: "700" },
+  retryBtn: { alignSelf: "center", marginTop: spacing.sm, borderRadius: 9, backgroundColor: "#0B63D8", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  retryText: { color: "#fff", fontWeight: "800" },
 });
-

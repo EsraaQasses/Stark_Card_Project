@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   I18nManager,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -55,6 +56,7 @@ export default function AgentRequests({ navigation }) {
     setError(null);
     try {
       const shipRes = await listAgentShippings();
+      if (!shipRes?.ok) throw new Error(shipRes?.error || "Failed to load requests");
 
       const shippingItems = shipRes.ok
         ? (shipRes.data || []).map((s) => ({
@@ -108,6 +110,8 @@ export default function AgentRequests({ navigation }) {
   const handleApproveShipping = async (item) => {
     if (!item || String(item.status || "").toLowerCase() !== "pending") return;
     if (actionLoading[item.id]) return;
+    const confirmed = await new Promise((resolve) => Alert.alert("تأكيد الموافقة", "هل استلمت المبلغ وتريد اعتماد الطلب؟", [{ text: "تراجع", style: "cancel", onPress: () => resolve(false) }, { text: "اعتماد", onPress: () => resolve(true) }], { cancelable: true, onDismiss: () => resolve(false) }));
+    if (!confirmed) return;
     try {
       setActionLoading((m) => ({ ...m, [item.id]: true }));
       await api.post(`shipping/via-agent/${item.id}/update_status/`, {
@@ -118,8 +122,8 @@ export default function AgentRequests({ navigation }) {
         prev.map((x) => (x.id === item.id ? { ...x, status: "approved" } : x))
       );
       load();
-    } catch {
-      const msg = (arguments?.[0]?.response?.data?.error || "").toLowerCase();
+    } catch (approveError) {
+      const msg = (approveError?.response?.data?.error || approveError?.message || "").toLowerCase();
       if (msg.includes("already approved")) {
         setItems((prev) =>
           prev.map((x) => (x.id === item.id ? { ...x, status: "approved" } : x))
@@ -136,6 +140,8 @@ export default function AgentRequests({ navigation }) {
   const handleRejectShipping = async (item) => {
     if (!item || String(item.status || "").toLowerCase() !== "pending") return;
     if (actionLoading[item.id]) return;
+    const confirmed = await new Promise((resolve) => Alert.alert("تأكيد الرفض", "هل تريد رفض طلب الشحن؟", [{ text: "تراجع", style: "cancel", onPress: () => resolve(false) }, { text: "رفض", style: "destructive", onPress: () => resolve(true) }], { cancelable: true, onDismiss: () => resolve(false) }));
+    if (!confirmed) return;
     try {
       setActionLoading((m) => ({ ...m, [item.id]: true }));
       await api.post(`shipping/via-agent/${item.id}/update_status/`, {
@@ -146,8 +152,8 @@ export default function AgentRequests({ navigation }) {
         prev.map((x) => (x.id === item.id ? { ...x, status: "rejected" } : x))
       );
       load();
-    } catch {
-      const msg = (arguments?.[0]?.response?.data?.error || "").toLowerCase();
+    } catch (rejectError) {
+      const msg = (rejectError?.response?.data?.error || rejectError?.message || "").toLowerCase();
       if (msg.includes("already approved")) {
         setItems((prev) =>
           prev.map((x) => (x.id === item.id ? { ...x, status: "approved" } : x))

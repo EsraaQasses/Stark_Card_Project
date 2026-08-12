@@ -1,5 +1,5 @@
 // src/screens/payments/GenericPayment.js
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -114,6 +114,8 @@ export default function GenericPayment({ navigation, route }) {
   const [queryError, setQueryError] = useState("");
   const [queryStatus, setQueryStatus] = useState(null);
   const [queryLocalId, setQueryLocalId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   // ارتفاع تقريبي للـ BottomNav + هامش إضافي بسيط
   const BOTTOM_PAD = insets.bottom + sy(64) + sy(12);
@@ -171,15 +173,19 @@ export default function GenericPayment({ navigation, route }) {
 
   // الدفع الحقيقي
   const handleSubmit = async ({ quantity, selected_options, method_fields }) => {
+    if (submitLockRef.current) return;
+    if (!product?.id) {
+      Alert.alert("الدفع", "المنتج غير معروف.");
+      return;
+    }
+    if (!selectedMethod?.id) {
+      Alert.alert("الدفع", "اختر وسيلة دفع أولاً.");
+      return;
+    }
+
+    submitLockRef.current = true;
+    setSubmitting(true);
     try {
-      if (!product?.id) {
-        Alert.alert("الدفع", "المنتج غير معروف.");
-        return;
-      }
-      if (!selectedMethod?.id) {
-        Alert.alert("الدفع", "اختر وسيلة دفع أولاً.");
-        return;
-      }
       // حل الـ wallet_id: route.params.wallet_id أو من AsyncStorage
       const walletId = selectedWalletId ?? (await resolveWalletId());
       const user_inputs = {
@@ -205,7 +211,11 @@ export default function GenericPayment({ navigation, route }) {
       Alert.alert("نجاح", "تم إرسال طلب الدفع ✅");
       navigation.navigate("MyPayments");
     } catch (_e) {
-      Alert.alert("خطأ", "تعذّر إتمام العملية الآن. حاول لاحقاً.");
+      const message = _e?.response?.data?.error || _e?.response?.data?.detail || _e?.message || "تعذّر إتمام العملية الآن. حاول لاحقاً.";
+      Alert.alert("خطأ", String(message));
+    } finally {
+      setSubmitting(false);
+      submitLockRef.current = false;
     }
   };
 
@@ -703,6 +713,7 @@ export default function GenericPayment({ navigation, route }) {
                 setMethod={setSelected}
                 onPickMethod={openPickMethod}
                 onSubmit={handleSubmit}
+                submitting={submitting}
               />
             </View>
 

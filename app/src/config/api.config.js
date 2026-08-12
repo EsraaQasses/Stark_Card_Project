@@ -6,24 +6,31 @@
  */
 
 // تحديد البيئة
-const ENV = process.env.NODE_ENV || "development";
 const API_TIMEOUT = 20000; // 20 ثانية
+const configuredBaseURL = process.env.EXPO_PUBLIC_API_BASE?.trim();
+const developmentBaseURL = "http://127.0.0.1:8000/api";
+if (!configuredBaseURL && typeof __DEV__ !== "undefined" && !__DEV__) {
+  throw new Error("EXPO_PUBLIC_API_BASE is required outside development builds.");
+}
+const normalizedBaseURL = (configuredBaseURL || developmentBaseURL)
+  .replace(/\/+$/, "")
+  .replace(/\/api$/i, "") + "/api";
 
 // Endpoints الأساسية
 export const API_CONFIG = {
   // Development
   development: {
-    baseURL: "http://192.168.1.111:8000/api",
+    baseURL: normalizedBaseURL,
     timeout: API_TIMEOUT,
   },
   // Production
   production: {
-    baseURL: "https://stark-card-app.com/api",
+    baseURL: normalizedBaseURL,
     timeout: API_TIMEOUT,
   },
   // Staging
   staging: {
-    baseURL: "https://staging.stark-card-app.com/api",
+    baseURL: normalizedBaseURL,
     timeout: API_TIMEOUT,
   },
 };
@@ -31,7 +38,7 @@ export const API_CONFIG = {
 // الحصول على config البيئة الحالية
 export const getCurrentConfig = () => {
   // يمكن التحكم عبره EXPO_PUBLIC_ENV
-  const env = process.env.EXPO_PUBLIC_ENV || ENV || "development";
+  const env = process.env.EXPO_PUBLIC_ENV || "development";
   return API_CONFIG[env] || API_CONFIG.development;
 };
 
@@ -40,15 +47,16 @@ export const API_PATHS = {
   // Auth
   REGISTER: "/users/register/",
   LOGIN: "/users/login/",
-  LOGIN_ADMIN: "/users/login/admin/",
   ME: "/users/me/",
   LOGOUT: "/users/logout/",
   VERIFY_OTP: "/users/verify-otp/",
   RESEND_OTP: "/users/resend-otp/",
   REFRESH_TOKEN: "/users/token/refresh/",
-  CHANGE_PASSWORD: "/users/change-password/",
-  FORGOT_PASSWORD: "/users/forgot-password/",
-  RESET_PASSWORD: "/users/reset-password/",
+  CHANGE_PASSWORD: "/users/password-change/",
+  FORGOT_PASSWORD: "/users/password-reset/request/",
+  VERIFY_PASSWORD_RESET: "/users/password-reset/verify/",
+  RESEND_PASSWORD_RESET: "/users/password-reset/resend/",
+  RESET_PASSWORD: "/users/password-reset/confirm/",
 
   // Wallet
   WALLET: "/wallets/wallet/",
@@ -71,7 +79,7 @@ export const API_PATHS = {
 
   // Payment & Requests
   PAYMENT_CONFIG: "/payment/config/",
-  PAYMENT_HISTORY: "/payment/history/",
+  PAYMENT_HISTORY: "/payment/payment/",
   PAYMENT_METHODS: "/payment-methods/user/payment-methods/",
   REQUESTS: "/all_requests/user/requests/",
   SHIPPING: "/shipping/",

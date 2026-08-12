@@ -1,11 +1,16 @@
 // src/screens/SignUp/ForgetPassword.js
 import React, { useState } from "react";
-import { View, Image, Text, TextInput, StyleSheet, Keyboard } from "react-native";
+import { Alert, View, Image, Text, TextInput, StyleSheet, Keyboard } from "react-native";
 import Screen from "../../ui/Screen";
 import Button from "../../ui/Button";
 import theme from "../../ui/Theme";
 import { sx, sy, sp } from "../../ui/scale";
-import { requestPasswordReset } from "../../api/auth";
+import {
+  requestPasswordReset,
+  resendPasswordResetCode,
+  resetPassword,
+  verifyPasswordResetCode,
+} from "../../api/auth";
 
 const { colors: themeColors, typography } = theme;
 
@@ -14,6 +19,10 @@ export default function ForgetPassword({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [errBanner, setErrBanner] = useState([]);
   const [infoBanner, setInfoBanner] = useState([]);
+  const [requestId, setRequestId] = useState(null);
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const emailTrim = email.trim().toLowerCase();
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim);
@@ -27,19 +36,72 @@ export default function ForgetPassword({ navigation }) {
 
     try {
       setLoading(true);
-      await requestPasswordReset(emailTrim);
-      setInfoBanner([
-        "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.",
-      ]);
+      const response = await requestPasswordReset(emailTrim);
+      if (response?.request_id) {
+        setRequestId(response.request_id);
+      }
+      setInfoBanner(["إذا كان البريد مسجلاً، فسيصلك رمز إعادة التعيين."]);
     } catch (err) {
       const resp = err?.response;
       const data = resp?.data;
       const msg =
         data?.detail ||
         data?.error ||
+        data?.message?.ar ||
+        data?.message?.en ||
         (typeof data === "string" ? data : null) ||
         "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى.";
       setErrBanner([String(msg)]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onReset = async () => {
+    if (!requestId || !/^[0-9]{6}$/.test(code.trim())) {
+      setErrBanner(["أدخل رمز التحقق المكوّن من 6 أرقام."]);
+      return;
+    }
+    if (newPassword.length < 8 || newPassword !== confirmPassword) {
+      setErrBanner(["تأكد من تطابق كلمتي المرور وأنها لا تقل عن 8 أحرف."]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setErrBanner([]);
+      const verification = await verifyPasswordResetCode({
+        request_id: requestId,
+        code: code.trim(),
+      });
+      await resetPassword({
+        reset_token: verification.reset_token,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+      Alert.alert("تم", "تم تغيير كلمة المرور بنجاح.", [
+        { text: "تسجيل الدخول", onPress: () => navigation.replace("Login") },
+      ]);
+    } catch (err) {
+      const data = err?.response?.data;
+      setErrBanner([
+        data?.message?.ar || data?.message?.en || data?.detail || data?.error || "تعذر تغيير كلمة المرور.",
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResend = async () => {
+    if (!requestId || loading) return;
+    try {
+      setLoading(true);
+      const response = await resendPasswordResetCode(requestId);
+      if (response?.request_id) setRequestId(response.request_id);
+      setInfoBanner(["تم إرسال رمز جديد إذا كان الطلب صالحاً."]);
+    } catch (err) {
+      const data = err?.response?.data;
+      setErrBanner([data?.message?.ar || data?.message?.en || "تعذر إعادة إرسال الرمز الآن."]);
     } finally {
       setLoading(false);
     }
@@ -88,14 +150,46 @@ export default function ForgetPassword({ navigation }) {
           onSubmitEditing={() => canSend && onSend()}
         />
 
+        {requestId && (
+          <>
+            <Text style={styles.label}>Verification code</Text>
+            <TextInput
+              style={styles.input}
+              value={code}
+              onChangeText={setCode}
+              keyboardType="number-pad"
+              maxLength={6}
+              placeholder="000000"
+              textAlign="right"
+            />
+            <Text style={styles.label}>New password</Text>
+            <TextInput
+              style={styles.input}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+              textAlign="right"
+            />
+            <Text style={styles.label}>Confirm password</Text>
+            <TextInput
+              style={styles.input}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              textAlign="right"
+            />
+            <Text style={styles.link} onPress={onResend}>Resend code</Text>
+          </>
+        )}
+
         <Button
           variant="auth"
-          title={loading ? "???? ???????..." : "????? ?????"}
+          title={loading ? "Please wait..." : requestId ? "Change password" : "Send code"}
           width={sx(143)}
           height={sy(55)}
-          onPress={onSend}
-          disabled={!canSend || loading}
-          style={{ marginTop: sy(16), alignSelf: "center", opacity: canSend && !loading ? 1 : 0.6 }}
+          onPress={requestId ? onReset : onSend}
+          disabled={loading || (!requestId && !canSend)}
+          style={{ marginTop: sy(16), alignSelf: "center", opacity: !loading && (requestId || canSend) ? 1 : 0.6 }}
         />
       </View>
 

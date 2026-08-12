@@ -10,13 +10,14 @@ import React, {
 } from "react";
 import { refreshTokenNormalized } from "../features/auth/api/authApi";
 import { getCurrentUserNormalized } from "../features/profile/api/profileApi";
+import { apiLogout } from "../api/auth";
+import { subscribeAuthFailure } from "../api/client";
 import {
     clearAuthStorage,
     getAccessToken,
     getBootDoneForUser,
     getRefreshToken,
     getUserSession,
-    removeAccessAndRefreshTokens,
     removeUserSession,
     setAccessToken,
     setBootDoneForUser,
@@ -188,6 +189,7 @@ async function tryRefreshAccess(): Promise<string | null> {
         const newAccess = data?.access;
         if (isValidTokenString(newAccess)) {
             await setAccessToken(newAccess);
+            if (isValidTokenString(data?.refresh)) await setRefreshToken(data.refresh);
             return newAccess;
         }
         return null;
@@ -199,6 +201,10 @@ async function tryRefreshAccess(): Promise<string | null> {
 export default function AuthProvider({ children }: { children: ReactNode }) {
     const [booting, setBooting] = useState(true);
     const [user, setUser] = useState<User | null>(null);
+
+    useEffect(() => subscribeAuthFailure(() => {
+        void clearAuthStorage().finally(() => setUser(null));
+    }), []);
 
     const fetchProfile = useCallback(async (accessMaybe?: string) => {
         void accessMaybe;
@@ -222,40 +228,35 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         let alive = true;
         (async () => {
             try {
-                const cachedUser = await loadUserFromStorage();
-                if (alive && cachedUser) setUser(cachedUser);
-
                 const access = await getAccessToken();
                 const cached = await loadUserFromStorage();
                 if (isValidTokenString(access)) {
                     const freshOrErr: any = await fetchProfile(access);
                     if (alive) {
-                        if (freshOrErr && !freshOrErr?.response) {
+                        if (isNetworkError(freshOrErr)) {
+                            if (cached) setUser(cached);
+                        } else if (freshOrErr && !freshOrErr?.response) {
                             const finalUser = { ...freshOrErr, token: access };
                             setUser(finalUser);
                             await saveUserToStorage(finalUser);
                             await runPostLoginBootIfNeeded(finalUser);
-                        } else if (isNetworkError(freshOrErr)) {
-                            if (cached) setUser(cached);
                         } else {
                             const newAccess = await tryRefreshAccess();
                             if (newAccess) {
                                 const fresh2: any = await fetchProfile(newAccess);
-                                if (fresh2 && !fresh2?.response) {
+                                if (isNetworkError(fresh2)) {
+                                    if (cached) setUser(cached);
+                                } else if (fresh2 && !fresh2?.response) {
                                     const finalUser = { ...fresh2, token: newAccess };
                                     setUser(finalUser);
                                     await saveUserToStorage(finalUser);
                                     await runPostLoginBootIfNeeded(finalUser);
-                                } else if (isNetworkError(fresh2)) {
-                                    if (cached) setUser(cached);
                                 } else {
-                                    await removeAccessAndRefreshTokens();
-                                    await removeUserSession();
+                                    await clearAuthStorage();
                                     setUser(null);
                                 }
                             } else {
-                                await removeAccessAndRefreshTokens();
-                                await removeUserSession();
+                                await clearAuthStorage();
                                 setUser(null);
                             }
                         }
@@ -264,20 +265,19 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                     const newAccess = await tryRefreshAccess();
                     if (newAccess) {
                         const fresh2: any = await fetchProfile(newAccess);
-                        if (fresh2 && !fresh2?.response) {
+                        if (isNetworkError(fresh2)) {
+                            if (cached) setUser(cached);
+                        } else if (fresh2 && !fresh2?.response) {
                             const finalUser = { ...fresh2, token: newAccess };
                             setUser(finalUser);
                             await saveUserToStorage(finalUser);
                             await runPostLoginBootIfNeeded(finalUser);
-                        } else if (isNetworkError(fresh2)) {
-                            if (cached) setUser(cached);
                         } else {
-                            await removeAccessAndRefreshTokens();
-                            await removeUserSession();
+                            await clearAuthStorage();
                             if (alive) setUser(null);
                         }
                     } else {
-                        await removeUserSession();
+                        await clearAuthStorage();
                         if (alive) setUser(null);
                     }
                 }
@@ -314,8 +314,13 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     const signOut = useCallback(async () => {
-        await clearAuthStorage();
-        setUser(null);
+        const refresh = await getRefreshToken();
+        try {
+            if (isValidTokenString(refresh)) await apiLogout(refresh);
+        } finally {
+            await clearAuthStorage();
+            setUser(null);
+        }
     }, []);
 
     const refreshUser = useCallback(async () => {

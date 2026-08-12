@@ -17,8 +17,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import Screenn from "../ui/Screenn";
 import BottomNav from "../ui/BottomNav";
 import { useAuth } from "../context/AuthProvider";
-import { apiLogout } from "../api/auth";
-import { getRefreshToken } from "../shared/storage/authStorage";
 
 const BASE_W = 390, BASE_H = 844;
 
@@ -40,12 +38,6 @@ export default function Menu({ navigation }) {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
-      const refresh = await getRefreshToken();
-      try {
-        if (refresh) {
-          await apiLogout(refresh);
-        }
-      } catch (_e) { }
       try { await signOut(); } catch { }
       navigation.reset({ index: 0, routes: [{ name: "Login" }] });
     } finally {
@@ -145,6 +137,16 @@ export default function Menu({ navigation }) {
         iconBg: "#E8F1FF",
         iconColor: "#0B63D8",
         onPress: () => navigation.navigate("AgentRequests")
+      },
+    ] : []),
+    ...(isAgent ? [
+      {
+        key: "agent_cashouts",
+        label: "طلبات سحب العملاء",
+        icon: "💵",
+        iconBg: "#E8F5E9",
+        iconColor: "#16A34A",
+        onPress: () => navigation.navigate("AgentCashouts")
       },
     ] : []),
     ...(isAgent ? [

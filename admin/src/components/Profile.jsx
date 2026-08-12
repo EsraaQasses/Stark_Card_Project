@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   FiUser, FiMail, FiPhone, FiMapPin, FiEdit2, FiSave, FiX, 
-  FiLock, FiShield, FiEye, FiEyeOff, FiKey,
+  FiLock, FiShield, FiEye, FiEyeOff,
 } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import axiosInstance from '../utils/axiosConfig';
-import TwoFAManagement from './TwoFAManagement';
 
 const Profile = () => {
   const { t, i18n } = useTranslation(['profile', 'common']);
@@ -307,18 +306,6 @@ const Profile = () => {
               >
                 <FiShield />
                 {t('tabs.security')}
-              </button>
-              <button
-                onClick={() => setActiveTab('2fa')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-                  activeTab === '2fa'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-                type="button"
-              >
-                <FiKey />
-                {t('tabs.twoFactor')}
               </button>
             </>
           )}
@@ -709,18 +696,7 @@ const Profile = () => {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-6">
-                {t('security:twoFactor.title')}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                {t('security:twoFactor.desc')}
-              </p>
-
-              <TwoFAManagement />
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

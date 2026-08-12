@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiOutlineArrowDown, AiOutlineArrowUp, AiOutlineClose, AiOutlineSave } from 'react-icons/ai';
-import { MdEdit, MdOutlineCancel, MdRefresh, MdSwapVert, MdUpdate } from 'react-icons/md';
+import { MdEdit, MdOutlineCancel, MdRefresh, MdSwapVert } from 'react-icons/md';
 import { useStateContext } from '../contexts/ContextProvider';
+import { useAuth } from '../contexts/AuthContext';
 import axiosInstance from '../utils/axiosConfig';
 
 const SkeletonCard = () => (
@@ -38,7 +39,8 @@ const Currencies = ({ onClose }) => {
   const { t, i18n } = useTranslation(['currencies', 'common']);
   const isArabic = i18n.resolvedLanguage === 'ar';
 
-  const { currentUser, setIsClicked, initialState } = useStateContext();
+  const { setIsClicked, initialState } = useStateContext();
+  const { user } = useAuth();
   const handleClose = onClose || (() => setIsClicked(initialState));
 
   const [walletData, setWalletData] = useState(null);
@@ -49,9 +51,8 @@ const Currencies = ({ onClose }) => {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateError, setUpdateError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  const [refreshingRates, setRefreshingRates] = useState(false);
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -80,37 +81,15 @@ const Currencies = ({ onClose }) => {
     }
   };
 
-  const refreshExchangeRates = async () => {
-    try {
-      setRefreshingRates(true);
-      setUpdateError(null);
-      setSuccessMessage(null);
-
-      await axiosInstance.post('/wallets/refresh-exchange-rates/');
-      setSuccessMessage(t('alerts.refreshSuccess'));
-      setTimeout(() => {
-        fetchWalletData();
-        setSuccessMessage(null);
-      }, 2000);
-    } catch (refreshError) {
-      console.error('Error refreshing exchange rates:', refreshError);
-      if (refreshError.response?.data?.detail) {
-        setUpdateError(refreshError.response.data.detail);
-      } else if (refreshError.response?.data?.error) {
-        setUpdateError(refreshError.response.data.error);
-      } else {
-        setUpdateError(t('alerts.refreshFailed'));
-      }
-    } finally {
-      setRefreshingRates(false);
-    }
-  };
-
   const updateExchangeRate = async () => {
+    if (updateLoading) return;
     if (!newExchangeRate || isNaN(parseFloat(newExchangeRate)) || parseFloat(newExchangeRate) <= 0) {
       setUpdateError(t('alerts.invalidRate'));
       return;
     }
+    if (!window.confirm(t('alerts.updateConfirm', {
+      defaultValue: `Change the live USD/SYP exchange rate to ${newExchangeRate}?`,
+    }))) return;
 
     try {
       setUpdateLoading(true);
@@ -259,17 +238,6 @@ const Currencies = ({ onClose }) => {
                 {t('buttons.refreshData', 'Refresh Data')}
               </button>
 
-              {isAdmin && !loading && !error && (
-                <button
-                  type="button"
-                  onClick={refreshExchangeRates}
-                  disabled={refreshingRates}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 border border-indigo-150 dark:border-indigo-900 text-indigo-650 dark:text-indigo-400 rounded-lg text-[10px] font-bold disabled:opacity-50 transition"
-                >
-                  <MdUpdate className="text-xs" />
-                  {refreshingRates ? t('buttons.updating') : t('buttons.updateRates')}
-                </button>
-              )}
             </div>
           </div>
 

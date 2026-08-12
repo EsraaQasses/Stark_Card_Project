@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import {
   GridComponent,
   ColumnsDirective,
@@ -17,6 +18,7 @@ import axiosInstance from '../../utils/axiosConfig';
 const Agents = () => {
   const { t, i18n } = useTranslation(['agents', 'common']);
   const isArabic = i18n.resolvedLanguage === 'ar';
+  const navigate = useNavigate();
 
   const [agentsData, setAgentsData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,10 @@ const Agents = () => {
   const [showCommissionModal, setShowCommissionModal] = useState(false);
   const [commissionRate, setCommissionRate] = useState('');
   const [updatingCommission, setUpdatingCommission] = useState(false);
+  const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
+  const [creditLimitUsd, setCreditLimitUsd] = useState('');
+  const [creditLimitSyp, setCreditLimitSyp] = useState('');
+  const [updatingCreditLimit, setUpdatingCreditLimit] = useState(false);
 
   const toolbarOptions = useMemo(() => [
     'Search',
@@ -56,6 +62,8 @@ const Agents = () => {
     clients_count: agent.clients_count,
     balance: agent.balance,
     commission_rate: agent.commission_rate,
+    coverage_limit_usd: Number(agent.coverage_limit_usd) || 0,
+    coverage_limit_syp: Number(agent.coverage_limit_syp) || 0,
     products_count: agent.products_count,
     balance_formatted: `$${agent.balance?.toLocaleString(i18n.resolvedLanguage, {
       minimumFractionDigits: 2,
@@ -71,7 +79,7 @@ const Agents = () => {
 
   const handleViewUsers = () => {
     if (selectedAgent) {
-      window.location.href = `/agents-users/${selectedAgent.id}`;
+      navigate(`/agent-users/${selectedAgent.id}`);
     }
   };
 
@@ -100,6 +108,38 @@ const Agents = () => {
       alert(t('alerts.updateFailed'));
     } finally {
       setUpdatingCommission(false);
+    }
+  };
+
+  const handleUpdateCreditLimit = () => {
+    if (!selectedAgent) return;
+    setCreditLimitUsd(String(selectedAgent.coverage_limit_usd ?? 0));
+    setCreditLimitSyp(String(selectedAgent.coverage_limit_syp ?? 0));
+    setShowCreditLimitModal(true);
+  };
+
+  const handleSaveCreditLimit = async () => {
+    if (!selectedAgent) return;
+    const usd = Number(creditLimitUsd);
+    const syp = Number(creditLimitSyp);
+    if (!Number.isFinite(usd) || usd < 0 || !Number.isFinite(syp) || syp < 0) {
+      alert(t('alerts.invalidCreditLimit', { defaultValue: 'Credit limits must be zero or greater.' }));
+      return;
+    }
+
+    try {
+      setUpdatingCreditLimit(true);
+      await axiosInstance.post(`/agents/agent/${selectedAgent.id}/credit-limit/`, {
+        coverage_limit_usd: usd,
+        coverage_limit_syp: syp,
+      });
+      await fetchAgents();
+      setShowCreditLimitModal(false);
+      alert(t('alerts.creditLimitSuccess', { defaultValue: 'Credit limits updated.' }));
+    } catch (err) {
+      alert(err.response?.data?.error || t('alerts.creditLimitFailed', { defaultValue: 'Failed to update credit limits.' }));
+    } finally {
+      setUpdatingCreditLimit(false);
     }
   };
 
@@ -196,6 +236,13 @@ const Agents = () => {
               </button>
               <button
                 type="button"
+                onClick={handleUpdateCreditLimit}
+                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition text-sm"
+              >
+                {t('selectedAgent.buttons.updateCreditLimit', { defaultValue: 'Credit limits' })}
+              </button>
+              <button
+                type="button"
                 onClick={handleDemoteAgent}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
               >
@@ -203,7 +250,7 @@ const Agents = () => {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-900 dark:text-gray-100">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm text-gray-900 dark:text-gray-100">
             <div>
               <p className="text-gray-500 dark:text-gray-400">{t('selectedAgent.labels.currentCommission')}</p>
               <p className="font-semibold">{selectedAgent.commission_rate_formatted}</p>
@@ -219,6 +266,14 @@ const Agents = () => {
             <div>
               <p className="text-gray-500 dark:text-gray-400">{t('selectedAgent.labels.totalBalance')}</p>
               <p className="font-semibold">{selectedAgent.balance_formatted}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">{t('selectedAgent.labels.creditLimitUsd', { defaultValue: 'USD credit limit' })}</p>
+              <p className="font-semibold">${selectedAgent.coverage_limit_usd.toLocaleString(i18n.resolvedLanguage)}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">{t('selectedAgent.labels.creditLimitSyp', { defaultValue: 'SYP credit limit' })}</p>
+              <p className="font-semibold">{selectedAgent.coverage_limit_syp.toLocaleString(i18n.resolvedLanguage)} SYP</p>
             </div>
           </div>
         </div>
@@ -328,6 +383,56 @@ const Agents = () => {
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition disabled:bg-gray-400"
               >
                 {updatingCommission ? t('modal.buttons.updating') : t('modal.buttons.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreditLimitModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#42464D] rounded-lg p-6 w-full max-w-md border dark:border-gray-700 text-start">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+              {t('creditLimitModal.title', { name: selectedAgent?.full_name, defaultValue: `Credit limits — ${selectedAgent?.full_name || ''}` })}
+            </h3>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('creditLimitModal.usd', { defaultValue: 'USD limit' })}
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={creditLimitUsd}
+              onChange={(e) => setCreditLimitUsd(e.target.value)}
+              className="w-full mb-4 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-secondary-dark-bg dark:text-white rounded-md"
+            />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('creditLimitModal.syp', { defaultValue: 'SYP limit' })}
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={creditLimitSyp}
+              onChange={(e) => setCreditLimitSyp(e.target.value)}
+              className="w-full mb-5 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-secondary-dark-bg dark:text-white rounded-md"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCreditLimitModal(false)}
+                disabled={updatingCreditLimit}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300"
+              >
+                {t('modal.buttons.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCreditLimit}
+                disabled={updatingCreditLimit}
+                className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 disabled:bg-gray-400"
+              >
+                {updatingCreditLimit ? t('modal.buttons.updating') : t('modal.buttons.save')}
               </button>
             </div>
           </div>

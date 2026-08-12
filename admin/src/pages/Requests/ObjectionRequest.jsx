@@ -20,6 +20,7 @@ const ObjectionRequest = () => {
   const [objectionData, setObjectionData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     highPriority: 0,
@@ -60,7 +61,9 @@ const ObjectionRequest = () => {
   };
 
   const handleApproveObjection = async (requestId, customerName, reason) => {
+    if (actionLoading) return;
     if (window.confirm(t('requestsPages.objection.alerts.approveConfirm', { customer: customerName, reason }))) {
+      setActionLoading(requestId);
       try {
         await axiosInstance.post(`/all_requests/admin/requests/${requestId}/update_status/`, {
           status: 'completed',
@@ -68,18 +71,22 @@ const ObjectionRequest = () => {
         });
 
         alert(t('requestsPages.objection.alerts.approveSuccess', { id: requestId }));
-        fetchObjectionRequests();
+        await fetchObjectionRequests();
       } catch (err) {
-        const errorMessage = err.response?.data?.message || t('requestsPages.objection.alerts.approveFailed');
+        const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || t('requestsPages.objection.alerts.approveFailed');
         alert(`${t('requestsPages.objection.alerts.error')}: ${errorMessage}`);
+      } finally {
+        setActionLoading(null);
       }
     }
   };
 
   const handleRejectObjection = async (requestId, customerName, reason) => {
+    if (actionLoading) return;
     const rejectionReason = prompt(t('requestsPages.objection.alerts.rejectPrompt', { customer: customerName, reason }));
     if (!rejectionReason) return;
 
+    setActionLoading(requestId);
     try {
       await axiosInstance.post(`/all_requests/admin/requests/${requestId}/update_status/`, {
         status: 'rejected',
@@ -88,10 +95,12 @@ const ObjectionRequest = () => {
       });
 
       alert(t('requestsPages.objection.alerts.rejectSuccess', { id: requestId, rejectionReason }));
-      fetchObjectionRequests();
+      await fetchObjectionRequests();
     } catch (err) {
-      const errorMessage = err.response?.data?.message || t('requestsPages.objection.alerts.rejectFailed');
+      const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message || t('requestsPages.objection.alerts.rejectFailed');
       alert(`${t('requestsPages.objection.alerts.error')}: ${errorMessage}`);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -230,6 +239,7 @@ const ObjectionRequest = () => {
   const actionTemplate = (props) => {
     const request = props;
     const isResolved = request.status === 'completed' || request.status === 'rejected';
+    const isMutating = actionLoading === request.id;
 
     if (isResolved) {
       return (
@@ -241,20 +251,23 @@ const ObjectionRequest = () => {
       <div className="flex flex-col gap-2 justify-center">
         <button
           type="button"
-          className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium"
+          disabled={Boolean(actionLoading)}
+          className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => handleApproveObjection(request.id, request.user_name, request.description)}
         >
-          ✓ {t('requestsPages.objection.table.buttons.approve')}
+          {isMutating ? t('common:loading', 'Loading...') : `✓ ${t('requestsPages.objection.table.buttons.approve')}`}
         </button>
         <button
           type="button"
-          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs font-medium"
+          disabled={Boolean(actionLoading)}
+          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60"
           onClick={() => handleRejectObjection(request.id, request.user_name, request.description)}
         >
           ✗ {t('requestsPages.objection.table.buttons.reject')}
         </button>
         <button
           type="button"
+          disabled={isMutating}
           className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-medium"
           onClick={() => handleViewDetails(request.id, request.user_name)}
         >

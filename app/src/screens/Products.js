@@ -105,7 +105,9 @@ export default function Products({ route, navigation }) {
   const {
     activeSection,
     directProducts,
+    error,
     loading,
+    retry,
     sections,
     setActiveSection,
   } = useProductsData({ initialSectionId, mode });
@@ -414,6 +416,21 @@ export default function Products({ route, navigation }) {
             paddingTop: sy(12),
           }}
         >
+          {!!error && (
+            <View style={{ marginBottom: sy(12), borderWidth: 1, borderColor: "#FCA5A5", backgroundColor: "#FEF2F2", borderRadius: 12, padding: sx(12) }}>
+              <Text style={{ color: "#991B1B", fontWeight: "700", textAlign: textAlignStart(), writingDirection: writingDirection() }}>
+                {error}
+              </Text>
+              <Pressable
+                onPress={retry}
+                disabled={loading}
+                style={{ alignSelf: "flex-start", marginTop: sy(8), backgroundColor: COLOR.primary, borderRadius: 9, paddingHorizontal: sx(14), paddingVertical: sy(8), opacity: loading ? 0.6 : 1 }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "800" }}>{t("common.retry", "إعادة المحاولة")}</Text>
+              </Pressable>
+            </View>
+          )}
+
           {/* Search bar داخل القسم الرئيسي فقط */}
           {inRoot && (
             <AppSearchBox
@@ -518,6 +535,7 @@ export default function Products({ route, navigation }) {
       cardWidth,
       columns,
       currency,
+      error,
       flag,
       filteredProducts.length,
       handleCurrency,
@@ -528,6 +546,7 @@ export default function Products({ route, navigation }) {
       navigation,
       openSubSection,
       recipient,
+      retry,
       search,
       sp,
       sectionImageRatios,
@@ -550,6 +569,8 @@ export default function Products({ route, navigation }) {
       );
     }
 
+    if (error) return null;
+
     if (subsections.length === 0) {
       return (
         <View style={{ alignSelf: "center", width: "100%", maxWidth: MAX_W, paddingHorizontal: H_PAD }}>
@@ -567,7 +588,7 @@ export default function Products({ route, navigation }) {
     }
 
     return null;
-  }, [H_PAD, MAX_W, loading, subsections.length, sy, t]);
+  }, [H_PAD, MAX_W, error, loading, subsections.length, sy, t]);
 
   return (
     <PageLayout navigation={navigation} active="products" withSideMenu={true}>
@@ -673,7 +694,6 @@ const styles = StyleSheet.create({
     justifyContent: columns > 2 ? "flex-start" : "space-between",
   }),
 });
-
 
 
 

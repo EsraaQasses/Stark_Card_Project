@@ -4,15 +4,23 @@ import {
   clearAuthTokens,
   getAuthorizationToken,
   getRefreshToken,
-  setAccessToken,
+  setAuthTokens,
 } from "../shared/storage/authStorage";
 
 /* ===== Base & Helpers ===== */
-export const API_ROOT = (process.env.EXPO_PUBLIC_API_BASE || "http://192.168.1.111:8000/api")
-  .replace(/\/+$/, ""); // إزالة الشرطات الأخيرة
+const configuredApiBase = process.env.EXPO_PUBLIC_API_BASE?.trim();
+const developmentApiBase = "http://127.0.0.1:8000/api";
 
-if (!process.env.EXPO_PUBLIC_API_BASE) {
-  console.warn("EXPO_PUBLIC_API_BASE not set; using fallback IP. Set in .env for production.");
+if (!configuredApiBase && typeof __DEV__ !== "undefined" && !__DEV__) {
+  throw new Error("EXPO_PUBLIC_API_BASE is required outside development builds.");
+}
+
+export const API_ROOT = (configuredApiBase || developmentApiBase)
+  .replace(/\/+$/, "")
+  .replace(/\/api$/i, "") + "/api";
+
+if (!configuredApiBase) {
+  console.warn("EXPO_PUBLIC_API_BASE not set; using the local development API.");
 }
 
 export const STORE_PREFIX = "/store";
@@ -74,29 +82,55 @@ const api = createAxios(API_ROOT);
 
 // خاص للوكلاء: اربطه صريحًا على /api/agents (مش مسار نسبي)
 const agentsApi = createAxios(buildUrl(API_ROOT, AGENTS_PREFIX));
+const REFRESH_PATH = buildUrl(API_ROOT, USERS_PREFIX, "token/refresh/");
+let sharedRefreshPromise = null;
+const authFailureListeners = new Set();
+
+export function subscribeAuthFailure(listener) {
+  authFailureListeners.add(listener);
+  return () => {
+    authFailureListeners.delete(listener);
+  };
+}
+
+function notifyAuthFailure() {
+  authFailureListeners.forEach((listener) => {
+    try { listener(); } catch {}
+  });
+}
+
+async function refreshAuthentication() {
+  const refresh = await getRefreshToken();
+  if (!refresh) throw new Error("No refresh token");
+
+  const { data } = await axios.post(
+    REFRESH_PATH,
+    { refresh },
+    { headers: { "Content-Type": "application/json" }, timeout: 15000 }
+  );
+  const access = data?.access;
+  if (!access) throw new Error("No access returned");
+
+  await setAuthTokens({ access, refresh: data?.refresh || refresh });
+  return access;
+}
 
 /* ===== Attach Authorization & Refresh (لنفس المنطق على كلا الإنستانسين) ===== */
 function attachAuthAndRefresh(instance) {
   instance.interceptors.request.use(async (config) => {
     try {
       const token = await getAuthorizationToken();
-      if (token) {
+      const requestUrl = `${config.baseURL || ""}${config.url || ""}`;
+      const isPublicAuthRequest = /\/users\/(?:register|login(?:\/|$)|verify-otp|resend-otp|token\/refresh|password-reset|forgot-password|reset-password)/i.test(requestUrl);
+      if (token && !isPublicAuthRequest) {
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${token}`;
+      } else if (isPublicAuthRequest && config.headers) {
+        delete config.headers.Authorization;
       }
     } catch {}
     return config;
   });
-
-  let isRefreshing = false;
-  let queue = [];
-
-  const REFRESH_PATH = buildUrl(API_ROOT, USERS_PREFIX, "token/refresh/"); // ثابت على /api/users/token/refresh/
-
-  function resolveQueue(error, newToken = null) {
-    queue.forEach(({ resolve, reject }) => (error ? reject(error) : resolve(newToken)));
-    queue = [];
-  }
 
   instance.interceptors.response.use(
     (res) => res,
@@ -115,54 +149,25 @@ function attachAuthAndRefresh(instance) {
 
       original._retry = true;
 
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          queue.push({
-            resolve: async (newToken) => {
-              try {
-                if (newToken) {
-                  original.headers = original.headers || {};
-                  original.headers.Authorization = `Bearer ${newToken}`;
-                }
-                const resp = await instance.request(original);
-                resolve(resp);
-              } catch (e) {
-                reject(e);
-              }
-            },
-            reject,
-          });
-        });
-      }
-
-      isRefreshing = true;
       try {
-        const refresh = await getRefreshToken();
-        if (!refresh) throw new Error("No refresh token");
-
-        // استخدم axios الخام عالـ /api/users/token/refresh/ حصراً
-        const { data } = await axios.post(
-          REFRESH_PATH,
-          { refresh },
-          { headers: { "Content-Type": "application/json" }, timeout: 15000 }
-        );
-
-        const newAccess = data?.access;
-        if (!newAccess) throw new Error("No access returned");
-
-        await setAccessToken(newAccess);
-
-        resolveQueue(null, newAccess);
+        if (!sharedRefreshPromise) {
+          sharedRefreshPromise = refreshAuthentication()
+            .catch(async (refreshError) => {
+              await clearAuthTokens();
+              notifyAuthFailure();
+              throw refreshError;
+            })
+            .finally(() => {
+              sharedRefreshPromise = null;
+            });
+        }
+        const newAccess = await sharedRefreshPromise;
 
         original.headers = original.headers || {};
         original.headers.Authorization = `Bearer ${newAccess}`;
         return instance.request(original);
       } catch (e) {
-        await clearAuthTokens();
-        resolveQueue(e, null);
         return Promise.reject(error);
-      } finally {
-        isRefreshing = false;
       }
     }
   );

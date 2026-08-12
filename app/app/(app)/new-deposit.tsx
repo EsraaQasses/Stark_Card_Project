@@ -1,8 +1,9 @@
 import NewDeposit from "../../src/screens/transactions/NewDeposit";
-import { useRouter, type Href } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 
 export default function NewDepositScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   const pushRoute = (routePath: string, navParams?: Record<string, any>) => {
     const href = navParams
@@ -28,5 +29,5 @@ export default function NewDepositScreen() {
     goBack: () => router.back(),
   };
 
-  return <NewDeposit navigation={navigation} />;
+  return <NewDeposit navigation={navigation} route={{ params }} />;
 }

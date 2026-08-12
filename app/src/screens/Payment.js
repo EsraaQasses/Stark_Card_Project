@@ -1,7 +1,7 @@
 // src/screens/Payment.js
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -35,6 +35,7 @@ import {
   normalizeWalletsResponse,
 } from "../api/wallets";
 import { useCurrency } from "../context/CurrencyProvider";
+import { useAuth } from "../context/AuthProvider";
 import {
   buildPaymentPayloadData,
   buildPaymentUserInputs,
@@ -53,8 +54,6 @@ import {
 import { useScale } from "../ui/scale";
 
 const { colors } = appTheme;
-const DEV_GUEST_CHECKOUT = false;
-
 /* ============== Responsive Styles Factory ============== */
 function makeStyles(sy, sp) {
   return StyleSheet.create({
@@ -195,6 +194,8 @@ function buildErrorMessage(res, t) {
 /* ================= Component ================= */
 export default function Payment({ route, navigation }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isAuthenticated = Boolean(user?.id || user?.raw?.id || user?.username || user?.email || user?.phone);
   const insets = useSafeAreaInsets();
   const { width: W } = useWindowDimensions();
   const currencyCtx = useCurrency?.();
@@ -467,9 +468,11 @@ export default function Payment({ route, navigation }) {
   // ======= باقي الشغل =======
   const [gamerId, setGamerId] = useState("");
   const [loading, setLoading] = useState(false);
+  const paymentLockRef = useRef(false);
 
   const [fav, setFav] = useState(Boolean(product?.is_favorite));
   const [favBusy, setFavBusy] = useState(false);
+  const favoriteLockRef = useRef(false);
   const normalizedProductRequirements = usePaymentRequirements(product);
 
   // تحميل متطلبات المنتج (نفس منطق Payment.js السابق)
@@ -513,33 +516,38 @@ export default function Payment({ route, navigation }) {
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (isAuthenticated) {
+        if (alive) setFav(Boolean(product?.is_favorite));
+        return;
+      }
       const liked = await isGuestFavLocal(product);
-      if (alive) setFav(liked || Boolean(product?.is_favorite));
+      if (alive) setFav(liked);
     })();
     return () => { alive = false; };
-  }, [product]);
+  }, [isAuthenticated, product]);
 
   const toggleFav = async () => {
+    if (favoriteLockRef.current) return;
+    favoriteLockRef.current = true;
     try {
       setFavBusy(true);
       const next = !fav;
-      setFav(next);
-
-      if (next) await addGuestFavLocal(product);
-      else await removeGuestFavLocal(product);
-
-      const spid = product?.store_product_id ?? product?.id;
-      if (!DEV_GUEST_CHECKOUT && spid && spid !== "dev") {
-        try {
-          if (next) await addFavorite(Number(spid));
-          else await removeFavorite(Number(spid));
-        } catch { }
+      if (isAuthenticated) {
+        const productId = Number(product?.id);
+        if (!Number.isFinite(productId)) throw new Error("معرّف المنتج غير متوفر.");
+        if (next) await addFavorite(productId);
+        else await removeFavorite(productId);
+      } else {
+        if (next) await addGuestFavLocal(product);
+        else await removeGuestFavLocal(product);
       }
-    } catch {
-      setFav((f) => !f);
-      Alert.alert(t("common.networkError"), t("payment.updateFavFailed"));
+      setFav(next);
+    } catch (favoriteError) {
+      const message = favoriteError?.response?.data?.detail || favoriteError?.response?.data?.error || favoriteError?.message || t("payment.updateFavFailed");
+      Alert.alert(t("common.networkError"), String(message));
     } finally {
       setFavBusy(false);
+      favoriteLockRef.current = false;
     }
   };
 
@@ -615,6 +623,7 @@ export default function Payment({ route, navigation }) {
   };
 
   const onPay = async () => {
+    if (loading || paymentLockRef.current) return;
     // ✅ لازم يكون عندنا سعر من الباك
     if (!priceCalculatorData || !Number.isFinite(total) || total <= 0) {
       Alert.alert(t("payment.title"), "السعر غير جاهز بعد. حاول بعد لحظات.");
@@ -689,6 +698,23 @@ export default function Payment({ route, navigation }) {
       return;
     }
 
+    paymentLockRef.current = true;
+    const confirmed = await new Promise((resolve) => {
+      Alert.alert(
+        t("payment.title"),
+        `تأكيد شراء ${product?.name || "المنتج"} مقابل ${amountToCharge} ${walletCurrency}؟`,
+        [
+          { text: t("common.cancel", "إلغاء"), style: "cancel", onPress: () => resolve(false) },
+          { text: t("common.ok", "تأكيد"), onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) }
+      );
+    });
+    if (!confirmed) {
+      paymentLockRef.current = false;
+      return;
+    }
+
       const requirementPayload = buildRequirementPayload(requirements, requirementValues);
       const user_inputs = buildPaymentUserInputs({
         product,
@@ -734,8 +760,6 @@ export default function Payment({ route, navigation }) {
         wallet_currency: payloadData.wallet_currency,
       });
 
-      setLoading(false);
-
       if (!res?.ok) {
         Alert.alert(t("payment.title"), buildErrorMessage(res, t));
         return;
@@ -746,9 +770,11 @@ export default function Payment({ route, navigation }) {
         { text: t("common.ok"), onPress: () => navigation.navigate("MyPayments") },
       ]);
     } catch (err) {
-      setLoading(false);
       const msg = extractServerMessage(err);
       Alert.alert(t("payment.title"), msg || t("common.networkError"));
+    } finally {
+      setLoading(false);
+      paymentLockRef.current = false;
     }
   };
 

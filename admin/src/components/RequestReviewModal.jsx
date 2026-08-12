@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-const RequestReviewModal = ({ request, onClose }) => {
+const RequestReviewModal = ({ request, onClose, onUpdateStatus, onAddComment }) => {
   const { t, i18n } = useTranslation(['requests', 'common']);
   
   const [decision, setDecision] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const requestId = request.id || request.RequestID;
   const userName = request.user_name || request.UserName || t('catalog.table.unknownUser');
@@ -30,25 +31,41 @@ const RequestReviewModal = ({ request, onClose }) => {
   const rawDate = request.created_at || request.SubmittedDate;
   const submittedDate = rawDate ? new Date(rawDate).toLocaleDateString(i18n.resolvedLanguage) : '';
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
+    if (submitting) return;
     if (!decision && !notes) {
       if (!window.confirm(t('catalog.modal.alerts.approveConfirm'))) return;
     }
 
-    console.log(`Approving request ${requestId}`, { decision, notes });
-    alert(t('catalog.modal.alerts.approveSuccess', { id: requestId, decision: decision || t('catalog.modal.alerts.noNotesAdded', 'No notes added') }));
-    onClose();
+    const nextStatus = rawStatus === 'pending' ? 'in_progress' : 'completed';
+    setSubmitting(true);
+    try {
+      const updated = await onUpdateStatus?.(requestId, nextStatus, notes || decision);
+      if (!updated) return;
+      if (notes && decision && onAddComment) await onAddComment(requestId, decision, true);
+      alert(t('catalog.modal.alerts.approveSuccess', { id: requestId, decision: decision || t('catalog.modal.alerts.noNotesAdded', 'No notes added') }));
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
+    if (submitting) return;
     if (!decision) {
       alert(t('catalog.modal.alerts.rejectReasonRequired'));
       return;
     }
 
-    console.log(`Rejecting request ${requestId}`, { decision, notes });
-    alert(t('catalog.modal.alerts.rejectSuccess', { id: requestId, reason: decision }));
-    onClose();
+    setSubmitting(true);
+    try {
+      const updated = await onUpdateStatus?.(requestId, 'rejected', notes, decision);
+      if (!updated) return;
+      alert(t('catalog.modal.alerts.rejectSuccess', { id: requestId, reason: decision }));
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleRequestInfo = () => {
@@ -164,14 +181,16 @@ const RequestReviewModal = ({ request, onClose }) => {
             <button
               type="button"
               onClick={handleReject}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"
+              disabled={submitting}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition disabled:opacity-50"
             >
               {t('catalog.modal.buttons.reject')}
             </button>
             <button
               type="button"
               onClick={handleApprove}
-              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition"
+              disabled={submitting}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition disabled:opacity-50"
             >
               {t('catalog.modal.buttons.approve')}
             </button>

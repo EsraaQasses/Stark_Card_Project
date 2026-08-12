@@ -18,7 +18,13 @@ const Login = () => {
   const [requiresSetup, setRequiresSetup] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
 
-  const { adminLoginStep1, adminLoginStep2, adminLoginStep3, isAuthenticated } = useAuth();
+  const {
+    adminLoginStep1,
+    adminLoginStep2,
+    adminLoginStep3,
+    adminSetupSecondPassword,
+    isAuthenticated,
+  } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -107,29 +113,13 @@ const Login = () => {
     setError('');
 
     if (requiresSetup) {
-      try {
-        const response = await fetch('/api/users/setup-first-password/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            session_token: sessionToken,
-            second_password: formData.secondPassword,
-            confirm_password: formData.secondPassword,
-          }),
-        });
-        const data = await response.json();
-
-        if (response.ok) {
-          setRequiresSetup(false);
-          setRequires2FA(data.requires_2fa || false);
-          setStep(3);
-        } else {
-          setError(data.error || 'Failed to setup second password');
-        }
-      } catch (err) {
-        setError('Network error. Please try again.');
+      const result = await adminSetupSecondPassword(sessionToken, formData.secondPassword);
+      if (result.success) {
+        setRequiresSetup(false);
+        setRequires2FA(false);
+        setStep(3);
+      } else {
+        setError(result.error);
       }
     } else {
       const result = await adminLoginStep2(sessionToken, formData.secondPassword);
@@ -164,8 +154,10 @@ const Login = () => {
       setStep(1);
       setFormData((prev) => ({ ...prev, secondPassword: '' }));
     } else if (step === 3) {
-      setStep(2);
-      setFormData((prev) => ({ ...prev, token: '' }));
+      setStep(1);
+      setSessionToken('');
+      setFormData((prev) => ({ ...prev, secondPassword: '', token: '' }));
+      setRequiresSetup(false);
       setRequires2FA(false);
     }
   };

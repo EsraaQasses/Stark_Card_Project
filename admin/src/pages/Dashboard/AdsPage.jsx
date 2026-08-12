@@ -66,8 +66,8 @@ const AdsPage = () => {
   const fetchDropdownData = async () => {
     try {
       const [sectionsRes, productsRes] = await Promise.all([
-        axiosInstance.get('/store/sections/'),
-        axiosInstance.get('/store/products/'),
+        axiosInstance.get('/store/admin/sections/'),
+        axiosInstance.get('/store/admin/products/'),
       ]);
       setSections(sectionsRes.data);
       setProducts(productsRes.data);

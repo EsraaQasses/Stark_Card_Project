@@ -332,16 +332,25 @@ export async function removeFavorite(product_id) {
 }
 
 export async function toggleFavorite(product_id) {
-  const url = buildUrl(STORE_PREFIX, "user/favorites/toggle/");
-  const { data } = await api.post(url, { product_id });
-  return data;
+  const favorites = await listFavorites();
+  const isFavorite = favorites.some(
+    (favorite) => Number(favorite?.product?.id) === Number(product_id)
+  );
+
+  if (isFavorite) {
+    const data = await removeFavorite(product_id);
+    return { ...data, product_id: Number(product_id), is_favorite: false };
+  }
+
+  const data = await addFavorite(product_id);
+  return { ...data, product_id: Number(product_id), is_favorite: true };
 }
 
 /* ===================== الأسعار & التحويل ===================== */
 
 /** حساب السعر النهائي للمنتج (بناءً على الكمية أو الخيار المختار) */
 export async function calculateProductPrice(productId, params = {}) {
-  const url = buildUrl(STORE_PREFIX, "user/products", `${productId}`, "calculate_price/");
+  const url = buildUrl(STORE_PREFIX, "user/products", `${productId}`, "price_calculator/");
   try {
     const { data } = await api.get(url, { params });
     return { ok: true, data, error: null };
@@ -541,9 +550,13 @@ function extractQueryNumber(url, key) {
 /* ===================== (اختياري) API للأدمن ===================== */
 /** منتجات المتجر بحسب القسم (بحسب الباك عندك: endpoint أدمن) */
 export async function getStoreProductsBySectionAdmin(sectionId) {
-  const url = buildUrl(STORE_PREFIX, "admin/store-products/by_section");
+  const url = buildUrl(STORE_PREFIX, "admin/store-products/by_section/");
   const { data } = await api.get(url, { params: { section_id: sectionId } });
-  const list = Array.isArray(data) ? data : [];
+  const list = Array.isArray(data?.products)
+    ? data.products
+    : Array.isArray(data)
+      ? data
+      : [];
   return list.map(mapStoreProduct);
 }
 

@@ -13,7 +13,6 @@ import {
   getBootDoneForUser,
   getRefreshToken,
   getUserSession,
-  removeAccessAndRefreshTokens,
   removeUserSession,
   setAccessToken,
   setBootDoneForUser,
@@ -22,6 +21,8 @@ import {
 } from "../shared/storage/authStorage";
 import { refreshTokenNormalized } from "../features/auth/api/authApi";
 import { getCurrentUserNormalized } from "../features/profile/api/profileApi";
+import { apiLogout } from "../api/auth";
+import { subscribeAuthFailure } from "../api/client";
 
 // مفاتيح توافقية اختيارية (SideMenu بيحاول يقراها)
 // ⬇️ لافتة عالمية تشخّص النداء المبكر لـ useAuth()
@@ -64,6 +65,7 @@ async function tryRefreshAccess() {
     const newAccess = data?.access;
     if (isValidTokenString(newAccess)) {
       await setAccessToken(newAccess);
+      if (isValidTokenString(data?.refresh)) await setRefreshToken(data.refresh);
       return newAccess;
     }
     return null;
@@ -168,6 +170,10 @@ export default function AuthProvider({ children }) {
   const [booting, setBooting] = useState(true);
   const [user, setUser] = useState(null); // null => خارج / object => داخل
 
+  useEffect(() => subscribeAuthFailure(() => {
+    clearAuthStorage().finally(() => setUser(null));
+  }), []);
+
   /** جلب البروفايل من الباك (مع التوكن إن لزم) */
   const fetchProfile = useCallback(async (accessMaybe) => {
     void accessMaybe;
@@ -193,9 +199,6 @@ export default function AuthProvider({ children }) {
     (async () => {
       try {
         // 1) حمل المستخدم المخزّن سريعًا لتحسين الـ UX
-        const cachedUser = await loadUserFromStorage();
-        if (alive && cachedUser) setUser(cachedUser);
-
         // 2) تحقق من التوكن وجدّد البروفايل
         const access = await getAccessToken();
         const cached = await loadUserFromStorage();
@@ -221,13 +224,11 @@ export default function AuthProvider({ children }) {
                 } else if (isNetworkError(fresh2)) {
                   if (cached) setUser(cached);
                 } else {
-                  await removeAccessAndRefreshTokens();
-                  await removeUserSession();
+                  await clearAuthStorage();
                   setUser(null);
                 }
               } else {
-                await removeAccessAndRefreshTokens();
-                await removeUserSession();
+                await clearAuthStorage();
                 setUser(null);
               }
             }
@@ -244,13 +245,12 @@ export default function AuthProvider({ children }) {
             } else if (isNetworkError(fresh2)) {
               if (cached) setUser(cached);
             } else {
-              await removeAccessAndRefreshTokens();
-              await removeUserSession();
+              await clearAuthStorage();
               if (alive) setUser(null);
             }
           } else {
             // لا توكن: نظافة
-            await removeUserSession();
+            await clearAuthStorage();
             if (alive) setUser(null);
           }
         }
@@ -291,8 +291,13 @@ export default function AuthProvider({ children }) {
 
   /** تسجيل الخروج */
   const signOut = useCallback(async () => {
-    await clearAuthStorage();
-    setUser(null);
+    const refresh = await getRefreshToken();
+    try {
+      if (isValidTokenString(refresh)) await apiLogout(refresh);
+    } finally {
+      await clearAuthStorage();
+      setUser(null);
+    }
   }, []);
 
   /** تحديث البروفايل يدويًا */

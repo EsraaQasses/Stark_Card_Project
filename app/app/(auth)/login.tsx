@@ -4,5 +4,5 @@ import { useNavigationShim } from '../../src/utils/navigation';
 export default function LoginRoute() {
   const navigation = useNavigationShim();
 
-  return <Login navigation={navigation} />;
+  return <Login navigation={navigation} onLoginSuccess={() => {}} />;
 }

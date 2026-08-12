@@ -22,6 +22,7 @@ const FullPayments = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
   const { user } = useAuth();
 
   const [filters, setFilters] = useState({
@@ -53,8 +54,12 @@ const FullPayments = () => {
       setLoading(true);
       setError(null);
 
-      const response = await axiosInstance.get('payment/history/');
-      const paymentsData = response.data.results || response.data;
+      const response = await axiosInstance.get('payment/payment/');
+      const paymentsData = Array.isArray(response.data?.results)
+        ? response.data.results
+        : Array.isArray(response.data)
+          ? response.data
+          : [];
       setPayments(paymentsData);
       calculateStats(paymentsData);
     } catch (fetchError) {
@@ -76,7 +81,7 @@ const FullPayments = () => {
 
     const totalAmount = paymentsData
       .filter((p) => p.status === 'success')
-      .reduce((sum, p) => sum + parseFloat(p.final_price), 0);
+      .reduce((sum, p) => sum + (Number(p.final_price) || 0), 0);
 
     const averageAmount = successPayments > 0 ? totalAmount / successPayments : 0;
 
@@ -98,7 +103,7 @@ const FullPayments = () => {
     }
 
     if (filters.currency !== 'All') {
-      filtered = filtered.filter((payment) => payment.wallet_currency === filters.currency);
+      filtered = filtered.filter((payment) => payment.currency === filters.currency);
     }
 
     if (filters.startDate) {
@@ -123,17 +128,18 @@ const FullPayments = () => {
       PaymentID: `PAY-${payment.id.toString().padStart(6, '0')}`,
       UserName: payment.user_name || t('history.table.userName', { id: payment.user }),
       ProductName: payment.store_product_name || t('history.table.productName'),
-      BasePrice: parseFloat(payment.base_price),
-      FinalPrice: parseFloat(payment.final_price),
-      ProfitPercentage: parseFloat(payment.profit_percentage),
-      ProfitAmount: parseFloat(payment.final_price) - parseFloat(payment.base_price),
-      Currency: payment.wallet_currency,
+      BasePrice: Number(payment.base_price) || 0,
+      FinalPrice: Number(payment.final_price) || 0,
+      ProfitPercentage: Number(payment.profit_percentage) || 0,
+      ProfitAmount: Number(payment.profit_amount) || 0,
+      Currency: payment.currency,
       Status: payment.status,
       ExternalID: payment.external_transaction_id,
       CreatedAt: payment.created_at,
       ProcessedAt: payment.processed_at,
       UserInputs: payment.user_inputs,
-      ErrorMessage: payment.error_message
+      ErrorMessage: payment.error_message,
+      IsRefundable: Boolean(payment.is_refundable)
     }));
   }, [payments, filters, t]);
 
@@ -243,14 +249,25 @@ const FullPayments = () => {
       >
         👁️ {t('history.table.buttons.details')}
       </button>
-      {props.Status === 'pending' && user?.role === 'admin' && (
+      {(props.Status === 'pending' || props.Status === 'processing') && user?.role === 'admin' && (
         <button
-          type="button"
-          className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium flex items-center gap-1"
-          onClick={() => handleProcessPayment(props.id)}
+        type="button"
+        disabled={Boolean(actionLoading)}
+        className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium flex items-center gap-1 disabled:opacity-50"
+          onClick={() => handleProcessPayment(props.id, props.Status)}
           title={t('history.table.tooltips.process')}
         >
           ⚙️ {t('history.table.buttons.process')}
+        </button>
+      )}
+      {props.Status === 'success' && props.IsRefundable && user?.role === 'admin' && (
+        <button
+        type="button"
+        disabled={Boolean(actionLoading)}
+        className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-xs font-medium disabled:opacity-50"
+          onClick={() => handleRefundPayment(props.id)}
+        >
+          {t('history.table.buttons.refund', { defaultValue: 'Refund' })}
         </button>
       )}
     </div>
@@ -270,8 +287,37 @@ const FullPayments = () => {
     }));
   };
 
-  const handleProcessPayment = (paymentId) => {
-    alert(t('history.alerts.processing', { id: paymentId }));
+  const handleProcessPayment = async (paymentId, currentStatus) => {
+    if (actionLoading) return;
+    const nextStatus = currentStatus === 'pending' ? 'processing' : 'success';
+    if (!window.confirm(t('history.alerts.statusConfirm', {
+      defaultValue: `Change payment #${paymentId} status from ${currentStatus} to ${nextStatus}?`,
+    }))) return;
+    try {
+      setActionLoading({ paymentId, action: 'status' });
+      await axiosInstance.post(`payment/payment/${paymentId}/update_status/`, { status: nextStatus });
+      await fetchAllPayments();
+      alert(t('history.alerts.statusSuccess', { defaultValue: 'Payment status updated.' }));
+    } catch (updateError) {
+      alert(updateError.response?.data?.error || t('history.error', { defaultValue: 'Failed to update payment' }));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRefundPayment = async (paymentId) => {
+    if (actionLoading) return;
+    if (!window.confirm(t('history.alerts.refundConfirm', { defaultValue: 'Refund this payment?' }))) return;
+    try {
+      setActionLoading({ paymentId, action: 'refund' });
+      await axiosInstance.post(`payment/payment/${paymentId}/refund/`, {});
+      await fetchAllPayments();
+      alert(t('history.alerts.refundSuccess', { defaultValue: 'Payment refunded successfully.' }));
+    } catch (refundError) {
+      alert(refundError.response?.data?.error || t('history.error', { defaultValue: 'Failed to refund payment' }));
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleExport = () => {

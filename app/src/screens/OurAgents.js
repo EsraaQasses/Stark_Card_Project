@@ -23,7 +23,7 @@ import {
   AppSearchBox,
   AppSectionTitle,
 } from "../shared/ui/primitives";
-import { getAgents, getAgentRegions, connectToAgent } from "../api/agent";
+import { getAgents, connectToAgent } from "../api/agent";
 import { useAuth } from "../context/AuthProvider";
 import { useScale } from "../ui/scale";
 import {
@@ -64,7 +64,6 @@ export default function OurAgents({ navigation, route }) {
   const H_PAD = sx(16);
 
   const [agents, setAgents] = useState([]);
-  const [regions, setRegions] = useState([]);
   const [search, setSearch] = useState("");
   const [agentCode, setAgentCode] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -91,17 +90,6 @@ export default function OurAgents({ navigation, route }) {
     return [];
   };
 
-  const regionForAgent = useCallback(
-    (fullName) => {
-      if (!regions || regions.length === 0) return null;
-      const norm = (s) => String(s ?? "").trim().toLowerCase();
-      const target = norm(fullName);
-      const r = regions.find((x) => norm(x.agent_name) === target);
-      return r?.region || null;
-    },
-    [regions]
-  );
-
   const load = useCallback(async () => {
     setLoadError(null);
     setLoading(true);
@@ -110,14 +98,6 @@ export default function OurAgents({ navigation, route }) {
       const agentsRes = await getAgents();
       const agentsList = normalizeList(agentsRes);
       if (mounted.current) setAgents(agentsList);
-
-      try {
-        const regionsRes = await getAgentRegions();
-        const regionsList = normalizeList(regionsRes);
-        if (mounted.current) setRegions(regionsList);
-      } catch (_e) {
-        if (mounted.current) setRegions([]);
-      }
     } catch (e) {
       console.error(e);
       if (mounted.current) {
@@ -224,7 +204,7 @@ export default function OurAgents({ navigation, route }) {
   }, [agents, search]);
 
   const AgentCard = ({ ag }) => {
-    const reg = ag.region || regionForAgent(ag.full_name);
+    const reg = ag.region || null;
     const initials = makeInitials(ag.full_name || ag.username || "");
     const avatarBg = pickAvatarColor(ag.id);
     const isCurrent =
@@ -447,9 +427,7 @@ export default function OurAgents({ navigation, route }) {
                   <Ionicons name="location-outline" size={16} color={COLOR.primary} />
                   <Text style={styles.connectedInfoLabel}>المنطقة</Text>
                   <Text style={styles.connectedInfoValue}>
-                    {connectedAgent.region ||
-                      regionForAgent(connectedAgent.full_name) ||
-                      "—"}
+                    {connectedAgent.region || "—"}
                   </Text>
                 </View>
               </View>

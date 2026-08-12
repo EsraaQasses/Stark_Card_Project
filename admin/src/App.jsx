@@ -14,6 +14,9 @@ const Customers = lazy(() => import('./pages/Users/Customers'));
 const Agents = lazy(() => import('./pages/Users/Agents'));
 const Admin = lazy(() => import('./pages/Users/Admin'));
 const Blacklist = lazy(() => import('./pages/Users/BlackList'));
+const CustomerCategories = lazy(() => import('./pages/Users/CustomerCategories'));
+const AgentOperations = lazy(() => import('./pages/Users/AgentOperations'));
+const AgentUsers = lazy(() => import('./pages/Users/AgentUsers'));
 
 const Pending = lazy(() => import('./pages/Requests/Pending'));
 const ShippingRequests = lazy(() => import('./pages/Requests/ShippingRequests'));
@@ -24,6 +27,9 @@ const Requests = lazy(() => import('./pages/Dashboard/RequestsHub'));
 const Payments = lazy(() => import('./pages/Dashboard/Payments'));
 const Transition = lazy(() => import('./pages/Dashboard/Transition'));
 const Ads = lazy(() => import('./pages/Dashboard/AdsPage'));
+const OperationalLogs = lazy(() => import('./pages/Dashboard/OperationalLogs'));
+const FinanceControls = lazy(() => import('./pages/Dashboard/FinanceControls'));
+const APITransactions = lazy(() => import('./pages/Dashboard/APITransactions'));
 const Sections = lazy(() => import('./pages/Store/Sections'));
 const Products = lazy(() => import('./pages/Store/Products'));
 const AddProduct = lazy(() => import('./pages/Store/AddProduct'));
@@ -54,7 +60,7 @@ const ScrollToTop = () => {
 
 const AppContent = () => {
   const { setCurrentColor, setCurrentMode, currentMode, activeMenu, currentColor, themeSettings, setThemeSettings, isClicked } = useStateContext();
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
 
   useEffect(() => {
     const currentThemeColor = localStorage.getItem('colorMode');
@@ -93,10 +99,7 @@ const AppContent = () => {
           <p className="text-gray-600 dark:text-gray-300 mb-4">This dashboard requires administrator privileges.</p>
           <button
             type="button"
-            onClick={() => {
-              localStorage.clear();
-              window.location.href = '/login';
-            }}
+            onClick={logout}
             className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
           >
             Return to Login
@@ -158,6 +161,9 @@ const AppContent = () => {
                 <Route path="/payment" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
                 <Route path="/transition" element={<ProtectedRoute><Transition /></ProtectedRoute>} />
                 <Route path="/ads" element={<ProtectedRoute><Ads /></ProtectedRoute>} />
+                <Route path="/operational-logs" element={<ProtectedRoute><OperationalLogs /></ProtectedRoute>} />
+                <Route path="/finance-controls" element={<ProtectedRoute><FinanceControls /></ProtectedRoute>} />
+                <Route path="/api-transactions" element={<ProtectedRoute><APITransactions /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/payments" element={<ProtectedRoute><FullPayments /></ProtectedRoute>} />
 
@@ -172,6 +178,9 @@ const AppContent = () => {
                 <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
                 <Route path="/blacklist" element={<ProtectedRoute><Blacklist /></ProtectedRoute>} />
                 <Route path="/admins" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                <Route path="/customer-categories" element={<ProtectedRoute><CustomerCategories /></ProtectedRoute>} />
+                <Route path="/agent-operations" element={<ProtectedRoute><AgentOperations /></ProtectedRoute>} />
+                <Route path="/agent-users/:agentId" element={<ProtectedRoute><AgentUsers /></ProtectedRoute>} />
 
                 {/* Store */}
                 <Route path="/sections" element={<ProtectedRoute><Sections /></ProtectedRoute>} />
