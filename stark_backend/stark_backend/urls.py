@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from drf_spectacular.views import SpectacularAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -18,6 +19,7 @@ urlpatterns = [
     path('api/qr_code/', include('qr_code.urls')),
     path('api/shipping/', include('shipping.urls')), 
     path('api/finance/', include('finance.urls')),
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
 
 ]
 

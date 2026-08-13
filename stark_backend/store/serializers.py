@@ -208,8 +208,16 @@ class ProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         provided_quote = self.context.get("exchange_rate_quote")
-        self._display_quote = provided_quote if provided_quote is not None else (ExchangeRateQuoteService.get_active_quote() or False)
+        # Resolve the default quote lazily. This serializer is declared as a
+        # nested serializer elsewhere, so __init__ can run while URL modules
+        # are being imported, before Django's test database exists.
+        self._display_quote = provided_quote
         self._price_info_cache = {}
+
+    def _get_display_quote(self):
+        if self._display_quote is None:
+            self._display_quote = ExchangeRateQuoteService.get_active_quote() or False
+        return self._display_quote
     
     class Meta:
         model = Product
@@ -247,7 +255,7 @@ class ProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializer):
         user = request.user if request and request.user.is_authenticated else None
         
         try:
-            return PriceService.get_product_prices(obj, user, quote=self._display_quote)
+            return PriceService.get_product_prices(obj, user, quote=self._get_display_quote())
         except Exception as e:
             logger.error(f"Error getting price info for product {obj.id}: {str(e)}")
             return {
@@ -556,8 +564,13 @@ class UserProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializ
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         provided_quote = self.context.get("exchange_rate_quote")
-        self._display_quote = provided_quote if provided_quote is not None else (ExchangeRateQuoteService.get_active_quote() or False)
+        self._display_quote = provided_quote
         self._price_info_cache = {}
+
+    def _get_display_quote(self):
+        if self._display_quote is None:
+            self._display_quote = ExchangeRateQuoteService.get_active_quote() or False
+        return self._display_quote
     
     class Meta:
         model = Product
@@ -593,7 +606,7 @@ class UserProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializ
         user = request.user if request and request.user.is_authenticated else None
         
         try:
-            price_data = PriceService.get_product_prices(obj, user, quote=self._display_quote)
+            price_data = PriceService.get_product_prices(obj, user, quote=self._get_display_quote())
             
             # Add product-specific information
             if obj.product_type == "amount_based":
@@ -1042,7 +1055,12 @@ class StoreProductSerializer(ProductImageMetadataMixin, serializers.ModelSeriali
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         provided_quote = self.context.get("exchange_rate_quote")
-        self._display_quote = provided_quote if provided_quote is not None else (ExchangeRateQuoteService.get_active_quote() or False)
+        self._display_quote = provided_quote
+
+    def _get_display_quote(self):
+        if self._display_quote is None:
+            self._display_quote = ExchangeRateQuoteService.get_active_quote() or False
+        return self._display_quote
     
     class Meta:
         model = StoreProduct
@@ -1102,11 +1120,13 @@ class StoreProductSerializer(ProductImageMetadataMixin, serializers.ModelSeriali
             # Create a mock product for price calculation
             class MockProduct:
                 def __init__(self, price, currency="USD"):
+                    self.id = None
                     self.base_price = price
                     self.currency = currency
+                    self.product_type = "standard"
             
             mock_product = MockProduct(obj.price, obj.currency)
-            price_data = PriceService.get_product_prices(mock_product, user, quote=self._display_quote)
+            price_data = PriceService.get_product_prices(mock_product, user, quote=self._get_display_quote())
             
             # Add store product specific info
             price_data.update({

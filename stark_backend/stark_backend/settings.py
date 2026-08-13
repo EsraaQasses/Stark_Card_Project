@@ -105,7 +105,10 @@ THIRD_PARTY_API_FERNET_KEY = env_value('THIRD_PARTY_API_FERNET_KEY', required=Tr
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=(DJANGO_ENV == "development"))
-USE_SQLITE = env_bool('USE_SQLITE', default=(DJANGO_ENV == "development"))
+# Keep local tests self-contained unless PostgreSQL is explicitly requested.
+# This prevents a developer or CI runner from needing a separate database
+# service just to run Django's isolated test database.
+USE_SQLITE = env_bool('USE_SQLITE', default=(DJANGO_ENV in {"development", "test"}))
 
 if DJANGO_ENV in {"staging", "production"}:
     if DEBUG:

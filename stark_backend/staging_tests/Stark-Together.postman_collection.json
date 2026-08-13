@@ -1,0 +1,19 @@
+{
+  "info": {
+    "name": "Stark Together API smoke tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{"key": "base_url", "value": "http://127.0.0.1:8000"}],
+  "item": [
+    {
+      "name": "OpenAPI schema",
+      "request": {"method": "GET", "url": "{{base_url}}/api/schema/"},
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('schema returns 200', function () { pm.response.to.have.status(200); });", "pm.test('schema is OpenAPI', function () { pm.expect(pm.response.json().openapi).to.match(/^3\\./); });"]}}]
+    },
+    {
+      "name": "Authenticated wallets",
+      "request": {"method": "GET", "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}], "url": "{{base_url}}/api/wallets/"},
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('wallet endpoint responds', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]); });"]}}]
+    }
+  ]
+}
