@@ -2,6 +2,7 @@ import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { FiSettings } from 'react-icons/fi';
 import { TooltipComponent } from '@syncfusion/ej2-react-popups';
+import { useTranslation } from 'react-i18next';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -59,6 +60,7 @@ const ScrollToTop = () => {
 };
 
 const AppContent = () => {
+  const { t } = useTranslation('common');
   const { setCurrentColor, setCurrentMode, currentMode, activeMenu, currentColor, themeSettings, setThemeSettings, isClicked } = useStateContext();
   const { user, loading, logout } = useAuth();
 
@@ -76,7 +78,7 @@ const AppContent = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-main-dark-bg">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto" />
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Securing your dashboard...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">{t('common.securingDashboard')}</p>
         </div>
       </div>
     );
@@ -95,14 +97,14 @@ const AppContent = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Restricted</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">This dashboard requires administrator privileges.</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('common.accessRestricted')}</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{t('common.adminDashboardRequired')}</p>
           <button
             type="button"
             onClick={logout}
             className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
           >
-            Return to Login
+            {t('common.returnToLogin')}
           </button>
         </div>
       </div>
@@ -115,7 +117,7 @@ const AppContent = () => {
       <div className="flex relative dark:bg-main-dark-bg">
         {!isClicked?.cart && (
           <div className="fixed right-4 rtl:left-4 rtl:right-auto bottom-4" style={{ zIndex: '1000' }}>
-            <TooltipComponent content="Settings" position="Top">
+            <TooltipComponent content={t('common.settings')} position="Top">
               <button
                 type="button"
                 onClick={() => setThemeSettings(true)}

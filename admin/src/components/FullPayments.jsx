@@ -291,7 +291,9 @@ const FullPayments = () => {
     if (actionLoading) return;
     const nextStatus = currentStatus === 'pending' ? 'processing' : 'success';
     if (!window.confirm(t('history.alerts.statusConfirm', {
-      defaultValue: `Change payment #${paymentId} status from ${currentStatus} to ${nextStatus}?`,
+      id: paymentId,
+      current: t(`status.${currentStatus}`, { defaultValue: currentStatus }),
+      next: t(`status.${nextStatus}`, { defaultValue: nextStatus }),
     }))) return;
     try {
       setActionLoading({ paymentId, action: 'status' });

@@ -70,7 +70,10 @@
       "imageSizeErr": "يجب أن يكون حجم الصورة أقل من 5 ميجابايت",
       "saveSuccess": "تم حفظ المنتج بنجاح!",
       "saveError": "خطأ: {{message}}",
-      "noApiProducts": "لا توجد منتجات لهذه الـ API. تأكد من إعداد الـ API بشكل صحيح وتوفر المنتجات."
+      "saveFailed": "فشل حفظ المنتج",
+      "loadingApiProducts": "جاري تحميل منتجات API...",
+      "noApiProducts": "لا توجد منتجات لهذه الـ API. تأكد من إعداد الـ API بشكل صحيح وتوفر المنتجات.",
+      "openingRequirements": "فتح إدارة متطلبات المنتج رقم {{id}}"
     },
     "modal": {
       "addTitle": "إضافة منتج جديد",
@@ -78,6 +81,12 @@
       "apiTitle": "تحديد منتج الـ API",
       "apiSubtitle": "اختر منتجًا من الـ API لملء تفاصيل المنتج والمتمتطلبات تلقائيًا.",
       "fields": {
+        "selectSectionPlaceholder": "اختر قسماً",
+        "noApiOption": "من دون API",
+        "uncategorized": "غير مصنف",
+        "cancel": "إلغاء",
+        "updateProduct": "تحديث المنتج",
+        "createProduct": "إنشاء المنتج",
         "nameEn": "الاسم بالإنجليزي *",
         "nameAr": "الاسم بالعربي *",
         "descEn": "الوصف بالإنجليزي",
@@ -137,6 +146,10 @@
     }
   },
   "addProductPage": {
+    "languages": {
+      "arabic": "العربية",
+      "english": "الإنجليزية"
+    },
     "title": "إضافة منتج جديد",
     "subtitle": "قم بتعبئة النموذج أدناه لإنشاء منتج جديد وحفظه في قواعد البيانات.",
     "backToProducts": "العودة للمنتجات",

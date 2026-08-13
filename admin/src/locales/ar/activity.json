@@ -34,5 +34,58 @@
     "minutesAgo": "منذ {{count}} د",
     "hoursAgo": "منذ {{count}} سا",
     "daysAgo": "منذ {{count}} ي"
+  },
+  "operationalLogs": {
+    "category": "الأمان والتشغيل",
+    "title": "سجلات التشغيل",
+    "subtitle": "مراجعة أحداث تدقيق المدراء غير القابلة للتعديل وسجلات طلبات النظام.",
+    "refresh": "تحديث",
+    "tabs": {
+      "audit": "سجل التدقيق",
+      "system": "سجل النظام"
+    },
+    "filters": {
+      "action": "الإجراء",
+      "resourceType": "نوع المورد",
+      "adminUserId": "معرف المدير",
+      "startDate": "تاريخ البداية",
+      "endDate": "تاريخ النهاية",
+      "apply": "تطبيق",
+      "clear": "مسح"
+    },
+    "loading": "جاري تحميل السجلات...",
+    "empty": "لا توجد سجلات مطابقة للعرض الحالي.",
+    "auditHeaders": {
+      "time": "الوقت",
+      "admin": "المدير",
+      "action": "الإجراء",
+      "resource": "المورد",
+      "ip": "عنوان IP",
+      "details": "التفاصيل"
+    },
+    "systemHeaders": {
+      "time": "الوقت",
+      "user": "المستخدم",
+      "operation": "العملية",
+      "url": "الرابط",
+      "ip": "عنوان IP",
+      "description": "الوصف"
+    },
+    "labels": {
+      "userNumber": "المستخدم رقم {{id}}",
+      "system": "النظام",
+      "auditCount": "{{count}} حدث تدقيق",
+      "systemCount": "{{count}} حدث نظام",
+      "page": "الصفحة {{page}}",
+      "pageOf": "الصفحة {{page}} من {{pages}}"
+    },
+    "buttons": {
+      "previous": "السابق",
+      "next": "التالي"
+    },
+    "errors": {
+      "audit": "فشل تحميل سجل التدقيق.",
+      "system": "فشل تحميل سجل النظام."
+    }
   }
 }

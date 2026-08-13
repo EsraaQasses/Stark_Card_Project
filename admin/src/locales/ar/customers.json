@@ -32,6 +32,7 @@
       "syp": "ل.س"
     },
     "table": {
+      "loadingText": "جاري تحميل العملاء...",
       "emptyTitle": "لم يتم العثور على عملاء",
       "emptySubtitle": "ستظهر بيانات العملاء هنا بمجرد توفرها",
       "neverLogin": "أبداً",
@@ -98,8 +99,9 @@
       "promoteFailed": "خطأ: {{error}}",
       "setPasswordSuccess": "تم تعيين كلمة المرور الثانية بنجاح!",
       "setPasswordFailed": "خطأ: {{error}}",
-      "deleteConfirm": "هل أنت متأكد من حذف {{count}} عميل؟",
+      "deleteConfirm": "هل تريد حذف {{count}} عميل محدد نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
       "deleteMarked": "تم تحديد {{count}} عميل للحذف.",
+      "deleteSuccess": "تم حذف {{count}} عميل.",
       "deleteFailed": "فشل حذف العملاء",
       "blockSuccess": "تم حظر {{count}} عميل بنجاح.",
       "blockFailed": "خطأ في حظر العملاء",
@@ -129,5 +131,80 @@
   "status": {
     "active": "نشط",
     "banned": "محظور"
+  },
+  "categories": {
+    "category": "المستخدمون",
+    "title": "فئات العملاء",
+    "subtitle": "إدارة فئات التسعير وتعيينها للعملاء.",
+    "refresh": "تحديث",
+    "configured": "الفئات المهيأة",
+    "loading": "جاري تحميل الفئات...",
+    "empty": "لا توجد فئات عملاء مهيأة.",
+    "reportTitle": "تقرير الفئات",
+    "noReport": "لا تتوفر بيانات للتقرير.",
+    "stats": {
+      "totalUsers": "إجمالي المستخدمين",
+      "assigned": "المعيّنون",
+      "uncategorized": "من دون فئة",
+      "usersCount": "{{count}} مستخدم · {{percent}}%"
+    },
+    "headers": {
+      "category": "الفئة",
+      "profit": "نسبة الربح",
+      "users": "المستخدمون",
+      "status": "الحالة",
+      "actions": "الإجراءات"
+    },
+    "status": {
+      "active": "نشطة",
+      "inactive": "غير نشطة",
+      "default": "افتراضية"
+    },
+    "buttons": {
+      "edit": "تعديل",
+      "delete": "حذف",
+      "deleting": "جاري الحذف...",
+      "cancel": "إلغاء",
+      "saving": "جاري الحفظ...",
+      "update": "تحديث الفئة",
+      "create": "إنشاء الفئة",
+      "applying": "جاري التطبيق...",
+      "apply": "تطبيق التعيين"
+    },
+    "form": {
+      "editTitle": "تعديل الفئة",
+      "createTitle": "إنشاء فئة",
+      "internalName": "الاسم الداخلي",
+      "displayName": "اسم العرض",
+      "profitPercentage": "نسبة الربح",
+      "description": "الوصف",
+      "active": "نشطة",
+      "default": "الفئة الافتراضية"
+    },
+    "assignment": {
+      "title": "تعيين فئة للعميل",
+      "hint": "اترك الفئة فارغة لإزالة التعيين المباشر.",
+      "customer": "العميل",
+      "category": "الفئة",
+      "notes": "ملاحظات",
+      "selectCustomer": "اختر عميلاً",
+      "useDefault": "استخدام الافتراضية / إزالة التعيين",
+      "userNumber": "المستخدم رقم {{id}}"
+    },
+    "validation": "الاسم واسم العرض ونسبة ربح بين 0 و100 حقول مطلوبة.",
+    "confirmDelete": "هل تريد حذف الفئة «{{name}}»؟",
+    "notices": {
+      "updated": "تم تحديث الفئة بنجاح.",
+      "created": "تم إنشاء الفئة بنجاح.",
+      "deleted": "تم حذف الفئة بنجاح.",
+      "assigned": "تم تعيين فئة العميل بنجاح.",
+      "removed": "تمت إزالة تعيين فئة العميل."
+    },
+    "errors": {
+      "load": "فشل تحميل بيانات فئات العملاء.",
+      "save": "فشل حفظ الفئة.",
+      "delete": "فشل حذف الفئة، وربما ما زال هناك مستخدمون معيّنون لها.",
+      "assign": "فشل تحديث تعيين فئة العميل."
+    }
   }
 }

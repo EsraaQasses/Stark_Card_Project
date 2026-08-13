@@ -720,7 +720,7 @@ export default function AddProduct() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
                       <span>{t('addProductPage.fields.descriptionAr')}</span>
-                      <span className="text-xs text-gray-400 font-normal">(Arabic)</span>
+                      <span className="text-xs text-gray-400 font-normal">({t('addProductPage.languages.arabic')})</span>
                     </label>
                     <textarea
                       dir="rtl"
@@ -736,7 +736,7 @@ export default function AddProduct() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
                       <span>{t('addProductPage.fields.descriptionEn')}</span>
-                      <span className="text-xs text-gray-400 font-normal">(English)</span>
+                      <span className="text-xs text-gray-400 font-normal">({t('addProductPage.languages.english')})</span>
                     </label>
                     <textarea
                       dir="ltr"

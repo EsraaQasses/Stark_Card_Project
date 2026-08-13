@@ -34,7 +34,8 @@
         "title": "Title",
         "amount": "Amount",
         "submitted": "Submitted",
-        "actions": "Actions"
+        "actions": "Actions",
+        "priority": "Priority"
       }
     },
     "modal": {
@@ -64,7 +65,8 @@
         "approveSuccess": "Request {{id}} Approved ✅\n\nDecision: {{decision}}",
         "rejectReasonRequired": "Please provide a reason for rejection",
         "rejectSuccess": "Request {{id}} Rejected ❌\n\nReason: {{reason}}",
-        "fullDetailsTitle": "Full Request Details:"
+        "fullDetailsTitle": "Full Request Details:",
+        "noNotesAdded": "No notes added"
       }
     },
     "alerts": {
@@ -117,7 +119,8 @@
           "amount": "Amount",
           "description": "Description",
           "requestDate": "Request Date",
-          "actions": "Actions"
+          "actions": "Actions",
+          "agent": "Agent"
         },
         "buttons": {
           "approve": "Approve",
@@ -146,18 +149,21 @@
         "underReview": "Under Review"
       },
       "table": {
+        "noAgent": "No agent assigned",
         "headers": {
           "id": "ID",
           "customer": "Customer",
           "amount": "Amount",
           "description": "Description",
           "requestDate": "Request Date",
-          "actions": "Actions"
+          "actions": "Actions",
+          "agent": "Agent"
         },
         "buttons": {
           "approve": "Approve",
           "reject": "Reject",
-          "viewDetails": "View Details"
+          "viewDetails": "View Details",
+          "escalate": "Escalate"
         }
       },
       "alerts": {
@@ -168,7 +174,10 @@
         "rejectSuccess": "Payment #{{id}} rejected. Reason: {{reason}}",
         "rejectFailed": "Failed to reject payment",
         "detailsTitle": "Request Details #{{id}}:\n\nCustomer: {{customer}}\nAmount: {{amount}} {{currency}}\nDescription: {{description}}\nStatus: {{status}}\nDate: {{date}}\n\nNotes:\n{{notes}}",
-        "error": "Error"
+        "error": "Error",
+        "escalateConfirm": "Escalate request #{{id}} from {{customer}} to supervisor?",
+        "escalateSuccess": "Request #{{id}} escalated to supervisor!",
+        "escalateFailed": "Failed to escalate the request."
       }
     },
     "objection": {
@@ -176,6 +185,13 @@
       "title": "Objection Requests",
       "loading": "Loading objection requests...",
       "error": "Failed to load objection requests",
+      "types": {
+        "product": "Product",
+        "payment": "Payment",
+        "delivery": "Delivery",
+        "refund": "Refund",
+        "general": "General"
+      },
       "stats": {
         "total": "Total Objections",
         "highPriority": "High Priority",
@@ -213,6 +229,12 @@
       "title": "Shipping Requests Management",
       "loading": "Loading shipping requests...",
       "error": "Failed to load shipping requests",
+      "agentActionRequired": "Agent action required",
+      "types": {
+        "standard": "Standard",
+        "viaAgent": "Via Agent",
+        "agentAdmin": "Agent/Admin"
+      },
       "table": {
         "headers": {
           "id": "ID",
@@ -229,6 +251,7 @@
         }
       },
       "alerts": {
+        "approveConfirm": "Approve shipping request #{{id}}?",
         "approveSuccess": "Shipping request #{{id}} approved successfully!",
         "approveFailed": "Failed to approve shipping request",
         "rejectPrompt": "Please enter rejection reason:",

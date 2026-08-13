@@ -377,13 +377,12 @@ const Customers = () => {
   const handleDeleteUsers = async (selected) => {
     if (bulkAction || !window.confirm(t('catalog.alerts.deleteConfirm', {
       count: selected.length,
-      defaultValue: `Permanently delete ${selected.length} selected customer(s)? This cannot be undone.`,
     }))) return;
     setBulkAction('delete');
     try {
       await Promise.all(selected.map((customer) => axiosInstance.delete(`/users/delete/${customer.id}/`)));
       await fetchCustomers();
-      alert(t('catalog.alerts.deleteSuccess', { count: selected.length, defaultValue: `${selected.length} customer(s) deleted.` }));
+      alert(t('catalog.alerts.deleteSuccess', { count: selected.length }));
     } catch (err) {
       console.error('Error deleting customers:', err);
       await fetchCustomers();

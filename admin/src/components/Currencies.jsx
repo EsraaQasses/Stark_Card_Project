@@ -88,7 +88,7 @@ const Currencies = ({ onClose }) => {
       return;
     }
     if (!window.confirm(t('alerts.updateConfirm', {
-      defaultValue: `Change the live USD/SYP exchange rate to ${newExchangeRate}?`,
+      rate: newExchangeRate,
     }))) return;
 
     try {

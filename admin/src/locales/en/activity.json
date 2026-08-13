@@ -34,5 +34,58 @@
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
+  },
+  "operationalLogs": {
+    "category": "Security and Operations",
+    "title": "Operational Logs",
+    "subtitle": "Review immutable admin audit events and system request logs.",
+    "refresh": "Refresh",
+    "tabs": {
+      "audit": "Audit Logs",
+      "system": "System Logs"
+    },
+    "filters": {
+      "action": "Action",
+      "resourceType": "Resource type",
+      "adminUserId": "Admin user ID",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "apply": "Apply",
+      "clear": "Clear"
+    },
+    "loading": "Loading logs...",
+    "empty": "No logs match the current view.",
+    "auditHeaders": {
+      "time": "Time",
+      "admin": "Admin",
+      "action": "Action",
+      "resource": "Resource",
+      "ip": "IP Address",
+      "details": "Details"
+    },
+    "systemHeaders": {
+      "time": "Time",
+      "user": "User",
+      "operation": "Operation",
+      "url": "URL",
+      "ip": "IP Address",
+      "description": "Description"
+    },
+    "labels": {
+      "userNumber": "User #{{id}}",
+      "system": "System",
+      "auditCount": "{{count}} audit events",
+      "systemCount": "{{count}} system events",
+      "page": "Page {{page}}",
+      "pageOf": "Page {{page}} of {{pages}}"
+    },
+    "buttons": {
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "errors": {
+      "audit": "Failed to load audit logs.",
+      "system": "Failed to load system logs."
+    }
   }
 }

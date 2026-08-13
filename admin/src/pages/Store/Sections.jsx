@@ -421,14 +421,14 @@ const StoreSections = () => {
           <table className="min-w-full bg-white dark:bg-secondary-dark-bg">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Image</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Section Details</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Products Count</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created Date</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.id')}</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.image')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.details')}</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.products')}</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.type')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.created')}</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.status')}</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t('catalog.table.actions')}</th>
               </tr>
             </thead>
             <tbody>

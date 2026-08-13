@@ -13,6 +13,9 @@
       "needsAttention": "{{count}} needs attention",
       "allCaughtUp": "All caught up",
       "notice": "Notice: ",
+      "partialFailure": "Some dashboard data could not be loaded: {{sections}}. Available sections remain visible.",
+      "unavailable": "Unavailable",
+      "requestFailed": "Request failed",
       "failedToLoadData": "Failed to load dashboard data. Please check your connection and try again."
     },
     "priority": {

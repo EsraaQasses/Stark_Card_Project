@@ -9,13 +9,16 @@
     "buttons": {
       "viewUsers": "View Users",
       "updateCommission": "Update Commission",
+      "updateCreditLimit": "Credit Limits",
       "demote": "Demote to User"
     },
     "labels": {
       "currentCommission": "Current Commission",
       "totalClients": "Total Clients",
       "assignedProducts": "Assigned Products",
-      "totalBalance": "Total Balance"
+      "totalBalance": "Total Balance",
+      "creditLimitUsd": "USD Credit Limit",
+      "creditLimitSyp": "SYP Credit Limit"
     }
   },
   "table": {
@@ -51,9 +54,136 @@
     "updateFailed": "Failed to update commission rate",
     "demoteConfirm": "Are you sure you want to demote {{name}} to regular user?",
     "demoteSuccess": "Agent demoted successfully!",
-    "demoteFailed": "Failed to demote agent"
+    "demoteFailed": "Failed to demote agent",
+    "invalidCreditLimit": "Credit limits must be zero or greater.",
+    "creditLimitSuccess": "Credit limits updated.",
+    "creditLimitFailed": "Failed to update credit limits."
   },
   "status": {
-    "active": "Active"
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled"
+  },
+  "creditLimitModal": {
+    "title": "Credit limits — {{name}}",
+    "usd": "USD limit",
+    "syp": "SYP limit"
+  },
+  "operations": {
+    "category": "Agents",
+    "title": "Agent Operations",
+    "subtitle": "Manage product commissions, operating regions, and review cashout requests.",
+    "tabs": {
+      "assignments": "Product Assignments",
+      "regions": "Regions",
+      "cashouts": "Cashout Queue"
+    },
+    "buttons": {
+      "refresh": "Refresh",
+      "saveAssignment": "Save Assignment",
+      "saving": "Saving...",
+      "disable": "Disable",
+      "enable": "Enable",
+      "remove": "Remove",
+      "saveRegion": "Save Region",
+      "edit": "Edit",
+      "clear": "Clear",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "assignments": {
+      "title": "Add or Update Assignment",
+      "agent": "Agent",
+      "product": "Product",
+      "commission": "Commission Percentage",
+      "active": "Active",
+      "selectAgent": "Select agent",
+      "selectProduct": "Select product",
+      "loading": "Loading assignments...",
+      "empty": "No product assignments configured."
+    },
+    "regions": {
+      "title": "Set Agent Region",
+      "region": "Region",
+      "loading": "Loading agents...",
+      "empty": "No agents found.",
+      "notAssigned": "Not assigned"
+    },
+    "cashouts": {
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "readOnlyHint": "This is a read-only Admin queue; payout approval belongs to the assigned agent.",
+      "loading": "Loading cashouts...",
+      "empty": "No cashout requests match this status.",
+      "count": "{{count}} requests",
+      "page": "Page {{page}}"
+    },
+    "headers": {
+      "agent": "Agent",
+      "product": "Product",
+      "commission": "Commission",
+      "status": "Status",
+      "actions": "Actions",
+      "code": "Code",
+      "region": "Region",
+      "action": "Action",
+      "id": "ID",
+      "customer": "Customer",
+      "amount": "Amount",
+      "created": "Created"
+    },
+    "labels": {
+      "agentNumber": "Agent #{{id}}",
+      "productNumber": "Product #{{id}}",
+      "userNumber": "User #{{id}}"
+    },
+    "validation": {
+      "assignment": "Agent, product, and a commission from 0 to 99.99 are required."
+    },
+    "notices": {
+      "assignmentSaved": "Product assignment saved successfully.",
+      "assignmentUpdated": "Assignment status updated.",
+      "assignmentDeactivated": "Assignment deactivated.",
+      "regionSaved": "Agent region saved successfully.",
+      "regionRemoved": "Agent region removed."
+    },
+    "errors": {
+      "load": "Failed to load agent operations data.",
+      "loadCashouts": "Failed to load the cashout queue.",
+      "saveAssignment": "Failed to save the product assignment.",
+      "updateAssignment": "Failed to update the assignment.",
+      "deactivateAssignment": "Failed to deactivate the assignment.",
+      "saveRegion": "Failed to save the agent region.",
+      "removeRegion": "Failed to remove the agent region."
+    },
+    "confirm": {
+      "deactivateAssignment": "Deactivate the assignment for {{product}}?",
+      "removeRegion": "Remove the region for {{agent}}?"
+    }
+  },
+  "agentUsers": {
+    "category": "Agents",
+    "title": "Agent #{{id}} Customers",
+    "subtitle": "Customers currently assigned to this agent.",
+    "refresh": "Refresh",
+    "back": "Back to Agents",
+    "loading": "Loading customers...",
+    "empty": "This agent has no assigned customers.",
+    "error": "Failed to load the agent’s customers.",
+    "headers": {
+      "id": "ID",
+      "customer": "Customer",
+      "email": "Email",
+      "phone": "Phone",
+      "status": "Status"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "banned": "Banned"
+    }
   }
 }

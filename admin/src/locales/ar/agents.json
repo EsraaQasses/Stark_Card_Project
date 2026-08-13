@@ -9,13 +9,16 @@
     "buttons": {
       "viewUsers": "عرض المستخدمين",
       "updateCommission": "تحديث العمولة",
+      "updateCreditLimit": "حدود الائتمان",
       "demote": "تخفيض لمستخدم"
     },
     "labels": {
       "currentCommission": "العمولة الحالية",
       "totalClients": "إجمالي العملاء",
       "assignedProducts": "المنتجات المخصصة",
-      "totalBalance": "إجمالي الرصيد"
+      "totalBalance": "إجمالي الرصيد",
+      "creditLimitUsd": "حد الائتمان بالدولار",
+      "creditLimitSyp": "حد الائتمان بالليرة"
     }
   },
   "table": {
@@ -51,9 +54,136 @@
     "updateFailed": "فشل تحديث نسبة العمولة",
     "demoteConfirm": "هل أنت متأكد من تخفيض مرتبة الوكيل {{name}} إلى مستخدم عادي؟",
     "demoteSuccess": "تم تخفيض الوكيل بنجاح!",
-    "demoteFailed": "فشل تخفيض مرتبة الوكيل"
+    "demoteFailed": "فشل تخفيض مرتبة الوكيل",
+    "invalidCreditLimit": "يجب أن تكون حدود الائتمان صفراً أو أكثر.",
+    "creditLimitSuccess": "تم تحديث حدود الائتمان.",
+    "creditLimitFailed": "فشل تحديث حدود الائتمان."
   },
   "status": {
-    "active": "نشط"
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "pending": "قيد الانتظار",
+    "approved": "مقبول",
+    "rejected": "مرفوض",
+    "cancelled": "ملغى"
+  },
+  "creditLimitModal": {
+    "title": "حدود الائتمان — {{name}}",
+    "usd": "حد الائتمان بالدولار",
+    "syp": "حد الائتمان بالليرة"
+  },
+  "operations": {
+    "category": "الوكلاء",
+    "title": "عمليات الوكلاء",
+    "subtitle": "إدارة عمولات المنتجات ومناطق العمل ومراجعة طلبات السحب.",
+    "tabs": {
+      "assignments": "تخصيص المنتجات",
+      "regions": "المناطق",
+      "cashouts": "طلبات السحب"
+    },
+    "buttons": {
+      "refresh": "تحديث",
+      "saveAssignment": "حفظ التخصيص",
+      "saving": "جاري الحفظ...",
+      "disable": "تعطيل",
+      "enable": "تفعيل",
+      "remove": "إزالة",
+      "saveRegion": "حفظ المنطقة",
+      "edit": "تعديل",
+      "clear": "مسح",
+      "previous": "السابق",
+      "next": "التالي"
+    },
+    "assignments": {
+      "title": "إضافة تخصيص أو تحديثه",
+      "agent": "الوكيل",
+      "product": "المنتج",
+      "commission": "نسبة العمولة",
+      "active": "نشط",
+      "selectAgent": "اختر وكيلاً",
+      "selectProduct": "اختر منتجاً",
+      "loading": "جاري تحميل التخصيصات...",
+      "empty": "لا توجد تخصيصات منتجات."
+    },
+    "regions": {
+      "title": "تحديد منطقة الوكيل",
+      "region": "المنطقة",
+      "loading": "جاري تحميل الوكلاء...",
+      "empty": "لم يتم العثور على وكلاء.",
+      "notAssigned": "غير محددة"
+    },
+    "cashouts": {
+      "status": "الحالة",
+      "allStatuses": "كل الحالات",
+      "readOnlyHint": "هذه القائمة للعرض فقط؛ اعتماد الدفع من مسؤولية الوكيل المعيّن.",
+      "loading": "جاري تحميل طلبات السحب...",
+      "empty": "لا توجد طلبات سحب مطابقة لهذه الحالة.",
+      "count": "{{count}} طلبات",
+      "page": "الصفحة {{page}}"
+    },
+    "headers": {
+      "agent": "الوكيل",
+      "product": "المنتج",
+      "commission": "العمولة",
+      "status": "الحالة",
+      "actions": "الإجراءات",
+      "code": "الرمز",
+      "region": "المنطقة",
+      "action": "الإجراء",
+      "id": "المعرف",
+      "customer": "العميل",
+      "amount": "المبلغ",
+      "created": "تاريخ الإنشاء"
+    },
+    "labels": {
+      "agentNumber": "الوكيل رقم {{id}}",
+      "productNumber": "المنتج رقم {{id}}",
+      "userNumber": "المستخدم رقم {{id}}"
+    },
+    "validation": {
+      "assignment": "الوكيل والمنتج وعمولة من 0 إلى 99.99 حقول مطلوبة."
+    },
+    "notices": {
+      "assignmentSaved": "تم حفظ تخصيص المنتج بنجاح.",
+      "assignmentUpdated": "تم تحديث حالة التخصيص.",
+      "assignmentDeactivated": "تم تعطيل التخصيص.",
+      "regionSaved": "تم حفظ منطقة الوكيل بنجاح.",
+      "regionRemoved": "تمت إزالة منطقة الوكيل."
+    },
+    "errors": {
+      "load": "فشل تحميل بيانات عمليات الوكلاء.",
+      "loadCashouts": "فشل تحميل قائمة طلبات السحب.",
+      "saveAssignment": "فشل حفظ تخصيص المنتج.",
+      "updateAssignment": "فشل تحديث التخصيص.",
+      "deactivateAssignment": "فشل تعطيل التخصيص.",
+      "saveRegion": "فشل حفظ منطقة الوكيل.",
+      "removeRegion": "فشل إزالة منطقة الوكيل."
+    },
+    "confirm": {
+      "deactivateAssignment": "هل تريد تعطيل تخصيص {{product}}؟",
+      "removeRegion": "هل تريد إزالة منطقة {{agent}}؟"
+    }
+  },
+  "agentUsers": {
+    "category": "الوكلاء",
+    "title": "عملاء الوكيل رقم {{id}}",
+    "subtitle": "العملاء المعيّنون لهذا الوكيل حالياً.",
+    "refresh": "تحديث",
+    "back": "العودة إلى الوكلاء",
+    "loading": "جاري تحميل العملاء...",
+    "empty": "لا يوجد عملاء معيّنون لهذا الوكيل.",
+    "error": "فشل تحميل عملاء الوكيل.",
+    "headers": {
+      "id": "المعرف",
+      "customer": "العميل",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "status": "الحالة"
+    },
+    "status": {
+      "active": "نشط",
+      "inactive": "غير نشط",
+      "banned": "محظور"
+    }
   }
 }

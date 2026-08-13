@@ -32,6 +32,7 @@
       "syp": "SYP"
     },
     "table": {
+      "loadingText": "Loading customers...",
       "emptyTitle": "No customers found",
       "emptySubtitle": "Customer data will appear here once available",
       "neverLogin": "Never",
@@ -98,8 +99,9 @@
       "promoteFailed": "Error: {{error}}",
       "setPasswordSuccess": "Second password set successfully!",
       "setPasswordFailed": "Error: {{error}}",
-      "deleteConfirm": "Are you sure you want to delete {{count}} customer(s)?",
+      "deleteConfirm": "Permanently delete {{count}} selected customer(s)? This cannot be undone.",
       "deleteMarked": "{{count}} customer(s) marked for deletion.",
+      "deleteSuccess": "{{count}} customer(s) deleted.",
       "deleteFailed": "Error deleting customers",
       "blockSuccess": "{{count}} customer(s) blocked successfully.",
       "blockFailed": "Error blocking customers",
@@ -129,5 +131,80 @@
   "status": {
     "active": "Active",
     "banned": "Banned"
+  },
+  "categories": {
+    "category": "Users",
+    "title": "Customer Categories",
+    "subtitle": "Manage pricing categories and customer assignments.",
+    "refresh": "Refresh",
+    "configured": "Configured Categories",
+    "loading": "Loading categories...",
+    "empty": "No customer categories are configured.",
+    "reportTitle": "Category Report",
+    "noReport": "No report data available.",
+    "stats": {
+      "totalUsers": "Total Users",
+      "assigned": "Assigned",
+      "uncategorized": "Uncategorized",
+      "usersCount": "{{count}} users · {{percent}}%"
+    },
+    "headers": {
+      "category": "Category",
+      "profit": "Profit %",
+      "users": "Users",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "default": "Default"
+    },
+    "buttons": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "update": "Update Category",
+      "create": "Create Category",
+      "applying": "Applying...",
+      "apply": "Apply Assignment"
+    },
+    "form": {
+      "editTitle": "Edit Category",
+      "createTitle": "Create Category",
+      "internalName": "Internal Name",
+      "displayName": "Display Name",
+      "profitPercentage": "Profit Percentage",
+      "description": "Description",
+      "active": "Active",
+      "default": "Default Category"
+    },
+    "assignment": {
+      "title": "Assign Customer Category",
+      "hint": "Leave category empty to remove a direct assignment.",
+      "customer": "Customer",
+      "category": "Category",
+      "notes": "Notes",
+      "selectCustomer": "Select customer",
+      "useDefault": "Use default / remove assignment",
+      "userNumber": "User #{{id}}"
+    },
+    "validation": "Name, display name, and a profit percentage between 0 and 100 are required.",
+    "confirmDelete": "Delete category “{{name}}”?",
+    "notices": {
+      "updated": "Category updated successfully.",
+      "created": "Category created successfully.",
+      "deleted": "Category deleted successfully.",
+      "assigned": "Customer category assigned successfully.",
+      "removed": "Customer category assignment removed."
+    },
+    "errors": {
+      "load": "Failed to load customer-category data.",
+      "save": "Failed to save the category.",
+      "delete": "Failed to delete the category. It may still have assigned users.",
+      "assign": "Failed to update the customer category assignment."
+    }
   }
 }

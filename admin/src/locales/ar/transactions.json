@@ -112,5 +112,33 @@
     "usd": "دولار أمريكي",
     "syp": "ليرة سورية",
     "eur": "يورو"
+  },
+  "apiTransactions": {
+    "category": "واجهات API الخارجية",
+    "allApis": "كل واجهات API",
+    "apiNumber": "واجهة API رقم {{id}}",
+    "title": "معاملات {{name}}",
+    "subtitle": "سجل طلبات المزوّد واستجاباته.",
+    "refresh": "تحديث",
+    "back": "العودة إلى واجهات API",
+    "loading": "جاري تحميل المعاملات...",
+    "empty": "لا توجد معاملات API.",
+    "error": "فشل تحميل معاملات API.",
+    "headers": {
+      "time": "الوقت",
+      "api": "واجهة API",
+      "endpoint": "نقطة الاتصال",
+      "http": "HTTP",
+      "result": "النتيجة",
+      "externalId": "المعرف الخارجي",
+      "error": "الخطأ"
+    },
+    "result": {
+      "success": "ناجحة",
+      "failed": "فاشلة"
+    },
+    "count": "{{count}} معاملات",
+    "previous": "السابق",
+    "next": "التالي"
   }
 }

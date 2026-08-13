@@ -42,6 +42,7 @@
       "button": "Add Payment Method"
     },
     "alerts": {
+      "loadFailed": "Failed to load payment methods",
       "deleteConfirm": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
       "deleteSuccess": "Payment method deleted successfully!",
       "deleteFailed": "Failed to delete payment method",
@@ -100,6 +101,7 @@
     }
   },
   "history": {
+    "error": "Failed to fetch payments",
     "category": "Payment Management",
     "title": "All Payments",
     "stats": {
@@ -161,7 +163,8 @@
       "profitPercent": "+{{percent}}% profit",
       "buttons": {
         "details": "Details",
-        "process": "Process"
+        "process": "Process",
+        "refund": "Refund"
       },
       "tooltips": {
         "details": "View payment details",
@@ -171,7 +174,11 @@
     "alerts": {
       "detailsTitle": "Payment Details",
       "detailsMessage": "Payment Details:\nID: {{id}}\nUser: {{user}}\nProduct: {{product}}\nAmount: {{amount}}\nStatus: {{status}}",
-      "processing": "Processing payment {{id}}..."
+      "processing": "Processing payment {{id}}...",
+      "statusConfirm": "Change payment #{{id}} status from {{current}} to {{next}}?",
+      "statusSuccess": "Payment status updated.",
+      "refundConfirm": "Refund this payment?",
+      "refundSuccess": "Payment refunded successfully."
     }
   },
   "recent": {
@@ -180,6 +187,7 @@
     "loadingText": "Loading payments...",
     "emptyTitle": "No payments found",
     "emptyDesc": "Payments will appear here once they are processed",
+    "daysAgo": "{{count}} days ago",
     "productPurchase": "Product Purchase",
     "base": "Base: {{symbol}}{{amount}}",
     "profit": "+{{percent}}% profit",
@@ -200,7 +208,8 @@
   "currency": {
     "usd": "USD",
     "syp": "SYP",
-    "eur": "EUR"
+    "eur": "EUR",
+    "syp_symbol": "SYP"
   },
   "inputType": {
     "text": "Text",

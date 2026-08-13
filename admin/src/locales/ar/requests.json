@@ -34,7 +34,8 @@
         "title": "العنوان",
         "amount": "المبلغ",
         "submitted": "تاريخ التقديم",
-        "actions": "الإجراءات"
+        "actions": "الإجراءات",
+        "priority": "الأولوية"
       }
     },
     "modal": {
@@ -64,7 +65,8 @@
         "approveSuccess": "تمت الموافقة على الطلب ذو المعرف {{id}} ✅\n\nالقرار: {{decision}}",
         "rejectReasonRequired": "يرجى تقديم سبب للرفض",
         "rejectSuccess": "تم رفض الطلب ذو المعرف {{id}} ❌\n\nالسبب: {{reason}}",
-        "fullDetailsTitle": "تفاصيل الطلب الكاملة:"
+        "fullDetailsTitle": "تفاصيل الطلب الكاملة:",
+        "noNotesAdded": "لم تتم إضافة ملاحظات"
       }
     },
     "alerts": {
@@ -117,7 +119,8 @@
           "amount": "المبلغ",
           "description": "الوصف",
           "requestDate": "تاريخ الطلب",
-          "actions": "الإجراءات"
+          "actions": "الإجراءات",
+          "agent": "الوكيل"
         },
         "buttons": {
           "approve": "موافقة",
@@ -146,18 +149,21 @@
         "underReview": "قيد المراجعة"
       },
       "table": {
+        "noAgent": "لم يُعيّن وكيل",
         "headers": {
           "id": "المعرف",
           "customer": "العميل",
           "amount": "المبلغ",
           "description": "الوصف",
           "requestDate": "تاريخ الطلب",
-          "actions": "الإجراءات"
+          "actions": "الإجراءات",
+          "agent": "الوكيل"
         },
         "buttons": {
           "approve": "موافقة",
           "reject": "رفض",
-          "viewDetails": "عرض التفاصيل"
+          "viewDetails": "عرض التفاصيل",
+          "escalate": "تصعيد"
         }
       },
       "alerts": {
@@ -168,7 +174,10 @@
         "rejectSuccess": "تم رفض الدفعة ذي الرقم #{{id}}. السبب: {{reason}}",
         "rejectFailed": "فشل رفض الدفعة",
         "detailsTitle": "تفاصيل الطلب ذو الرقم #{{id}}:\n\nالعميل: {{customer}}\nالمبلغ: {{amount}} {{currency}}\nالوصف: {{description}}\nالحالة: {{status}}\nالتاريخ: {{date}}\n\nملاحظات:\n{{notes}}",
-        "error": "خطأ"
+        "error": "خطأ",
+        "escalateConfirm": "هل تريد تصعيد الطلب رقم {{id}} من {{customer}} إلى المشرف؟",
+        "escalateSuccess": "تم تصعيد الطلب رقم {{id}} إلى المشرف!",
+        "escalateFailed": "فشل تصعيد الطلب."
       }
     },
     "objection": {
@@ -176,6 +185,13 @@
       "title": "طلبات الاعتراض",
       "loading": "جاري تحميل طلبات الاعتراض...",
       "error": "فشل تحميل طلبات الاعتراض",
+      "types": {
+        "product": "منتج",
+        "payment": "دفع",
+        "delivery": "توصيل",
+        "refund": "استرداد",
+        "general": "عام"
+      },
       "stats": {
         "total": "إجمالي الاعتراضات",
         "highPriority": "أولوية عالية",
@@ -213,6 +229,12 @@
       "title": "إدارة طلبات الشحن",
       "loading": "جاري تحميل طلبات الشحن...",
       "error": "فشل تحميل طلبات الشحن",
+      "agentActionRequired": "يتطلب إجراءً من الوكيل",
+      "types": {
+        "standard": "عادي",
+        "viaAgent": "عبر وكيل",
+        "agentAdmin": "وكيل/مدير"
+      },
       "table": {
         "headers": {
           "id": "المعرف",
@@ -229,6 +251,7 @@
         }
       },
       "alerts": {
+        "approveConfirm": "هل تريد قبول طلب الشحن رقم {{id}}؟",
         "approveSuccess": "تمت الموافقة على طلب الشحن ذو الرقم #{{id}} بنجاح!",
         "approveFailed": "فشل قبول طلب الشحن",
         "rejectPrompt": "يرجى إدخال سبب الرفض:",

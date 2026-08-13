@@ -1,4 +1,15 @@
 {
+  "loading": "Loading...",
+  "error": "Error occurred",
+  "tryAgain": "Try Again",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "user": "User",
+  "details": "Details",
+  "limit": { "noLimit": "No limit" },
+  "colors": { "black": "Black", "white": "White" },
+  "roles": { "admin": "Administrator", "agent": "Agent", "user": "User" },
+  "profile": { "title": "User Profile", "myprofile": "My Profile", "accountsettings": "Account Settings", "myactions": "My Actions", "lastactions": "Last Actions" },
   "common": {
     "login": "Login",
     "logout": "Logout",
@@ -30,6 +41,17 @@
     "error": "Error occurred",
     "success": "Success",
     "tryAgain": "Try Again",
+    "close": "Close",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "user": "User",
+    "details": "Details",
+    "limit": {
+      "noLimit": "No limit"
+    },
+    "securingDashboard": "Securing your dashboard...",
+    "adminDashboardRequired": "This dashboard requires administrator privileges.",
+    "returnToLogin": "Return to Login",
     "confirmDelete": "Are you sure you want to delete?",
     "accessRestricted": "Access Restricted",
     "buttons": {
@@ -85,6 +107,10 @@
     "agents": "Agents",
     "blacklist": "Blacklist",
     "admins": "Admins",
+    "finance-controls": "Finance Controls",
+    "operational-logs": "Operational Logs",
+    "customer-categories": "Customer Categories",
+    "agent-operations": "Agent Operations",
     "sections": "Store Sections",
     "products": "Products List"
   },

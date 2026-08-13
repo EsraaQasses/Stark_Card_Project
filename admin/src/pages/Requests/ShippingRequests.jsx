@@ -89,7 +89,7 @@ const ShippingRequests = () => {
     if (actionLoading) return;
     const confirmed = window.confirm(
       t('requestsPages.shipping.alerts.approveConfirm', {
-        defaultValue: `Approve shipping request #${shipping.id}? This updates a financial request.`,
+        id: shipping.id,
       })
     );
     if (!confirmed) return;

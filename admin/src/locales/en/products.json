@@ -70,7 +70,10 @@
       "imageSizeErr": "Image size should be less than 5MB",
       "saveSuccess": "Product saved successfully!",
       "saveError": "Error: {{message}}",
-      "noApiProducts": "No products found for this API. Make sure the API is properly configured and has available products."
+      "saveFailed": "Failed to save product",
+      "loadingApiProducts": "Loading API products...",
+      "noApiProducts": "No products found for this API. Make sure the API is properly configured and has available products.",
+      "openingRequirements": "Opening requirements management for product {{id}}"
     },
     "modal": {
       "addTitle": "Add New Product",
@@ -78,6 +81,12 @@
       "apiTitle": "Select API Product",
       "apiSubtitle": "Choose a product from the API to auto-fill the product details and requirements.",
       "fields": {
+        "selectSectionPlaceholder": "Select a section",
+        "noApiOption": "No API",
+        "uncategorized": "Uncategorized",
+        "cancel": "Cancel",
+        "updateProduct": "Update Product",
+        "createProduct": "Create Product",
         "nameEn": "English Name *",
         "nameAr": "Arabic Name *",
         "descEn": "English Description",
@@ -137,6 +146,10 @@
     }
   },
   "addProductPage": {
+    "languages": {
+      "arabic": "Arabic",
+      "english": "English"
+    },
     "title": "Add New Product",
     "subtitle": "Fill in the form below to create a new product and save it to the database.",
     "backToProducts": "Back to Products",

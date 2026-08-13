@@ -112,5 +112,33 @@
     "usd": "USD",
     "syp": "SYP",
     "eur": "EUR"
+  },
+  "apiTransactions": {
+    "category": "External APIs",
+    "allApis": "All APIs",
+    "apiNumber": "API #{{id}}",
+    "title": "{{name}} Transactions",
+    "subtitle": "Provider request and response history.",
+    "refresh": "Refresh",
+    "back": "Back to APIs",
+    "loading": "Loading transactions...",
+    "empty": "No API transactions found.",
+    "error": "Failed to load API transactions.",
+    "headers": {
+      "time": "Time",
+      "api": "API",
+      "endpoint": "Endpoint",
+      "http": "HTTP",
+      "result": "Result",
+      "externalId": "External ID",
+      "error": "Error"
+    },
+    "result": {
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "count": "{{count}} transactions",
+    "previous": "Previous",
+    "next": "Next"
   }
 }

@@ -13,6 +13,9 @@
       "needsAttention": "{{count}} بحاجة للمراجعة",
       "allCaughtUp": "كل شيء مكتمل",
       "notice": "تنبيه: ",
+      "partialFailure": "تعذر تحميل بعض بيانات لوحة التحكم: {{sections}}. ما زالت الأقسام المتاحة ظاهرة.",
+      "unavailable": "غير متاح",
+      "requestFailed": "فشل الطلب",
       "failedToLoadData": "عذراً، فشل تحميل بيانات لوحة التحكم. يرجى التحقق من اتصالك والمحاولة مرة أخرى."
     },
     "priority": {

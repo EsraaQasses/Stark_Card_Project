@@ -42,6 +42,7 @@
       "button": "إضافة طريقة دفع"
     },
     "alerts": {
+      "loadFailed": "فشل تحميل طرق الدفع",
       "deleteConfirm": "هل أنت متأكد أنك تريد حذف \"{{title}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
       "deleteSuccess": "تم حذف طريقة الدفع بنجاح!",
       "deleteFailed": "فشل حذف طريقة الدفع",
@@ -100,6 +101,7 @@
     }
   },
   "history": {
+    "error": "فشل تحميل المدفوعات",
     "category": "إدارة المدفوعات",
     "title": "جميع المدفوعات",
     "stats": {
@@ -161,7 +163,8 @@
       "profitPercent": "+{{percent}}% ربح",
       "buttons": {
         "details": "تفاصيل",
-        "process": "معالجة"
+        "process": "معالجة",
+        "refund": "استرداد"
       },
       "tooltips": {
         "details": "عرض تفاصيل الدفع",
@@ -171,7 +174,11 @@
     "alerts": {
       "detailsTitle": "تفاصيل عملية الدفع",
       "detailsMessage": "تفاصيل عملية الدفع:\nالمعرف: {{id}}\nالمستخدم: {{user}}\nالمنتج: {{product}}\nالمبلغ: {{amount}}\nالحالة: {{status}}",
-      "processing": "جاري معالجة عملية الدفع {{id}}..."
+      "processing": "جاري معالجة عملية الدفع {{id}}...",
+      "statusConfirm": "هل تريد تغيير حالة الدفعة رقم {{id}} من {{current}} إلى {{next}}؟",
+      "statusSuccess": "تم تحديث حالة الدفعة.",
+      "refundConfirm": "هل تريد استرداد هذه الدفعة؟",
+      "refundSuccess": "تم استرداد الدفعة بنجاح."
     }
   },
   "recent": {
@@ -180,6 +187,7 @@
     "loadingText": "جاري تحميل عمليات الدفع...",
     "emptyTitle": "لم يتم العثور على عمليات دفع",
     "emptyDesc": "ستظهر عمليات الدفع هنا بمجرد معالجتها",
+    "daysAgo": "منذ {{count}} أيام",
     "productPurchase": "شراء منتج",
     "base": "الأساسي: {{symbol}}{{amount}}",
     "profit": "+{{percent}}% ربح",
@@ -200,7 +208,8 @@
   "currency": {
     "usd": "دولار أمريكي",
     "syp": "ليرة سورية",
-    "eur": "يورو"
+    "eur": "يورو",
+    "syp_symbol": "ل.س"
   },
   "inputType": {
     "text": "نص",

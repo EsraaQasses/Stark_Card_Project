@@ -16,13 +16,15 @@
     "refreshFailed": "Failed to refresh exchange rates",
     "invalidRate": "Please enter a valid exchange rate greater than 0",
     "updateSuccess": "Exchange rate updated successfully",
-    "updateFailed": "Failed to update exchange rate"
+    "updateFailed": "Failed to update exchange rate",
+    "updateConfirm": "Change the live USD/SYP exchange rate to {{rate}}?"
   },
   "currency": {
     "usd": "US Dollar",
     "syp": "Syrian Pound",
     "available": "Available",
-    "pending": "Pending"
+    "pending": "Pending",
+    "balance": "Balance"
   },
   "exchange": {
     "title": "Exchange Rates",
@@ -35,5 +37,96 @@
     "totalBalanceUsd": "Total Balance (USD)",
     "totalBalanceSyp": "Total Balance (SYP)"
   },
-  "loading": "Loading wallet data..."
+  "loading": "Loading wallet data...",
+  "financeControls": {
+    "category": "Finance",
+    "title": "Finance Controls",
+    "subtitle": "Activate immutable exchange-rate quotes and review historical accounting reports.",
+    "refresh": "Refresh",
+    "tabs": {
+      "rates": "Exchange-rate Quotes",
+      "reports": "Financial Reports"
+    },
+    "current": {
+      "title": "Current Active Quote",
+      "loading": "Loading...",
+      "version": "Version {{version}} · Quote #{{id}}",
+      "activated": "Activated {{date}}",
+      "empty": "No active exchange-rate quote."
+    },
+    "activate": {
+      "title": "Activate New Quote",
+      "hint": "The backend currently permits zero-spread quotes only, so buy and sell rates are submitted equally.",
+      "rate": "USD to SYP Rate",
+      "note": "Activation Note",
+      "button": "Activate Quote",
+      "activating": "Activating..."
+    },
+    "history": {
+      "title": "Immutable Quote History",
+      "loading": "Loading quote history...",
+      "empty": "No exchange-rate quotes exist.",
+      "headers": {
+        "version": "Version",
+        "rate": "Rate",
+        "status": "Status",
+        "note": "Note",
+        "created": "Created",
+        "superseded": "Superseded"
+      }
+    },
+    "report": {
+      "period": "Period",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "anchorDate": "Anchor Date (optional)",
+      "run": "Run Report",
+      "loading": "Loading financial report...",
+      "empty": "No report loaded.",
+      "operations": "Operations",
+      "boundary": "Boundary",
+      "to": "to {{date}}",
+      "accountingTotals": "Accounting Totals",
+      "statusTotals": "Status Totals",
+      "metric": "Metric",
+      "amounts": "Amounts"
+    },
+    "periods": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "custom": "Custom"
+    },
+    "status": {
+      "active": "Active",
+      "superseded": "Superseded",
+      "pending": "Pending",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "metrics": {
+      "gross_amount": "Gross Amount",
+      "base_amount": "Base Amount",
+      "final_amount": "Final Amount",
+      "platform_profit": "Platform Profit",
+      "agent_commission": "Agent Commission",
+      "net_amount": "Net Amount",
+      "total_amount": "Total Amount"
+    },
+    "validation": {
+      "quote": "A positive exchange rate and activation note are required.",
+      "customDates": "Start and end dates are required for a custom report."
+    },
+    "confirm": "Activate a new zero-spread USD/SYP quote at {{rate}}? The current quote will be superseded.",
+    "notices": {
+      "activated": "Exchange-rate quote activated successfully."
+    },
+    "errors": {
+      "loadRates": "Failed to load exchange-rate quotes.",
+      "loadReport": "Failed to load the financial report.",
+      "quoteChanged": "The active quote changed. Refresh and try again.",
+      "activate": "Failed to activate the quote."
+    }
+  }
 }

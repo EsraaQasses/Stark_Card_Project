@@ -1,4 +1,15 @@
 {
+  "loading": "جاري التحميل...",
+  "error": "حدث خطأ ما",
+  "tryAgain": "إعادة المحاولة",
+  "today": "اليوم",
+  "yesterday": "أمس",
+  "user": "المستخدم",
+  "details": "التفاصيل",
+  "limit": { "noLimit": "بلا حد" },
+  "colors": { "black": "أسود", "white": "أبيض" },
+  "roles": { "admin": "مدير النظام", "agent": "وكيل", "user": "مستخدم" },
+  "profile": { "title": "ملف المستخدم", "myprofile": "ملفي الشخصي", "accountsettings": "إعدادات الحساب", "myactions": "عملياتي", "lastactions": "آخر العمليات" },
   "common": {
     "login": "تسجيل الدخول",
     "logout": "تسجيل الخروج",
@@ -30,6 +41,17 @@
     "error": "حدث خطأ ما",
     "success": "تم بنجاح",
     "tryAgain": "إعادة المحاولة",
+    "close": "إغلاق",
+    "today": "اليوم",
+    "yesterday": "أمس",
+    "user": "المستخدم",
+    "details": "التفاصيل",
+    "limit": {
+      "noLimit": "بلا حد"
+    },
+    "securingDashboard": "جاري تأمين لوحة التحكم...",
+    "adminDashboardRequired": "تتطلب لوحة التحكم هذه صلاحيات مدير النظام.",
+    "returnToLogin": "العودة إلى تسجيل الدخول",
     "confirmDelete": "هل أنت متأكد من الحذف؟",
     "accessRestricted": "الوصول مقيد",
     "buttons": {
@@ -85,6 +107,10 @@
     "agents": "الوكلاء",
     "blacklist": "القائمة السوداء",
     "admins": "المدراء",
+    "finance-controls": "التحكم المالي",
+    "operational-logs": "سجلات التشغيل",
+    "customer-categories": "فئات العملاء",
+    "agent-operations": "عمليات الوكلاء",
     "sections": "أقسام المتجر",
     "products": "قائمة المنتجات"
   },

@@ -161,7 +161,7 @@ const Home = () => {
       if (failedLabels.length) {
         setError(t(
           "overview.status.partialFailure",
-          `Some dashboard data could not be loaded: ${failedLabels.join(', ')}. Available sections remain visible.`
+          { sections: failedLabels.join(', ') }
         ));
       }
 
