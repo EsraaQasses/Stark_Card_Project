@@ -5,7 +5,7 @@ from django.db.models import Sum
 import logging
 from .models import ExchangeRate, Wallet
 from .rate_quotes import ExchangeRateQuoteService
-from .display import convert_display, wallet_equivalents
+from .display import _unavailable, convert_display, wallet_equivalents
 from finance.precision import quantize_rate
 from django.conf import settings
 from users.models import User  # Add this import
@@ -152,6 +152,16 @@ class WalletService:
             
         except Exception as e:
             logger.error(f"Error getting wallet data: {str(e)}")
+            fallback_equivalents = {
+                "USD": {
+                    field: _unavailable(0, "USD", "SYP")
+                    for field in ("available", "pending", "total")
+                },
+                "SYP": {
+                    field: _unavailable(0, "SYP", "USD")
+                    for field in ("available", "pending", "total")
+                },
+            }
             return {
                 "USD": {"available": Decimal("0"), "pending": Decimal("0"), "total": Decimal("0")},
                 "SYP": {"available": Decimal("0"), "pending": Decimal("0"), "total": Decimal("0")},
@@ -159,6 +169,7 @@ class WalletService:
                 "rate_available": False,
                 "quote_id": None,
                 "quote_version": None,
+                "equivalents": fallback_equivalents,
             }
     
     @staticmethod

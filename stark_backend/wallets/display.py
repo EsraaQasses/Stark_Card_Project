@@ -56,6 +56,27 @@ def convert_display(*, amount, source_currency, target_currency, quote=None):
     if source_currency != target_currency and quote is None:
         return _unavailable(amount, source_currency, target_currency)
 
+    # Zero balances are valid display values, but the canonical financial
+    # conversion service intentionally rejects zero transaction amounts. Use a
+    # positive display-only probe to validate the quote/rate metadata, then
+    # replace the amounts with the exact zero display value. This keeps the
+    # financial conversion boundary strict for real money operations.
+    zero_amount = Decimal(str(amount)).quantize(MONEY_QUANTUM)
+    if zero_amount == 0:
+        result = CurrencyConversionService.convert(
+            amount=Decimal("1"),
+            source_currency=source_currency,
+            target_currency=target_currency,
+            rate_side=side,
+            operation_type="wallet_equivalent_display",
+            quote=quote,
+        )
+        metadata = _conversion_metadata(result, quote)
+        zero_text = format(zero_amount, "f")
+        metadata["source_amount"] = zero_text
+        metadata["converted_amount"] = zero_text
+        return metadata
+
     result = CurrencyConversionService.convert(
         amount=amount,
         source_currency=source_currency,

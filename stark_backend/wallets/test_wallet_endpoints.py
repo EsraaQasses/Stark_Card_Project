@@ -1,12 +1,14 @@
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from finance.services import FinanceService
 from transactions.models import Transaction
 from users.models import User
-from wallets.models import Wallet
+from wallets.models import ExchangeRateQuote, Wallet
+from wallets.services import WalletService
 
 
 class WalletEndpointFlowTests(TestCase):
@@ -47,6 +49,42 @@ class WalletEndpointFlowTests(TestCase):
         ):
             response = self.client.get(path)
             self.assertIn(response.status_code, (200, 503), (path, response.data))
+
+    def test_wallet_read_with_active_quote_and_zero_balances(self):
+        ExchangeRateQuote.objects.create(
+            platform_buy_base_rate=Decimal("116"),
+            platform_sell_base_rate=Decimal("116"),
+            status=ExchangeRateQuote.STATUS_ACTIVE,
+            source="manual",
+            effective_at=timezone.now(),
+            created_by=self.admin,
+            activation_note="Zero-balance display regression test",
+        )
+        response = self.client.get("/api/wallets/wallet/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(
+            response.data["USD"]["display_conversion"]["available"]["converted_amount"],
+            "0.00000000",
+        )
+        self.assertEqual(
+            response.data["SYP"]["display_conversion"]["total"]["converted_amount"],
+            "0.00000000",
+        )
+
+    def test_wallet_read_keeps_equivalents_when_display_conversion_fails(self):
+        from unittest.mock import patch
+
+        with patch(
+            "wallets.services.wallet_equivalents",
+            side_effect=RuntimeError("simulated display failure"),
+        ):
+            fallback_data = WalletService.get_wallet_data(self.user)
+            response = self.client.get("/api/wallets/wallet/")
+
+        self.assertIn("equivalents", fallback_data)
+        self.assertIn("USD", fallback_data["equivalents"])
+        self.assertIn("SYP", fallback_data["equivalents"])
+        self.assertEqual(response.status_code, 200, response.data)
 
     def test_currency_preference_and_invalid_currency(self):
         response = self.client.put(
