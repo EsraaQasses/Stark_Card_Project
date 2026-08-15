@@ -1,5 +1,5 @@
 # wallets/views.py - OPTIMIZED FIXED VERSION (~350 lines)
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -383,7 +383,13 @@ class WalletDepositView(APIView):
         """Initiate a deposit (used by shipping app)"""
         try:
             user = request.user
-            amount = Decimal(str(request.data.get('amount', 0)))
+            try:
+                amount = Decimal(str(request.data.get('amount', 0)))
+            except (InvalidOperation, TypeError, ValueError):
+                return Response(
+                    {"error": "Amount must be a valid number"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             currency = request.data.get('currency', 'USD').upper()
             if currency not in ["USD", "SYP"]:
                 return Response(
@@ -430,7 +436,13 @@ class WalletWithdrawView(APIView):
         """Initiate a withdrawal"""
         try:
             user = request.user
-            amount = Decimal(str(request.data.get('amount', 0)))
+            try:
+                amount = Decimal(str(request.data.get('amount', 0)))
+            except (InvalidOperation, TypeError, ValueError):
+                return Response(
+                    {"error": "Amount must be a valid number"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             currency = request.data.get('currency', 'USD').upper()
             if currency not in ["USD", "SYP"]:
                 return Response(
@@ -459,6 +471,7 @@ class WalletWithdrawView(APIView):
                 note=f"Withdrawal: {request.data.get('note', '')}",
                 transaction_type="withdrawal"
             )
+            wallet.refresh_from_db()
             
             return Response({
                 "success": True,

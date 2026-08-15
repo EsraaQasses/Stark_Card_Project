@@ -182,6 +182,49 @@ python manage.py test finance.tests.FinanceCharacterizationTests --verbosity 1
 
 Expected result: system check passes, no pending migrations are printed, and the finance tests pass.
 
+## Full user journey scenario
+
+The reproducible end-to-end scenario is implemented in:
+
+```text
+tests/test_full_user_journey.py
+```
+
+Run it against an isolated PostgreSQL test database:
+
+```powershell
+cd E:\Stark-card_Server\stark_backend
+$env:DJANGO_ENV = "test"
+python manage.py test tests.test_full_user_journey -v 1 --noinput
+```
+
+The scenario exercises:
+
+1. User registration.
+2. Login.
+3. Authenticated profile access.
+4. Password-reset request, code verification, confirmation, and login with the new password.
+5. User payment/shipping request creation.
+6. Admin shipping list, approval, and payment-status endpoints.
+7. Admin agent-promotion endpoint.
+8. Admin request listing.
+9. User creation of an `other` request.
+10. Agent assigned-user listing.
+11. Syriatel purchase rejection using phone number `0951516068`.
+12. User wallet and wallet-transaction endpoints.
+13. Admin financial-report endpoint.
+
+The test database is created and destroyed by Django. The real `stark_card` database is not modified. The external provider HTTP boundary is mocked with a Stark-Card-shaped `ERROR` response, so no real purchase or charge is possible.
+
+The purchase assertion uses the invalid Syriatel test number `0951516068` and expects:
+
+- HTTP `400` with `PROVIDER_REJECTED`.
+- The provider detail `API Error (PHONE_NOT_SYRIATEL): هذا الرقم ليس سيريتل`.
+- No successful purchase or approved purchase transaction.
+- The wallet balance and financial totals to remain unchanged.
+
+The scenario prints each endpoint step, wallet balances before and after the rejected purchase, and the final financial report totals.
+
 ## Rollback reference
 
 Do not delete the SQLite backup or PostgreSQL dump until PostgreSQL has been used successfully for a while.
