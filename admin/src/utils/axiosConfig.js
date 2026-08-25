@@ -1,12 +1,17 @@
 import axios from 'axios';
 
-const apiBaseURL = 'http://37.120.185.235/api';
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+
+const apiBaseURL = configuredApiBase
+  ? configuredApiBase.replace(/\/+$/, '')
+  : import.meta.env.PROD
+    ? 'https://stark-card-app.com/api'
+    : 'http://37.120.185.235/api';
 
 const axiosInstance = axios.create({
   baseURL: apiBaseURL,
   timeout: 30000,
 });
-
 let refreshPromise = null;
 
 const clearAdminAuth = () => {
