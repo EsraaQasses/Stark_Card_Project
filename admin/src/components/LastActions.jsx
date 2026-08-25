@@ -228,7 +228,7 @@ const LastActions = ({ onClose }) => {
           <div className="flex justify-between items-start gap-2 mb-1.5">
             <div className="text-start">
               <p className="font-semibold text-gray-800 dark:text-gray-200 text-sm leading-tight">
-                {action.admin_name || 'System Admin'}
+                {action.admin_name || t('states.systemAdmin')}
               </p>
               {action.target_name && (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
@@ -250,7 +250,7 @@ const LastActions = ({ onClose }) => {
               {getTimeAgo(action.created_at)}
             </span>
             <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded text-[10px] font-medium uppercase tracking-wider">
-              {action.action_type?.split(' ')[0] || 'Action'}
+              {getActionTypeBadge(action.action_type, action.description)}
             </span>
           </div>
         </div>

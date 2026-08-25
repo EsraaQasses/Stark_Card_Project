@@ -65,7 +65,8 @@
     "pending": "قيد الانتظار",
     "approved": "مقبول",
     "rejected": "مرفوض",
-    "cancelled": "ملغى"
+    "cancelled": "ملغى",
+    "unknown": "حالة غير معروفة"
   },
   "creditLimitModal": {
     "title": "حدود الائتمان — {{name}}",

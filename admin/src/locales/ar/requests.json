@@ -81,7 +81,8 @@
     "in_progress": "قيد التنفيذ",
     "objection": "اعتراض",
     "completed": "مكتمل",
-    "rejected": "مرفوض"
+    "rejected": "مرفوض",
+    "unknown": "حالة غير معروفة"
   },
   "type": {
     "payment": "دفع",
@@ -92,7 +93,8 @@
   "priority": {
     "high": "عالية",
     "medium": "متوسطة",
-    "low": "منخفضة"
+    "low": "منخفضة",
+    "unknown": "غير محددة"
   },
   "currency": {
     "usd": "دولار",

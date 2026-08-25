@@ -101,12 +101,22 @@
   "status": {
     "approved": "Approved",
     "pending": "Pending",
-    "rejected": "Rejected"
+    "rejected": "Rejected",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "refunded": "Refunded",
+    "unknown": "Unknown Status"
   },
   "type": {
     "deposit": "Deposit",
     "transfer": "Transfer",
-    "purchase": "Purchase"
+    "purchase": "Purchase",
+    "withdrawal": "Withdrawal",
+    "refund": "Refund",
+    "commission": "Commission",
+    "adjustment": "Adjustment",
+    "other": "Other Transaction"
   },
   "currency": {
     "usd": "USD",

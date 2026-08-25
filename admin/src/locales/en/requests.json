@@ -81,7 +81,8 @@
     "in_progress": "In Progress",
     "objection": "Objection",
     "completed": "Completed",
-    "rejected": "Rejected"
+    "rejected": "Rejected",
+    "unknown": "Unknown Status"
   },
   "type": {
     "payment": "Payment",
@@ -92,7 +93,8 @@
   "priority": {
     "high": "High",
     "medium": "Medium",
-    "low": "Low"
+    "low": "Low",
+    "unknown": "Not Specified"
   },
   "currency": {
     "usd": "USD",

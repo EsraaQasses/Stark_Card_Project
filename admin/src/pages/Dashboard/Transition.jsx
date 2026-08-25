@@ -14,6 +14,7 @@ import {
 import { Header } from '../../components';
 import { useAuth } from '../../contexts/AuthContext';
 import axiosInstance from '../../utils/axiosConfig';
+import { localizeRuntimeValue } from '../../utils/runtimeLocalization';
 
 const Transactions = () => {
   const { t, i18n } = useTranslation(['transactions', 'common']);
@@ -36,6 +37,14 @@ const Transactions = () => {
   const [actionLoading, setActionLoading] = useState(null);
 
   const toolbarOptions = ['Search', 'Print', 'ExcelExport'];
+  const transactionValue = (prefix, value, fallbackKey) => localizeRuntimeValue({
+    t,
+    i18n,
+    value,
+    namespace: 'transactions',
+    prefix,
+    fallback: () => t(fallbackKey),
+  });
 
   const getWalletCurrency = (wallet) => {
     if (typeof wallet === 'object' && wallet !== null) {
@@ -203,7 +212,7 @@ const Transactions = () => {
           {isInflow ? '+' : '-'}{symbol}{formattedAmount}{currencySuffix}
         </div>
         <div className="text-xs text-gray-500 capitalize">
-          {t(`type.${props.TransactionType?.toLowerCase()}`, { defaultValue: props.TransactionType })}
+          {transactionValue('type', props.TransactionType, 'type.other')}
         </div>
       </div>
     );
@@ -249,7 +258,7 @@ const Transactions = () => {
     return (
       <div className="flex items-center gap-2 text-start">
         <span className="text-sm shrink-0">{typeIcons[props.TransactionType] || '📊'}</span>
-        <span className="text-sm font-medium capitalize text-gray-900 dark:text-gray-100">{t(`type.${props.TransactionType?.toLowerCase()}`, { defaultValue: props.TransactionType })}</span>
+        <span className="text-sm font-medium capitalize text-gray-900 dark:text-gray-100">{transactionValue('type', props.TransactionType, 'type.other')}</span>
       </div>
     );
   };
@@ -605,13 +614,13 @@ const Transactions = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.type')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {t(`type.${selectedTransaction.TransactionType?.toLowerCase()}`, { defaultValue: selectedTransaction.TransactionType })}
+                      {transactionValue('type', selectedTransaction.TransactionType, 'type.other')}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.status')}</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {t(`status.${selectedTransaction.Status?.toLowerCase()}`, { defaultValue: selectedTransaction.Status })}
+                      {transactionValue('status', selectedTransaction.Status, 'status.unknown')}
                     </span>
                   </div>
                   <div className="flex justify-between">

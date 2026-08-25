@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizeRuntimeValue } from '../utils/runtimeLocalization';
 
 const RequestReviewModal = ({ request, onClose, onUpdateStatus, onAddComment }) => {
   const { t, i18n } = useTranslation(['requests', 'common']);
@@ -14,14 +15,22 @@ const RequestReviewModal = ({ request, onClose, onUpdateStatus, onAddComment }) 
   const userPhone = request.user_phone || request.UserPhone || '';
   const userImage = request.user_image || request.UserImage || 'https://via.placeholder.com/40x40/cccccc/666666?text=User';
   
+  const localizeRequestValue = (prefix, value, fallbackKey) => localizeRuntimeValue({
+    t,
+    i18n,
+    value,
+    namespace: 'requests',
+    prefix,
+    fallback: () => t(fallbackKey),
+  });
   const rawType = request.request_type || request.RequestType;
-  const requestType = t(`type.${rawType?.toLowerCase()}`, { defaultValue: rawType || '' });
-  
+  const requestType = localizeRequestValue('type', rawType, 'type.other');
+
   const rawStatus = request.status || request.Status;
-  const status = t(`status.${rawStatus?.toLowerCase()}`, { defaultValue: rawStatus || '' });
-  
+  const status = localizeRequestValue('status', rawStatus, 'status.unknown');
+
   const rawPriority = request.priority || request.Priority;
-  const priority = t(`priority.${rawPriority?.toLowerCase()}`, { defaultValue: rawPriority || '' });
+  const priority = localizeRequestValue('priority', rawPriority, 'priority.unknown');
   
   const amount = request.amount || request.Amount;
   const currency = request.currency || request.Currency || '';

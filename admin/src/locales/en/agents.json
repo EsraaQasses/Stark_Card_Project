@@ -65,7 +65,8 @@
     "pending": "Pending",
     "approved": "Approved",
     "rejected": "Rejected",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "unknown": "Unknown Status"
   },
   "creditLimitModal": {
     "title": "Credit limits — {{name}}",

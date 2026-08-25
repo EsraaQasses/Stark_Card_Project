@@ -1,12 +1,6 @@
 import axios from 'axios';
 
-const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
-if (!configuredApiBase && import.meta.env.PROD) {
-  throw new Error('VITE_API_BASE_URL is required for production builds.');
-}
-const apiBaseURL = `${(configuredApiBase || 'http://127.0.0.1:8000/api')
-  .replace(/\/+$/, '')
-  .replace(/\/api$/i, '')}/api`;
+const apiBaseURL = 'http://37.120.185.235/api';
 
 const axiosInstance = axios.create({
   baseURL: apiBaseURL,
@@ -30,67 +24,103 @@ const redirectToLogin = () => {
 
 const refreshAccessToken = async () => {
   const refresh = localStorage.getItem('refresh_token');
-  if (!refresh) throw new Error('No refresh token');
 
-  const { data } = await axios.post(`${apiBaseURL}/users/token/refresh/`, { refresh }, {
-    headers: { 'Content-Type': 'application/json' },
-    timeout: 15000,
-  });
+  if (!refresh) {
+    throw new Error('No refresh token');
+  }
 
-  if (!data?.access) throw new Error('No access token returned');
+  const { data } = await axios.post(
+    `${apiBaseURL}/users/token/refresh/`,
+    { refresh },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 15000,
+    }
+  );
+
+  if (!data?.access) {
+    throw new Error('No access token returned');
+  }
+
   localStorage.setItem('access_token', data.access);
-  if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+
+  if (data.refresh) {
+    localStorage.setItem('refresh_token', data.refresh);
+  }
+
   return data.access;
 };
 
-// Simple and reliable request interceptor
+// ==============================
+// Request Interceptor
+// ==============================
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
-    const isPublicAuthRequest = /\/users\/(?:login(?:\/|$)|setup-first-password|token\/refresh)/i
-      .test(`${config.baseURL || ''}${config.url || ''}`);
+
+    const requestUrl = `${config.baseURL || ''}${config.url || ''}`;
+
+    const isPublicAuthRequest = /\/users\/(?:login(?:\/|$)|setup-first-password|token\/refresh)/i.test(
+      requestUrl
+    );
+
     if (token && !isPublicAuthRequest) {
       config.headers.Authorization = `Bearer ${token}`;
     } else if (isPublicAuthRequest) {
       delete config.headers.Authorization;
     }
-    
+
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
     } else if (!config.headers['Content-Type']) {
       config.headers['Content-Type'] = 'application/json';
     }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Simple response interceptor - handle 401 by redirecting to login
+// ==============================
+// Response Interceptor
+// ==============================
 axiosInstance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
+
   async (error) => {
     const original = error.config;
-    const isAuthRequest = /\/users\/(?:login|token\/refresh|logout)\//.test(original?.url || '');
 
-    if (error.response?.status === 401 && original && !original.retryAttempted && !isAuthRequest) {
+    const isAuthRequest = /\/users\/(?:login|token\/refresh|logout)\//.test(
+      original?.url || ''
+    );
+
+    if (
+      error.response?.status === 401
+      && original
+      && !original.retryAttempted
+      && !isAuthRequest
+    ) {
       original.retryAttempted = true;
+
       try {
         if (!refreshPromise) {
           refreshPromise = refreshAccessToken().finally(() => {
             refreshPromise = null;
           });
         }
+
         const access = await refreshPromise;
+
         original.headers = original.headers || {};
         original.headers.Authorization = `Bearer ${access}`;
+
         return axiosInstance.request(original);
       } catch (refreshError) {
         clearAdminAuth();
         redirectToLogin();
+
         return Promise.reject(refreshError);
       }
     }
@@ -99,6 +129,7 @@ axiosInstance.interceptors.response.use(
       clearAdminAuth();
       redirectToLogin();
     }
+
     return Promise.reject(error);
   }
 );

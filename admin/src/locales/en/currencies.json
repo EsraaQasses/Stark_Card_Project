@@ -95,15 +95,22 @@
       "daily": "Daily",
       "weekly": "Weekly",
       "monthly": "Monthly",
-      "custom": "Custom"
+      "custom": "Custom",
+      "unknown": "Unknown Period"
     },
     "status": {
       "active": "Active",
       "superseded": "Superseded",
       "pending": "Pending",
       "completed": "Completed",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "in_progress": "In Progress",
+      "refunded": "Refunded",
+      "partially_refunded": "Partially Refunded",
       "failed": "Failed",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "unknown": "Unknown Status"
     },
     "metrics": {
       "gross_amount": "Gross Amount",
@@ -112,7 +119,28 @@
       "platform_profit": "Platform Profit",
       "agent_commission": "Agent Commission",
       "net_amount": "Net Amount",
-      "total_amount": "Total Amount"
+      "total_amount": "Total Amount",
+      "revenue": "Revenue",
+      "total_revenue": "Total Revenue",
+      "platform_revenue": "Platform Revenue",
+      "provider_cost": "Provider Cost",
+      "total_provider_cost": "Total Provider Cost",
+      "gross_profit": "Gross Profit",
+      "total_gross_profit": "Total Gross Profit",
+      "net_profit": "Net Profit",
+      "total_net_profit": "Total Net Profit",
+      "deposits": "Deposits",
+      "withdrawals": "Withdrawals",
+      "purchases": "Purchases",
+      "refunds": "Refunds",
+      "fees": "Fees",
+      "provider_fees": "Provider Fees",
+      "payment_fees": "Payment Fees",
+      "processing_fees": "Processing Fees",
+      "commissions": "Commissions",
+      "discounts": "Discounts",
+      "taxes": "Taxes",
+      "other": "Other Accounting Item"
     },
     "validation": {
       "quote": "A positive exchange rate and activation note are required.",

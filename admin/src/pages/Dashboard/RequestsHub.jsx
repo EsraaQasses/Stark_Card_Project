@@ -142,7 +142,7 @@ const RequestsHub = () => {
       other: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', icon: '📋', label: t('type.other') },
     };
 
-    const config = typeConfig[request.request_type] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', icon: '📋', label: request.request_type };
+    const config = typeConfig[request.request_type] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', icon: '📋', label: t('type.other') };
 
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium ${config.color} flex items-center justify-center gap-1 w-fit mx-auto`}>
@@ -162,7 +162,7 @@ const RequestsHub = () => {
       rejected: { color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300', icon: '❌', label: t('status.rejected') },
     };
 
-    const config = statusConfig[request.status] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', icon: '❓', label: request.status };
+    const config = statusConfig[request.status] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300', icon: '❓', label: t('status.unknown') };
 
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium ${config.color} flex items-center justify-center gap-1 w-fit mx-auto`}>

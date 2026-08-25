@@ -95,15 +95,22 @@
       "daily": "يومي",
       "weekly": "أسبوعي",
       "monthly": "شهري",
-      "custom": "مخصص"
+      "custom": "مخصص",
+      "unknown": "فترة غير معروفة"
     },
     "status": {
       "active": "نشط",
       "superseded": "مستبدل",
       "pending": "قيد الانتظار",
       "completed": "مكتمل",
+      "approved": "مقبول",
+      "rejected": "مرفوض",
+      "in_progress": "قيد المعالجة",
+      "refunded": "مسترد",
+      "partially_refunded": "مسترد جزئياً",
       "failed": "فاشل",
-      "cancelled": "ملغى"
+      "cancelled": "ملغى",
+      "unknown": "حالة غير معروفة"
     },
     "metrics": {
       "gross_amount": "المبلغ الإجمالي",
@@ -112,7 +119,28 @@
       "platform_profit": "ربح المنصة",
       "agent_commission": "عمولة الوكيل",
       "net_amount": "صافي المبلغ",
-      "total_amount": "إجمالي المبلغ"
+      "total_amount": "إجمالي المبلغ",
+      "revenue": "الإيرادات",
+      "total_revenue": "إجمالي الإيرادات",
+      "platform_revenue": "إيرادات المنصة",
+      "provider_cost": "تكلفة المزوّد",
+      "total_provider_cost": "إجمالي تكلفة المزوّد",
+      "gross_profit": "إجمالي الربح",
+      "total_gross_profit": "إجمالي الربح الكلي",
+      "net_profit": "صافي الربح",
+      "total_net_profit": "صافي الربح الكلي",
+      "deposits": "الإيداعات",
+      "withdrawals": "عمليات السحب",
+      "purchases": "المشتريات",
+      "refunds": "المبالغ المستردة",
+      "fees": "الرسوم",
+      "provider_fees": "رسوم المزوّد",
+      "payment_fees": "رسوم الدفع",
+      "processing_fees": "رسوم المعالجة",
+      "commissions": "العمولات",
+      "discounts": "الخصومات",
+      "taxes": "الضرائب",
+      "other": "بند محاسبي آخر"
     },
     "validation": {
       "quote": "سعر صرف موجب وملاحظة تفعيل حقلاّن مطلوبان.",

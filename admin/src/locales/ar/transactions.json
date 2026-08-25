@@ -101,12 +101,22 @@
   "status": {
     "approved": "مقبولة",
     "pending": "معلقة",
-    "rejected": "مرفوضة"
+    "rejected": "مرفوضة",
+    "completed": "مكتملة",
+    "failed": "فاشلة",
+    "cancelled": "ملغاة",
+    "refunded": "مستردة",
+    "unknown": "حالة غير معروفة"
   },
   "type": {
     "deposit": "شحن",
     "transfer": "تحويل",
-    "purchase": "شراء"
+    "purchase": "شراء",
+    "withdrawal": "سحب",
+    "refund": "استرداد",
+    "commission": "عمولة",
+    "adjustment": "تسوية",
+    "other": "عملية أخرى"
   },
   "currency": {
     "usd": "دولار أمريكي",
