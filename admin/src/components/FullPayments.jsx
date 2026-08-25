@@ -1,649 +1,2082 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 import { useTranslation } from 'react-i18next';
+
 import {
-  GridComponent,
-  ColumnsDirective,
-  ColumnDirective,
-  Page,
-  Inject,
-  Toolbar,
-  Sort,
-  Filter,
-  Group
-} from '@syncfusion/ej2-react-grids';
-import { Header } from '.';
-import { useAuth } from '../contexts/AuthContext';
+  FiAlertCircle,
+  FiCheckCircle,
+  FiChevronLeft,
+  FiChevronRight,
+  FiClock,
+  FiCreditCard,
+  FiDollarSign,
+  FiEye,
+  FiFilter,
+  FiRefreshCw,
+  FiRotateCcw,
+  FiSearch,
+  FiUser,
+  FiX,
+} from 'react-icons/fi';
+
 import axiosInstance from '../utils/axiosConfig';
+import { useAuth } from '../contexts/AuthContext';
+import { useStateContext } from '../contexts/ContextProvider';
+
+const PAGE_SIZE = 12;
+
+const normalizeList = (data) => {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.results)) {
+    return data.results;
+  }
+
+  return [];
+};
+
+const getApiError = (error, fallback) => (
+  error?.response?.data?.error
+  || error?.response?.data?.detail
+  || error?.response?.data?.message
+  || fallback
+);
+
+const getInitials = (name) => {
+  const value = String(name || '').trim();
+
+  if (!value) {
+    return 'US';
+  }
+
+  const parts = value
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[1][0]}`
+    .toUpperCase();
+};
 
 const FullPayments = () => {
-  const { t, i18n } = useTranslation(['payments', 'common']);
-  const isArabic = i18n.resolvedLanguage === 'ar';
+  const {
+    t,
+    i18n,
+  } = useTranslation([
+    'payments',
+    'common',
+  ]);
+
+  const {
+    user,
+  } = useAuth();
+
+  const {
+    currentColor,
+  } = useStateContext();
+
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const locale = (
+    i18n.resolvedLanguage
+    || i18n.language
+    || (isArabic ? 'ar' : 'en')
+  );
+
+  const accentColor = (
+    currentColor || '#06b6d4'
+  );
+
+  const labels = useMemo(() => ({
+    category: isArabic
+      ? 'إدارة المدفوعات'
+      : 'Payments Management',
+
+    title: isArabic
+      ? 'جميع المدفوعات'
+      : 'All Payments',
+
+    subtitle: isArabic
+      ? 'راجع كل عمليات الدفع وابحث وفلتر وعالج الحالات من مكان واحد.'
+      : 'Review, search, filter, and manage all payment transactions in one place.',
+
+    refresh: isArabic
+      ? 'تحديث البيانات'
+      : 'Refresh',
+
+    total: isArabic
+      ? 'إجمالي المدفوعات'
+      : 'Total payments',
+
+    successful: isArabic
+      ? 'المدفوعات الناجحة'
+      : 'Successful',
+
+    pending: isArabic
+      ? 'قيد المعالجة'
+      : 'Pending / Processing',
+
+    failed: isArabic
+      ? 'فاشلة / ملغاة'
+      : 'Failed / Cancelled',
+
+    searchPlaceholder: isArabic
+      ? 'ابحث بالمستخدم أو المنتج أو رقم الدفع...'
+      : 'Search user, product, or payment ID...',
+
+    allStatuses: isArabic
+      ? 'كل الحالات'
+      : 'All statuses',
+
+    allCurrencies: isArabic
+      ? 'كل العملات'
+      : 'All currencies',
+
+    clear: isArabic
+      ? 'مسح الفلاتر'
+      : 'Clear filters',
+
+    noResults: isArabic
+      ? 'لا توجد مدفوعات مطابقة للفلاتر.'
+      : 'No payments match the selected filters.',
+
+    loading: isArabic
+      ? 'جاري تحميل المدفوعات...'
+      : 'Loading payments...',
+
+    loadFailed: isArabic
+      ? 'تعذر تحميل المدفوعات.'
+      : 'Failed to load payments.',
+
+    payment: isArabic
+      ? 'الدفع'
+      : 'Payment',
+
+    user: isArabic
+      ? 'المستخدم'
+      : 'User',
+
+    product: isArabic
+      ? 'المنتج'
+      : 'Product',
+
+    amount: isArabic
+      ? 'المبلغ'
+      : 'Amount',
+
+    baseAmount: isArabic
+      ? 'المبلغ الأساسي'
+      : 'Base amount',
+
+    profit: isArabic
+      ? 'الربح'
+      : 'Profit',
+
+    date: isArabic
+      ? 'التاريخ'
+      : 'Date',
+
+    details: isArabic
+      ? 'عرض التفاصيل'
+      : 'View details',
+
+    process: isArabic
+      ? 'معالجة'
+      : 'Process',
+
+    refund: isArabic
+      ? 'استرجاع'
+      : 'Refund',
+
+    page: isArabic
+      ? 'صفحة'
+      : 'Page',
+
+    of: isArabic
+      ? 'من'
+      : 'of',
+
+    status: isArabic
+      ? 'الحالة'
+      : 'Status',
+
+    currency: isArabic
+      ? 'العملة'
+      : 'Currency',
+
+    externalId: isArabic
+      ? 'المعرف الخارجي'
+      : 'External ID',
+
+    processedAt: isArabic
+      ? 'وقت المعالجة'
+      : 'Processed at',
+
+    errorMessage: isArabic
+      ? 'رسالة الخطأ'
+      : 'Error message',
+
+    close: isArabic
+      ? 'إغلاق'
+      : 'Close',
+
+    success: isArabic
+      ? 'ناجحة'
+      : 'Success',
+
+    processing: isArabic
+      ? 'قيد المعالجة'
+      : 'Processing',
+
+    pendingStatus: isArabic
+      ? 'معلقة'
+      : 'Pending',
+
+    failedStatus: isArabic
+      ? 'فاشلة'
+      : 'Failed',
+
+    cancelled: isArabic
+      ? 'ملغاة'
+      : 'Cancelled',
+
+    updateConfirm: isArabic
+      ? 'هل تريد تحديث حالة هذه الدفعة؟'
+      : 'Update this payment status?',
+
+    updateSuccess: isArabic
+      ? 'تم تحديث حالة الدفعة.'
+      : 'Payment status updated.',
+
+    updateFailed: isArabic
+      ? 'تعذر تحديث حالة الدفعة.'
+      : 'Failed to update payment.',
+
+    refundConfirm: isArabic
+      ? 'هل تريد استرجاع هذه الدفعة؟'
+      : 'Refund this payment?',
+
+    refundSuccess: isArabic
+      ? 'تم استرجاع الدفعة بنجاح.'
+      : 'Payment refunded successfully.',
+
+    refundFailed: isArabic
+      ? 'تعذر استرجاع الدفعة.'
+      : 'Failed to refund payment.',
+  }), [isArabic]);
 
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
-  const { user } = useAuth();
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [page, setPage] = useState(1);
 
   const [filters, setFilters] = useState({
     status: 'All',
     currency: 'All',
-    dateRange: 'All',
     startDate: '',
     endDate: '',
-    searchQuery: ''
+    searchQuery: '',
   });
 
-  const [stats, setStats] = useState({
-    totalPayments: 0,
-    totalAmount: 0,
-    successPayments: 0,
-    pendingPayments: 0,
-    failedPayments: 0,
-    averageAmount: 0
-  });
+  const fetchAllPayments = useCallback(
+    async ({ background = false } = {}) => {
+      if (background) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-  const toolbarOptions = ['Search', 'Print', 'ExcelExport'];
+      setError('');
+
+      try {
+        const response = await axiosInstance.get(
+          'payment/payment/',
+        );
+
+        setPayments(
+          normalizeList(response.data),
+        );
+      } catch (fetchError) {
+        console.error(
+          'Error fetching payments:',
+          fetchError,
+        );
+
+        setError(
+          getApiError(
+            fetchError,
+            labels.loadFailed,
+          ),
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [labels.loadFailed],
+  );
 
   useEffect(() => {
     fetchAllPayments();
-  }, []);
+  }, [fetchAllPayments]);
 
-  const fetchAllPayments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
 
-      const response = await axiosInstance.get('payment/payment/');
-      const paymentsData = Array.isArray(response.data?.results)
-        ? response.data.results
-        : Array.isArray(response.data)
-          ? response.data
-          : [];
-      setPayments(paymentsData);
-      calculateStats(paymentsData);
-    } catch (fetchError) {
-      const errorMessage = fetchError.response?.data?.detail
-        || fetchError.response?.data?.error
-        || t('history.error', { defaultValue: 'Failed to fetch payments' });
-      setError(errorMessage);
-      console.error('Error fetching payments:', fetchError);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const currencies = useMemo(() => (
+    [
+      ...new Set(
+        payments
+          .map((payment) => payment.currency)
+          .filter(Boolean),
+      ),
+    ]
+  ), [payments]);
 
-  const calculateStats = (paymentsData) => {
-    const totalPayments = paymentsData.length;
-    const successPayments = paymentsData.filter((p) => p.status === 'success').length;
-    const pendingPayments = paymentsData.filter((p) => p.status === 'pending' || p.status === 'processing').length;
-    const failedPayments = paymentsData.filter((p) => p.status === 'failed' || p.status === 'cancelled').length;
+  const stats = useMemo(() => {
+    const successful = payments.filter(
+      (payment) => payment.status === 'success',
+    ).length;
 
-    const totalAmount = paymentsData
-      .filter((p) => p.status === 'success')
-      .reduce((sum, p) => sum + (Number(p.final_price) || 0), 0);
+    const pending = payments.filter(
+      (payment) => (
+        payment.status === 'pending'
+        || payment.status === 'processing'
+      ),
+    ).length;
 
-    const averageAmount = successPayments > 0 ? totalAmount / successPayments : 0;
+    const failed = payments.filter(
+      (payment) => (
+        payment.status === 'failed'
+        || payment.status === 'cancelled'
+      ),
+    ).length;
 
-    setStats({
-      totalPayments,
-      totalAmount,
-      successPayments,
-      pendingPayments,
-      failedPayments,
-      averageAmount
-    });
-  };
+    return {
+      total: payments.length,
+      successful,
+      pending,
+      failed,
+    };
+  }, [payments]);
 
-  const filteredData = useMemo(() => {
-    let filtered = payments;
+  const filteredPayments = useMemo(() => {
+    let rows = [...payments];
 
     if (filters.status !== 'All') {
-      filtered = filtered.filter((payment) => payment.status === filters.status);
-    }
-
-    if (filters.currency !== 'All') {
-      filtered = filtered.filter((payment) => payment.currency === filters.currency);
-    }
-
-    if (filters.startDate) {
-      filtered = filtered.filter((payment) => new Date(payment.created_at) >= new Date(filters.startDate));
-    }
-    if (filters.endDate) {
-      filtered = filtered.filter((payment) => new Date(payment.created_at) <= new Date(`${filters.endDate}T23:59:59`));
-    }
-
-    if (filters.searchQuery) {
-      const query = filters.searchQuery.toLowerCase();
-      filtered = filtered.filter((payment) => 
-        payment.user_name?.toLowerCase().includes(query)
-        || payment.store_product_name?.toLowerCase().includes(query)
-        || payment.external_transaction_id?.toLowerCase().includes(query)
-        || payment.id.toString().includes(query)
+      rows = rows.filter(
+        (payment) => payment.status === filters.status,
       );
     }
 
-    return filtered.map((payment) => ({
-      id: payment.id,
-      PaymentID: `PAY-${payment.id.toString().padStart(6, '0')}`,
-      UserName: payment.user_name || t('history.table.userName', { id: payment.user }),
-      ProductName: payment.store_product_name || t('history.table.productName'),
-      BasePrice: Number(payment.base_price) || 0,
-      FinalPrice: Number(payment.final_price) || 0,
-      ProfitPercentage: Number(payment.profit_percentage) || 0,
-      ProfitAmount: Number(payment.profit_amount) || 0,
-      Currency: payment.currency,
-      Status: payment.status,
-      ExternalID: payment.external_transaction_id,
-      CreatedAt: payment.created_at,
-      ProcessedAt: payment.processed_at,
-      UserInputs: payment.user_inputs,
-      ErrorMessage: payment.error_message,
-      IsRefundable: Boolean(payment.is_refundable)
-    }));
-  }, [payments, filters, t]);
+    if (filters.currency !== 'All') {
+      rows = rows.filter(
+        (payment) => payment.currency === filters.currency,
+      );
+    }
 
-  const statusTemplate = (props) => {
-    const statusConfig = {
-      success: { color: 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800', icon: '✅', text: t('status.success') },
-      pending: { color: 'bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800', icon: '⏳', text: t('status.pending') },
-      processing: { color: 'bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800', icon: '⚙️', text: t('status.processing') },
-      failed: { color: 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800', icon: '❌', text: t('status.failed') },
-      cancelled: { color: 'bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600', icon: '🚫', text: t('status.cancelled') }
-    };
+    if (filters.startDate) {
+      const startDate = new Date(
+        `${filters.startDate}T00:00:00`,
+      );
 
-    const config = statusConfig[props.Status] || statusConfig.pending;
+      rows = rows.filter(
+        (payment) => (
+          new Date(payment.created_at) >= startDate
+        ),
+      );
+    }
 
-    return (
-      <div className="flex items-center justify-center gap-2">
-        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${config.color}`}>
-          {config.icon} {config.text}
-        </span>
-      </div>
-    );
-  };
+    if (filters.endDate) {
+      const endDate = new Date(
+        `${filters.endDate}T23:59:59`,
+      );
 
-  const amountTemplate = (props) => {
-    const isUSD = props.Currency === 'USD';
-    const symbol = isUSD ? '$' : '';
-    const finalAmount = isUSD ? props.FinalPrice.toFixed(2) : props.FinalPrice.toLocaleString(i18n.resolvedLanguage);
-    const baseAmount = isUSD ? props.BasePrice.toFixed(2) : props.BasePrice.toLocaleString(i18n.resolvedLanguage);
-    const currencySuffix = isUSD ? '' : ` ${t(`currency.${props.Currency?.toLowerCase()}`, { defaultValue: props.Currency })}`;
+      rows = rows.filter(
+        (payment) => (
+          new Date(payment.created_at) <= endDate
+        ),
+      );
+    }
 
-    return (
-      <div className={isArabic ? 'text-left' : 'text-right'}>
-        <div className="font-semibold text-gray-800 dark:text-gray-200">
-          {symbol}{finalAmount}{currencySuffix}
-        </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          {t('history.table.baseAmount', { symbol, amount: baseAmount + currencySuffix })}
-        </div>
-        {props.ProfitPercentage > 0 && (
-          <div className="text-xs text-green-600 dark:text-green-400">
-            {t('history.table.profitPercent', { percent: props.ProfitPercentage })}
-          </div>
-        )}
-      </div>
-    );
-  };
+    const query = filters.searchQuery
+      .trim()
+      .toLowerCase();
 
-  const profitTemplate = (props) => {
-    const isUSD = props.Currency === 'USD';
-    const symbol = isUSD ? '$' : '';
-    const profitAmount = isUSD ? props.ProfitAmount.toFixed(2) : props.ProfitAmount.toLocaleString(i18n.resolvedLanguage);
-    const currencySuffix = isUSD ? '' : ` ${t(`currency.${props.Currency?.toLowerCase()}`, { defaultValue: props.Currency })}`;
+    if (query) {
+      rows = rows.filter((payment) => {
+        const paymentId = (
+          `PAY-${String(payment.id).padStart(6, '0')}`
+        );
 
-    return (
-      <div className={isArabic ? 'text-left' : 'text-right'}>
-        <div className={`font-semibold ${props.ProfitAmount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`}>
-          {symbol}{profitAmount}{currencySuffix}
-        </div>
-        <div className="text-xs text-gray-500">
-          {props.ProfitPercentage}%
-        </div>
-      </div>
-    );
-  };
+        const values = [
+          payment.id,
+          paymentId,
+          payment.user_name,
+          payment.store_product_name,
+          payment.external_transaction_id,
+        ];
 
-  const dateTemplate = (props) => {
-    const date = new Date(props.CreatedAt);
-    return (
-      <div className="text-center">
-        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-          {date.toLocaleDateString(i18n.resolvedLanguage)}
-        </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          {date.toLocaleTimeString(i18n.resolvedLanguage, { hour: '2-digit', minute: '2-digit' })}
-        </div>
-      </div>
-    );
-  };
+        return values.some((value) => (
+          value !== null
+          && value !== undefined
+          && String(value)
+            .toLowerCase()
+            .includes(query)
+        ));
+      });
+    }
 
-  const userTemplate = (props) => {
-    const initials = props.UserName?.split(' ').map((n) => n[0]).join('').substring(0, 2) || 'US';
-    
-    return (
-      <div className="flex items-center gap-2 text-start">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
-          {initials}
-        </div>
-        <div>
-          <div className="text-sm font-medium truncate max-w-[120px] text-gray-900 dark:text-gray-100">
-            {props.UserName}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            ID: {props.id}
-          </div>
-        </div>
-      </div>
-    );
-  };
+    return rows.sort((a, b) => (
+      new Date(b.created_at)
+      - new Date(a.created_at)
+    ));
+  }, [
+    filters,
+    payments,
+  ]);
 
-  const actionsTemplate = (props) => (
-    <div className="flex gap-2 justify-center">
-      <button
-        type="button"
-        className="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-medium flex items-center gap-1"
-        onClick={() => handleViewDetails(props)}
-        title={t('history.table.tooltips.details')}
-      >
-        👁️ {t('history.table.buttons.details')}
-      </button>
-      {(props.Status === 'pending' || props.Status === 'processing') && user?.role === 'admin' && (
-        <button
-        type="button"
-        disabled={Boolean(actionLoading)}
-        className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-          onClick={() => handleProcessPayment(props.id, props.Status)}
-          title={t('history.table.tooltips.process')}
-        >
-          ⚙️ {t('history.table.buttons.process')}
-        </button>
-      )}
-      {props.Status === 'success' && props.IsRefundable && user?.role === 'admin' && (
-        <button
-        type="button"
-        disabled={Boolean(actionLoading)}
-        className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-xs font-medium disabled:opacity-50"
-          onClick={() => handleRefundPayment(props.id)}
-        >
-          {t('history.table.buttons.refund', { defaultValue: 'Refund' })}
-        </button>
-      )}
-    </div>
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredPayments.length / PAGE_SIZE,
+    ),
   );
 
-  const handleViewDetails = (payment) => {
-    const amountDisplay = payment.Currency === 'USD' 
-      ? `$${payment.FinalPrice.toFixed(2)}` 
-      : `${payment.FinalPrice.toLocaleString()} ${t(`currency.${payment.Currency?.toLowerCase()}`, { defaultValue: payment.Currency })}`;
-    
-    alert(t('history.alerts.detailsMessage', {
-      id: payment.PaymentID,
-      user: payment.UserName,
-      product: payment.ProductName,
-      amount: amountDisplay,
-      status: t(`status.${payment.Status}`)
-    }));
-  };
+  const currentPage = Math.min(
+    page,
+    totalPages,
+  );
 
-  const handleProcessPayment = async (paymentId, currentStatus) => {
-    if (actionLoading) return;
-    const nextStatus = currentStatus === 'pending' ? 'processing' : 'success';
-    if (!window.confirm(t('history.alerts.statusConfirm', {
-      id: paymentId,
-      current: t(`status.${currentStatus}`, { defaultValue: currentStatus }),
-      next: t(`status.${nextStatus}`, { defaultValue: nextStatus }),
-    }))) return;
+  const visiblePayments = useMemo(() => {
+    const start = (
+      currentPage - 1
+    ) * PAGE_SIZE;
+
+    return filteredPayments.slice(
+      start,
+      start + PAGE_SIZE,
+    );
+  }, [
+    currentPage,
+    filteredPayments,
+  ]);
+
+  const formatMoney = useCallback(
+    (value, currency) => {
+      const amount = Number(value || 0);
+
+      const formatted = amount.toLocaleString(
+        locale,
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        },
+      );
+
+      if (currency === 'USD') {
+        return `$${formatted}`;
+      }
+
+      return `${formatted} ${currency || ''}`.trim();
+    },
+    [locale],
+  );
+
+  const formatDate = useCallback(
+    (value) => {
+      if (!value) {
+        return '—';
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+
+      return date.toLocaleString(locale);
+    },
+    [locale],
+  );
+
+  const statusMeta = useCallback(
+    (status) => {
+      switch (status) {
+        case 'success':
+          return {
+            label: labels.success,
+            style: {
+              backgroundColor: `${accentColor}12`,
+              borderColor: `${accentColor}28`,
+              color: accentColor,
+            },
+          };
+
+        case 'pending':
+          return {
+            label: labels.pendingStatus,
+            className:
+              'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300',
+          };
+
+        case 'processing':
+          return {
+            label: labels.processing,
+            className:
+              'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+          };
+
+        case 'failed':
+          return {
+            label: labels.failedStatus,
+            className:
+              'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300',
+          };
+
+        case 'cancelled':
+          return {
+            label: labels.cancelled,
+            className:
+              'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+          };
+
+        default:
+          return {
+            label: status || '—',
+            className:
+              'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+          };
+      }
+    },
+    [
+      accentColor,
+      labels,
+    ],
+  );
+
+  const handleProcessPayment = async (
+    paymentId,
+    currentStatus,
+  ) => {
+    if (actionLoading) {
+      return;
+    }
+
+    const nextStatus = (
+      currentStatus === 'pending'
+        ? 'processing'
+        : 'success'
+    );
+
+    if (!window.confirm(labels.updateConfirm)) {
+      return;
+    }
+
+    setActionLoading({
+      paymentId,
+      action: 'status',
+    });
+
+    setNotice('');
+
     try {
-      setActionLoading({ paymentId, action: 'status' });
-      await axiosInstance.post(`payment/payment/${paymentId}/update_status/`, { status: nextStatus });
-      await fetchAllPayments();
-      alert(t('history.alerts.statusSuccess', { defaultValue: 'Payment status updated.' }));
+      await axiosInstance.post(
+        `payment/payment/${paymentId}/update_status/`,
+        {
+          status: nextStatus,
+        },
+      );
+
+      setNotice(labels.updateSuccess);
+
+      await fetchAllPayments({
+        background: true,
+      });
     } catch (updateError) {
-      alert(updateError.response?.data?.error || t('history.error', { defaultValue: 'Failed to update payment' }));
+      setError(
+        getApiError(
+          updateError,
+          labels.updateFailed,
+        ),
+      );
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleRefundPayment = async (paymentId) => {
-    if (actionLoading) return;
-    if (!window.confirm(t('history.alerts.refundConfirm', { defaultValue: 'Refund this payment?' }))) return;
+    if (actionLoading) {
+      return;
+    }
+
+    if (!window.confirm(labels.refundConfirm)) {
+      return;
+    }
+
+    setActionLoading({
+      paymentId,
+      action: 'refund',
+    });
+
+    setNotice('');
+
     try {
-      setActionLoading({ paymentId, action: 'refund' });
-      await axiosInstance.post(`payment/payment/${paymentId}/refund/`, {});
-      await fetchAllPayments();
-      alert(t('history.alerts.refundSuccess', { defaultValue: 'Payment refunded successfully.' }));
+      await axiosInstance.post(
+        `payment/payment/${paymentId}/refund/`,
+        {},
+      );
+
+      setNotice(labels.refundSuccess);
+
+      await fetchAllPayments({
+        background: true,
+      });
     } catch (refundError) {
-      alert(refundError.response?.data?.error || t('history.error', { defaultValue: 'Failed to refund payment' }));
+      setError(
+        getApiError(
+          refundError,
+          labels.refundFailed,
+        ),
+      );
     } finally {
       setActionLoading(null);
     }
-  };
-
-  const handleExport = () => {
-    const headers = [
-      t('history.table.headers.id'),
-      t('history.table.headers.user'),
-      t('history.table.headers.product'),
-      `${t('history.table.headers.amount')} (Base)`,
-      `${t('history.table.headers.amount')} (Final)`,
-      `${t('history.table.headers.profit')} (%)`,
-      t('history.table.headers.currency'),
-      t('history.table.headers.status'),
-      t('history.table.headers.date')
-    ];
-    
-    const csvData = filteredData.map((payment) => [
-      payment.PaymentID,
-      payment.UserName,
-      payment.ProductName,
-      payment.BasePrice,
-      payment.FinalPrice,
-      payment.ProfitPercentage,
-      payment.Currency,
-      t(`status.${payment.Status}`),
-      new Date(payment.CreatedAt).toLocaleString(i18n.resolvedLanguage)
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map((row) => row.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payments-export-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
   };
 
   const clearFilters = () => {
     setFilters({
       status: 'All',
       currency: 'All',
-      dateRange: 'All',
       startDate: '',
       endDate: '',
-      searchQuery: ''
+      searchQuery: '',
     });
   };
 
-  const refreshData = () => {
-    fetchAllPayments();
+  const updateFilter = (key, value) => {
+    setFilters(
+      (current) => ({
+        ...current,
+        [key]: value,
+      }),
+    );
   };
 
-  if (loading) {
-    return (
-      <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-        <Header category={t('history.category')} title={t('history.title')} />
-        <div className="flex justify-center items-center h-64">
-          <div className="text-xl text-gray-700 dark:text-gray-300">{t('common:loading')}</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-        <Header category={t('history.category')} title={t('history.title')} />
-        <div className="flex flex-col justify-center items-center h-64">
-          <div className="text-red-500 text-xl mb-4">{t('common:error')}: {error}</div>
-          <button
-            type="button"
-            onClick={refreshData}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-          >
-            {t('common:tryAgain', 'Try Again')}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-      <Header
-        category={t('history.category')}
-        title={t('history.title')}
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 text-start">
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <p className="text-blue-800 dark:text-blue-200 font-semibold text-sm">{t('history.stats.total')}</p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalPayments}</p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-            {t('history.stats.totalDesc', { count: stats.successPayments })}
-          </p>
-        </div>
-
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <p className="text-green-800 dark:text-green-200 font-semibold text-sm">{t('history.stats.revenue')}</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-            ${stats.totalAmount.toLocaleString(i18n.resolvedLanguage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">{t('history.stats.revenueDesc')}</p>
-        </div>
-
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <p className="text-yellow-800 dark:text-yellow-200 font-semibold text-sm">{t('history.stats.pending')}</p>
-          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingPayments}</p>
-          <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{t('history.stats.pendingDesc')}</p>
-        </div>
-
-        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <p className="text-purple-800 dark:text-purple-200 font-semibold text-sm">{t('history.stats.average')}</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            ${stats.averageAmount.toLocaleString(i18n.resolvedLanguage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">{t('history.stats.averageDesc')}</p>
-        </div>
-      </div>
-
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6 text-start">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200">{t('history.filterSection.title')}</h3>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleExport}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium flex items-center gap-2"
-            >
-              📊 {t('history.filterSection.buttons.export')}
-            </button>
-            <button
-              type="button"
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium flex items-center gap-2"
-            >
-              🔄 {t('history.filterSection.buttons.refresh')}
-            </button>
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition text-sm font-medium flex items-center gap-2"
-            >
-              🗑️ {t('history.filterSection.buttons.clear')}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('history.filterSection.labels.status')}</label>
-            <select
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-secondary-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            >
-              <option value="All">{t('history.filterSection.options.allStatuses')}</option>
-              <option value="success">{t('status.success')}</option>
-              <option value="pending">{t('status.pending')}</option>
-              <option value="processing">{t('status.processing')}</option>
-              <option value="failed">{t('status.failed')}</option>
-              <option value="cancelled">{t('status.cancelled')}</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('history.filterSection.labels.currency')}</label>
-            <select
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-secondary-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-              value={filters.currency}
-              onChange={(e) => setFilters({ ...filters, currency: e.target.value })}
-            >
-              <option value="All">{t('history.filterSection.options.allCurrencies')}</option>
-              <option value="USD">{t('currency.usd')}</option>
-              <option value="SYP">{t('currency.syp')}</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('history.filterSection.labels.fromDate')}</label>
-            <input
-              type="date"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-secondary-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-              value={filters.startDate}
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('history.filterSection.labels.toDate')}</label>
-            <input
-              type="date"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-secondary-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-              value={filters.endDate}
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('history.filterSection.labels.search')}</label>
-          <input
-            type="text"
-            placeholder={t('history.filterSection.placeholders.search')}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-secondary-dark-bg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-            value={filters.searchQuery}
-            onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {filters.status !== 'All' && (
-            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
-              {t('history.filterSection.badges.status', { status: t(`status.${filters.status}`) })}
-            </span>
-          )}
-          {filters.currency !== 'All' && (
-            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs rounded-full">
-              {t('history.filterSection.badges.currency', { currency: t(`currency.${filters.currency?.toLowerCase()}`) })}
-            </span>
-          )}
-          {filters.startDate && (
-            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 text-xs rounded-full">
-              {t('history.filterSection.badges.from', { date: filters.startDate })}
-            </span>
-          )}
-          {filters.endDate && (
-            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 text-xs rounded-full">
-              {t('history.filterSection.badges.to', { date: filters.endDate })}
-            </span>
-          )}
-          {filters.searchQuery && (
-            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs rounded-full">
-              {t('history.filterSection.badges.search', { query: filters.searchQuery })}
-            </span>
-          )}
-          <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 text-xs rounded-full">
-            {t('history.filterSection.badges.showing', { count: filteredData.length })}
-          </span>
-        </div>
-      </div>
-
-      <GridComponent
-        dataSource={filteredData}
-        allowPaging
-        allowSorting
-        allowFiltering
-        allowGrouping
-        toolbar={toolbarOptions}
-        pageSettings={{ pageSize: 20 }}
-        height={600}
-        enableHover
-        enableRtl={isArabic}
-        locale={isArabic ? 'ar' : 'en-US'}
+    <>
+      <div
+        dir={isArabic ? 'rtl' : 'ltr'}
+        className="
+          mt-20
+          px-3
+          py-4
+          sm:px-5
+          md:mt-4
+          md:px-8
+          md:py-6
+        "
       >
-        <ColumnsDirective>
-          <ColumnDirective
-            field="PaymentID"
-            headerText={t('history.table.headers.id')}
-            width="120"
-            textAlign="Center"
-          />
-          <ColumnDirective
-            headerText={t('history.table.headers.user')}
-            width="180"
-            template={userTemplate}
-            textAlign={isArabic ? 'Right' : 'Left'}
-          />
-          <ColumnDirective
-            field="ProductName"
-            headerText={t('history.table.headers.product')}
-            width="200"
-            textAlign={isArabic ? 'Right' : 'Left'}
-          />
-          <ColumnDirective
-            headerText={t('history.table.headers.amount')}
-            width="150"
-            template={amountTemplate}
-            textAlign={isArabic ? 'Left' : 'Right'}
-          />
-          <ColumnDirective
-            headerText={t('history.table.headers.profit')}
-            width="120"
-            template={profitTemplate}
-            textAlign={isArabic ? 'Left' : 'Right'}
-          />
-          <ColumnDirective
-            field="Currency"
-            headerText={t('history.table.headers.currency')}
-            width="100"
-            textAlign="Center"
-          />
-          <ColumnDirective
-            headerText={t('history.table.headers.status')}
-            width="140"
-            textAlign="Center"
-            template={statusTemplate}
-          />
-          <ColumnDirective
-            headerText={t('history.table.headers.date')}
-            width="140"
-            textAlign="Center"
-            template={dateTemplate}
-          />
-          <ColumnDirective
-            field="ExternalID"
-            headerText={t('history.table.headers.externalId')}
-            width="160"
-            textAlign={isArabic ? 'Right' : 'Left'}
-          />
-          <ColumnDirective
-            headerText={t('history.table.headers.actions')}
-            width="150"
-            textAlign="Center"
-            template={actionsTemplate}
-          />
-        </ColumnsDirective>
-        <Inject services={[Page, Toolbar, Sort, Filter, Group]} />
-      </GridComponent>
-    </div>
+        <div
+          className="
+            mx-auto
+            w-full
+            max-w-7xl
+            space-y-5
+          "
+        >
+          <section
+            className="
+              relative
+              overflow-hidden
+              rounded-3xl
+              border
+              border-slate-100
+              bg-white
+              px-5
+              py-6
+              shadow-sm
+              dark:border-slate-800
+              dark:bg-secondary-dark-bg
+              md:px-7
+              md:py-7
+            "
+          >
+            <div
+              className="
+                pointer-events-none
+                absolute
+                -start-24
+                -top-28
+                h-64
+                w-64
+                rounded-full
+                opacity-[0.08]
+              "
+              style={{
+                backgroundColor: accentColor,
+              }}
+            />
+
+            <div
+              className="
+                relative
+                z-10
+                flex
+                flex-col
+                justify-between
+                gap-5
+                sm:flex-row
+                sm:items-center
+              "
+            >
+              <div className="max-w-2xl text-start">
+                <div
+                  className="
+                    mb-3
+                    flex
+                    items-center
+                    gap-2
+                  "
+                >
+                  <span
+                    className="
+                      h-2.5
+                      w-2.5
+                      rounded-full
+                    "
+                    style={{
+                      backgroundColor: accentColor,
+                    }}
+                  />
+
+                  <span
+                    className="
+                      text-sm
+                      font-extrabold
+                    "
+                    style={{
+                      color: accentColor,
+                    }}
+                  >
+                    {labels.category}
+                  </span>
+                </div>
+
+                <h1
+                  className="
+                    text-3xl
+                    font-black
+                    tracking-tight
+                    text-slate-950
+                    dark:text-white
+                    md:text-4xl
+                  "
+                >
+                  {labels.title}
+                </h1>
+
+                <p
+                  className="
+                    mt-2
+                    max-w-xl
+                    text-sm
+                    font-medium
+                    leading-7
+                    text-slate-500
+                    dark:text-slate-400
+                  "
+                >
+                  {labels.subtitle}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={refreshing}
+                onClick={() => (
+                  fetchAllPayments({
+                    background: true,
+                  })
+                )}
+                className="
+                  flex
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-xl
+                  px-5
+                  py-3
+                  text-sm
+                  font-black
+                  text-white
+                  shadow-sm
+                  transition
+                  hover:opacity-90
+                  disabled:opacity-50
+                "
+                style={{
+                  backgroundColor: accentColor,
+                }}
+              >
+                <FiRefreshCw
+                  className={
+                    refreshing
+                      ? 'animate-spin'
+                      : ''
+                  }
+                />
+
+                {labels.refresh}
+              </button>
+            </div>
+          </section>
+
+          <section
+            className="
+              grid
+              gap-3
+              sm:grid-cols-2
+              xl:grid-cols-4
+            "
+          >
+            {[
+              {
+                label: labels.total,
+                value: stats.total,
+                icon: <FiCreditCard />,
+              },
+              {
+                label: labels.successful,
+                value: stats.successful,
+                icon: <FiCheckCircle />,
+              },
+              {
+                label: labels.pending,
+                value: stats.pending,
+                icon: <FiClock />,
+              },
+              {
+                label: labels.failed,
+                value: stats.failed,
+                icon: <FiAlertCircle />,
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="
+                  flex
+                  items-center
+                  gap-4
+                  rounded-2xl
+                  border
+                  border-slate-100
+                  bg-white
+                  p-4
+                  shadow-sm
+                  dark:border-slate-800
+                  dark:bg-secondary-dark-bg
+                "
+              >
+                <div
+                  className="
+                    flex
+                    h-11
+                    w-11
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                  "
+                  style={{
+                    backgroundColor: `${accentColor}14`,
+                    color: accentColor,
+                  }}
+                >
+                  {item.icon}
+                </div>
+
+                <div className="text-start">
+                  <p
+                    className="
+                      text-xs
+                      font-bold
+                      text-slate-400
+                    "
+                  >
+                    {item.label}
+                  </p>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-2xl
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {item.value}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {notice && (
+            <div
+              className="
+                flex
+                items-start
+                gap-3
+                rounded-2xl
+                border
+                border-slate-200
+                bg-white
+                px-4
+                py-3
+                text-sm
+                font-bold
+                text-slate-700
+                dark:border-slate-700
+                dark:bg-slate-900
+                dark:text-slate-200
+              "
+            >
+              <FiCheckCircle
+                className="mt-0.5 shrink-0"
+                style={{
+                  color: accentColor,
+                }}
+              />
+
+              <span className="flex-1">
+                {notice}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setNotice('')}
+              >
+                <FiX />
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <div
+              className="
+                flex
+                items-start
+                gap-3
+                rounded-2xl
+                border
+                border-red-200
+                bg-red-50
+                px-4
+                py-3
+                text-sm
+                font-bold
+                text-red-700
+                dark:border-red-900/40
+                dark:bg-red-950/30
+                dark:text-red-300
+              "
+            >
+              <FiAlertCircle className="mt-0.5 shrink-0" />
+
+              <span className="flex-1">
+                {error}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setError('')}
+              >
+                <FiX />
+              </button>
+            </div>
+          )}
+
+          <section
+            className="
+              rounded-3xl
+              border
+              border-slate-100
+              bg-white
+              p-4
+              shadow-sm
+              dark:border-slate-800
+              dark:bg-secondary-dark-bg
+              sm:p-5
+            "
+          >
+            <div
+              className="
+                mb-4
+                flex
+                items-center
+                gap-3
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-10
+                  w-10
+                  items-center
+                  justify-center
+                  rounded-xl
+                "
+                style={{
+                  backgroundColor: `${accentColor}14`,
+                  color: accentColor,
+                }}
+              >
+                <FiFilter />
+              </div>
+
+              <div className="text-start">
+                <h2
+                  className="
+                    font-black
+                    text-slate-900
+                    dark:text-white
+                  "
+                >
+                  {isArabic ? 'تصفية المدفوعات' : 'Filter payments'}
+                </h2>
+
+                <p
+                  className="
+                    mt-0.5
+                    text-xs
+                    font-semibold
+                    text-slate-400
+                  "
+                >
+                  {filteredPayments.length} / {payments.length}
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="
+                grid
+                gap-3
+                md:grid-cols-2
+                xl:grid-cols-5
+              "
+            >
+              <div className="relative xl:col-span-2">
+                <FiSearch
+                  className="
+                    pointer-events-none
+                    absolute
+                    start-4
+                    top-1/2
+                    -translate-y-1/2
+                    text-slate-400
+                  "
+                />
+
+                <input
+                  type="search"
+                  value={filters.searchQuery}
+                  onChange={(event) => (
+                    updateFilter(
+                      'searchQuery',
+                      event.target.value,
+                    )
+                  )}
+                  placeholder={labels.searchPlaceholder}
+                  className="
+                    h-11
+                    w-full
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-white
+                    ps-11
+                    pe-4
+                    text-sm
+                    font-semibold
+                    text-slate-900
+                    outline-none
+                    dark:border-slate-700
+                    dark:bg-slate-900
+                    dark:text-white
+                  "
+                />
+              </div>
+
+              <select
+                value={filters.status}
+                onChange={(event) => (
+                  updateFilter(
+                    'status',
+                    event.target.value,
+                  )
+                )}
+                className="
+                  h-11
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  px-3
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                  outline-none
+                  dark:border-slate-700
+                  dark:bg-slate-900
+                  dark:text-slate-200
+                "
+              >
+                <option value="All">
+                  {labels.allStatuses}
+                </option>
+                <option value="success">
+                  {labels.success}
+                </option>
+                <option value="pending">
+                  {labels.pendingStatus}
+                </option>
+                <option value="processing">
+                  {labels.processing}
+                </option>
+                <option value="failed">
+                  {labels.failedStatus}
+                </option>
+                <option value="cancelled">
+                  {labels.cancelled}
+                </option>
+              </select>
+
+              <select
+                value={filters.currency}
+                onChange={(event) => (
+                  updateFilter(
+                    'currency',
+                    event.target.value,
+                  )
+                )}
+                className="
+                  h-11
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  px-3
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                  outline-none
+                  dark:border-slate-700
+                  dark:bg-slate-900
+                  dark:text-slate-200
+                "
+              >
+                <option value="All">
+                  {labels.allCurrencies}
+                </option>
+
+                {currencies.map((currency) => (
+                  <option
+                    key={currency}
+                    value={currency}
+                  >
+                    {currency}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="
+                  flex
+                  h-11
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  px-4
+                  text-sm
+                  font-black
+                  text-slate-600
+                  transition
+                  hover:bg-slate-50
+                  dark:border-slate-700
+                  dark:bg-slate-900
+                  dark:text-slate-300
+                "
+              >
+                <FiX />
+                {labels.clear}
+              </button>
+
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(event) => (
+                  updateFilter(
+                    'startDate',
+                    event.target.value,
+                  )
+                )}
+                className="
+                  h-11
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  px-3
+                  text-sm
+                  text-slate-700
+                  outline-none
+                  dark:border-slate-700
+                  dark:bg-slate-900
+                  dark:text-slate-200
+                "
+              />
+
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(event) => (
+                  updateFilter(
+                    'endDate',
+                    event.target.value,
+                  )
+                )}
+                className="
+                  h-11
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  px-3
+                  text-sm
+                  text-slate-700
+                  outline-none
+                  dark:border-slate-700
+                  dark:bg-slate-900
+                  dark:text-slate-200
+                "
+              />
+            </div>
+          </section>
+
+          <section>
+            {loading ? (
+              <div
+                className="
+                  flex
+                  min-h-[360px]
+                  flex-col
+                  items-center
+                  justify-center
+                  gap-3
+                  rounded-3xl
+                  border
+                  border-slate-100
+                  bg-white
+                  text-slate-400
+                  shadow-sm
+                  dark:border-slate-800
+                  dark:bg-secondary-dark-bg
+                "
+              >
+                <FiRefreshCw className="animate-spin text-3xl" />
+                <p className="text-sm font-bold">
+                  {labels.loading}
+                </p>
+              </div>
+            ) : visiblePayments.length === 0 ? (
+              <div
+                className="
+                  flex
+                  min-h-[320px]
+                  flex-col
+                  items-center
+                  justify-center
+                  gap-4
+                  rounded-3xl
+                  border
+                  border-slate-100
+                  bg-white
+                  text-center
+                  shadow-sm
+                  dark:border-slate-800
+                  dark:bg-secondary-dark-bg
+                "
+              >
+                <div
+                  className="
+                    flex
+                    h-16
+                    w-16
+                    items-center
+                    justify-center
+                    rounded-2xl
+                  "
+                  style={{
+                    backgroundColor: `${accentColor}12`,
+                    color: accentColor,
+                  }}
+                >
+                  <FiCreditCard className="text-2xl" />
+                </div>
+
+                <p
+                  className="
+                    text-sm
+                    font-bold
+                    text-slate-400
+                  "
+                >
+                  {labels.noResults}
+                </p>
+              </div>
+            ) : (
+              <div
+                className="
+                  grid
+                  gap-4
+                  xl:grid-cols-2
+                "
+              >
+                {visiblePayments.map((payment) => {
+                  const paymentId = (
+                    `PAY-${String(payment.id).padStart(6, '0')}`
+                  );
+
+                  const meta = statusMeta(payment.status);
+
+                  const userName = (
+                    payment.user_name
+                    || `${labels.user} #${payment.user ?? payment.id}`
+                  );
+
+                  const busy = (
+                    actionLoading?.paymentId === payment.id
+                  );
+
+                  return (
+                    <article
+                      key={payment.id}
+                      className="
+                        rounded-3xl
+                        border
+                        border-slate-100
+                        bg-white
+                        p-5
+                        shadow-sm
+                        transition
+                        hover:border-slate-200
+                        hover:shadow-md
+                        dark:border-slate-800
+                        dark:bg-secondary-dark-bg
+                        dark:hover:border-slate-700
+                      "
+                    >
+                      <div
+                        className="
+                          flex
+                          items-start
+                          justify-between
+                          gap-4
+                        "
+                      >
+                        <div
+                          className="
+                            flex
+                            min-w-0
+                            items-center
+                            gap-3
+                          "
+                        >
+                          <div
+                            className="
+                              flex
+                              h-12
+                              w-12
+                              shrink-0
+                              items-center
+                              justify-center
+                              rounded-2xl
+                              text-sm
+                              font-black
+                              text-white
+                            "
+                            style={{
+                              backgroundColor: accentColor,
+                            }}
+                          >
+                            {getInitials(userName)}
+                          </div>
+
+                          <div className="min-w-0 text-start">
+                            <p
+                              className="
+                                truncate
+                                font-black
+                                text-slate-900
+                                dark:text-white
+                              "
+                            >
+                              {userName}
+                            </p>
+
+                            <p
+                              className="
+                                mt-1
+                                text-xs
+                                font-bold
+                                text-slate-400
+                              "
+                              dir="ltr"
+                            >
+                              {paymentId}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`
+                            shrink-0
+                            rounded-full
+                            border
+                            px-2.5
+                            py-1
+                            text-xs
+                            font-black
+                            ${meta.className || ''}
+                          `}
+                          style={meta.style}
+                        >
+                          {meta.label}
+                        </span>
+                      </div>
+
+                      <div
+                        className="
+                          mt-5
+                          grid
+                          gap-3
+                          sm:grid-cols-2
+                        "
+                      >
+                        <div
+                          className="
+                            rounded-2xl
+                            bg-slate-50
+                            p-3
+                            dark:bg-slate-900/50
+                          "
+                        >
+                          <p className="text-[11px] font-bold text-slate-400">
+                            {labels.product}
+                          </p>
+
+                          <p
+                            className="
+                              mt-1
+                              truncate
+                              text-sm
+                              font-black
+                              text-slate-800
+                              dark:text-slate-100
+                            "
+                          >
+                            {payment.store_product_name || '—'}
+                          </p>
+                        </div>
+
+                        <div
+                          className="
+                            rounded-2xl
+                            bg-slate-50
+                            p-3
+                            dark:bg-slate-900/50
+                          "
+                        >
+                          <p className="text-[11px] font-bold text-slate-400">
+                            {labels.amount}
+                          </p>
+
+                          <p
+                            className="
+                              mt-1
+                              text-sm
+                              font-black
+                              text-slate-900
+                              dark:text-white
+                            "
+                            dir="ltr"
+                          >
+                            {formatMoney(
+                              payment.final_price,
+                              payment.currency,
+                            )}
+                          </p>
+                        </div>
+
+                        <div
+                          className="
+                            rounded-2xl
+                            bg-slate-50
+                            p-3
+                            dark:bg-slate-900/50
+                          "
+                        >
+                          <p className="text-[11px] font-bold text-slate-400">
+                            {labels.profit}
+                          </p>
+
+                          <p
+                            className="
+                              mt-1
+                              text-sm
+                              font-black
+                              text-slate-800
+                              dark:text-slate-100
+                            "
+                            dir="ltr"
+                          >
+                            {formatMoney(
+                              payment.profit_amount,
+                              payment.currency,
+                            )}
+                            {' · '}
+                            {Number(
+                              payment.profit_percentage || 0,
+                            ).toLocaleString(locale)}%
+                          </p>
+                        </div>
+
+                        <div
+                          className="
+                            rounded-2xl
+                            bg-slate-50
+                            p-3
+                            dark:bg-slate-900/50
+                          "
+                        >
+                          <p className="text-[11px] font-bold text-slate-400">
+                            {labels.date}
+                          </p>
+
+                          <p
+                            className="
+                              mt-1
+                              text-xs
+                              font-black
+                              text-slate-800
+                              dark:text-slate-100
+                            "
+                          >
+                            {formatDate(payment.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        className="
+                          mt-4
+                          flex
+                          flex-wrap
+                          gap-2
+                          border-t
+                          border-slate-100
+                          pt-4
+                          dark:border-slate-800
+                        "
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPayment(payment)}
+                          className="
+                            flex
+                            items-center
+                            gap-2
+                            rounded-xl
+                            border
+                            border-slate-200
+                            bg-white
+                            px-3
+                            py-2
+                            text-xs
+                            font-black
+                            text-slate-600
+                            transition
+                            hover:bg-slate-50
+                            dark:border-slate-700
+                            dark:bg-slate-900
+                            dark:text-slate-300
+                          "
+                        >
+                          <FiEye />
+                          {labels.details}
+                        </button>
+
+                        {(payment.status === 'pending'
+                          || payment.status === 'processing')
+                          && user?.role === 'admin' && (
+                          <button
+                            type="button"
+                            disabled={Boolean(actionLoading)}
+                            onClick={() => (
+                              handleProcessPayment(
+                                payment.id,
+                                payment.status,
+                              )
+                            )}
+                            className="
+                              flex
+                              items-center
+                              gap-2
+                              rounded-xl
+                              px-3
+                              py-2
+                              text-xs
+                              font-black
+                              text-white
+                              transition
+                              hover:opacity-90
+                              disabled:opacity-50
+                            "
+                            style={{
+                              backgroundColor: accentColor,
+                            }}
+                          >
+                            <FiRefreshCw
+                              className={
+                                busy
+                                  && actionLoading?.action === 'status'
+                                  ? 'animate-spin'
+                                  : ''
+                              }
+                            />
+                            {labels.process}
+                          </button>
+                        )}
+
+                        {payment.status === 'success'
+                          && payment.is_refundable
+                          && user?.role === 'admin' && (
+                          <button
+                            type="button"
+                            disabled={Boolean(actionLoading)}
+                            onClick={() => (
+                              handleRefundPayment(payment.id)
+                            )}
+                            className="
+                              flex
+                              items-center
+                              gap-2
+                              rounded-xl
+                              border
+                              border-slate-200
+                              bg-white
+                              px-3
+                              py-2
+                              text-xs
+                              font-black
+                              text-slate-600
+                              transition
+                              hover:bg-slate-50
+                              disabled:opacity-50
+                              dark:border-slate-700
+                              dark:bg-slate-900
+                              dark:text-slate-300
+                            "
+                          >
+                            <FiRotateCcw
+                              className={
+                                busy
+                                  && actionLoading?.action === 'refund'
+                                  ? 'animate-spin'
+                                  : ''
+                              }
+                            />
+                            {labels.refund}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {!loading
+            && filteredPayments.length > 0
+            && totalPages > 1 && (
+            <section
+              className="
+                flex
+                flex-col
+                gap-3
+                rounded-2xl
+                border
+                border-slate-100
+                bg-white
+                px-4
+                py-3
+                shadow-sm
+                dark:border-slate-800
+                dark:bg-secondary-dark-bg
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+              "
+            >
+              <p
+                className="
+                  text-sm
+                  font-bold
+                  text-slate-500
+                  dark:text-slate-400
+                "
+              >
+                {labels.page}{' '}
+                <span className="font-black text-slate-900 dark:text-white">
+                  {currentPage}
+                </span>{' '}
+                {labels.of}{' '}
+                <span className="font-black text-slate-900 dark:text-white">
+                  {totalPages}
+                </span>
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => (
+                    setPage(
+                      (previous) => Math.max(
+                        1,
+                        previous - 1,
+                      ),
+                    )
+                  )}
+                  className="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-white
+                    text-slate-500
+                    disabled:opacity-30
+                    dark:border-slate-700
+                    dark:bg-slate-900
+                    dark:text-slate-300
+                  "
+                >
+                  {isArabic
+                    ? <FiChevronRight />
+                    : <FiChevronLeft />}
+                </button>
+
+                <div
+                  className="
+                    min-w-[88px]
+                    rounded-xl
+                    px-3
+                    py-2
+                    text-center
+                    text-sm
+                    font-black
+                    text-white
+                  "
+                  style={{
+                    backgroundColor: accentColor,
+                  }}
+                >
+                  {currentPage} / {totalPages}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => (
+                    setPage(
+                      (previous) => Math.min(
+                        totalPages,
+                        previous + 1,
+                      ),
+                    )
+                  )}
+                  className="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-white
+                    text-slate-500
+                    disabled:opacity-30
+                    dark:border-slate-700
+                    dark:bg-slate-900
+                    dark:text-slate-300
+                  "
+                >
+                  {isArabic
+                    ? <FiChevronLeft />
+                    : <FiChevronRight />}
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      {selectedPayment && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-[1400]
+            flex
+            items-center
+            justify-center
+            bg-slate-950/60
+            p-4
+            backdrop-blur-sm
+          "
+          onClick={() => setSelectedPayment(null)}
+        >
+          <div
+            dir={isArabic ? 'rtl' : 'ltr'}
+            className="
+              w-full
+              max-w-2xl
+              rounded-3xl
+              border
+              border-slate-200
+              bg-white
+              shadow-2xl
+              dark:border-slate-700
+              dark:bg-slate-900
+            "
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+                border-b
+                border-slate-100
+                px-5
+                py-4
+                dark:border-slate-800
+              "
+            >
+              <div className="text-start">
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                  {labels.details}
+                </h3>
+
+                <p className="mt-1 text-xs font-bold text-slate-400" dir="ltr">
+                  PAY-{String(selectedPayment.id).padStart(6, '0')}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedPayment(null)}
+                className="
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-xl
+                  text-slate-400
+                  hover:bg-slate-100
+                  dark:hover:bg-slate-800
+                "
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div
+              className="
+                grid
+                gap-3
+                p-5
+                sm:grid-cols-2
+              "
+            >
+              {[
+                {
+                  label: labels.user,
+                  value:
+                    selectedPayment.user_name
+                    || `#${selectedPayment.user ?? '—'}`,
+                  icon: <FiUser />,
+                },
+                {
+                  label: labels.product,
+                  value: selectedPayment.store_product_name || '—',
+                  icon: <FiCreditCard />,
+                },
+                {
+                  label: labels.amount,
+                  value: formatMoney(
+                    selectedPayment.final_price,
+                    selectedPayment.currency,
+                  ),
+                  icon: <FiDollarSign />,
+                },
+                {
+                  label: labels.baseAmount,
+                  value: formatMoney(
+                    selectedPayment.base_price,
+                    selectedPayment.currency,
+                  ),
+                  icon: <FiDollarSign />,
+                },
+                {
+                  label: labels.externalId,
+                  value: selectedPayment.external_transaction_id || '—',
+                  icon: <FiCreditCard />,
+                },
+                {
+                  label: labels.date,
+                  value: formatDate(selectedPayment.created_at),
+                  icon: <FiClock />,
+                },
+                {
+                  label: labels.processedAt,
+                  value: formatDate(selectedPayment.processed_at),
+                  icon: <FiClock />,
+                },
+                {
+                  label: labels.errorMessage,
+                  value: selectedPayment.error_message || '—',
+                  icon: <FiAlertCircle />,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="
+                    rounded-2xl
+                    border
+                    border-slate-100
+                    bg-slate-50/70
+                    p-4
+                    dark:border-slate-700
+                    dark:bg-slate-800/40
+                  "
+                >
+                  <div
+                    className="
+                      mb-2
+                      flex
+                      items-center
+                      gap-2
+                      text-xs
+                      font-bold
+                      text-slate-400
+                    "
+                  >
+                    <span
+                      style={{
+                        color: accentColor,
+                      }}
+                    >
+                      {item.icon}
+                    </span>
+
+                    {item.label}
+                  </div>
+
+                  <p
+                    className="
+                      break-words
+                      text-sm
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="
+                flex
+                justify-end
+                border-t
+                border-slate-100
+                px-5
+                py-4
+                dark:border-slate-800
+              "
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedPayment(null)}
+                className="
+                  rounded-xl
+                  px-4
+                  py-2.5
+                  text-sm
+                  font-black
+                  text-white
+                "
+                style={{
+                  backgroundColor: accentColor,
+                }}
+              >
+                {labels.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

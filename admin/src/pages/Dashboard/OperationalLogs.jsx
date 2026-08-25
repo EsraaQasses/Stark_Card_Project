@@ -14,11 +14,14 @@ import {
   FiChevronRight,
   FiClock,
   FiFilter,
+  FiGlobe,
+  FiHash,
   FiRefreshCw,
   FiSearch,
   FiServer,
   FiShield,
   FiTrash2,
+  FiUser,
   FiX,
 } from 'react-icons/fi';
 
@@ -40,28 +43,354 @@ const errorMessage = (error, fallback) => (
   || fallback
 );
 
+const createEmptyFilters = () => ({
+  action: '',
+  resource_type: '',
+  user_id: '',
+  start_date: '',
+  end_date: '',
+});
+
+const getInitials = (value) => {
+  const text = String(value || '').trim();
+
+  if (!text) {
+    return 'U';
+  }
+
+  const parts = text
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[1][0]}`
+    .toUpperCase();
+};
+
+const humanizeValue = (value) => {
+  if (
+    value === null
+    || value === undefined
+    || value === ''
+  ) {
+    return '—';
+  }
+
+  return String(value)
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(
+      /(^|\s)\S/g,
+      (letter) => letter.toUpperCase(),
+    );
+};
+
 const inputClass = `
+  h-11
   w-full
   rounded-xl
   border
   border-slate-200
   bg-white
   px-3.5
-  py-2.5
   text-sm
+  font-semibold
   text-slate-900
   outline-none
-  transition-all
-  duration-200
+  transition
   placeholder:text-slate-400
-  focus:border-cyan-400
-  focus:ring-2
-  focus:ring-cyan-100
+  focus:border-slate-300
+  focus:ring-4
+  focus:ring-slate-100
   dark:border-slate-700
   dark:bg-slate-900
   dark:text-white
-  dark:focus:ring-cyan-900/30
+  dark:focus:ring-slate-800
 `;
+
+const StatCard = ({
+  icon,
+  label,
+  value,
+  accentColor,
+}) => (
+  <div
+    className="
+      flex
+      items-center
+      gap-3
+      rounded-2xl
+      border
+      border-slate-100
+      bg-white
+      p-4
+      shadow-sm
+      dark:border-slate-800
+      dark:bg-secondary-dark-bg
+    "
+  >
+    <div
+      className="
+        flex
+        h-11
+        w-11
+        shrink-0
+        items-center
+        justify-center
+        rounded-xl
+        text-lg
+      "
+      style={{
+        backgroundColor: `${accentColor}14`,
+        color: accentColor,
+      }}
+    >
+      {icon}
+    </div>
+
+    <div className="min-w-0 text-start">
+      <p
+        className="
+          truncate
+          text-xs
+          font-bold
+          text-slate-400
+        "
+      >
+        {label}
+      </p>
+
+      <p
+        className="
+          mt-0.5
+          text-xl
+          font-black
+          text-slate-900
+          dark:text-white
+        "
+      >
+        {value}
+      </p>
+    </div>
+  </div>
+);
+
+const MetaItem = ({
+  icon,
+  label,
+  value,
+  dir,
+}) => (
+  <div
+    className="
+      min-w-0
+      rounded-xl
+      border
+      border-slate-100
+      bg-slate-50/70
+      p-3
+      dark:border-slate-700
+      dark:bg-slate-900/40
+    "
+  >
+    <div
+      className="
+        mb-1.5
+        flex
+        items-center
+        gap-1.5
+        text-[11px]
+        font-bold
+        text-slate-400
+      "
+    >
+      {icon}
+      {label}
+    </div>
+
+    <p
+      dir={dir}
+      className="
+        truncate
+        text-sm
+        font-extrabold
+        text-slate-800
+        dark:text-slate-100
+      "
+      title={
+        value === null
+        || value === undefined
+          ? ''
+          : String(value)
+      }
+    >
+      {value === null
+        || value === undefined
+        || value === ''
+        ? '—'
+        : String(value)}
+    </p>
+  </div>
+);
+
+const DetailsPanel = ({
+  details,
+  labels,
+  accentColor,
+}) => {
+  if (!details) {
+    return null;
+  }
+
+  const entries = (
+    typeof details === 'object'
+    && !Array.isArray(details)
+  )
+    ? Object.entries(details)
+    : [];
+
+  return (
+    <details
+      className="
+        mt-4
+        overflow-hidden
+        rounded-xl
+        border
+        border-slate-100
+        bg-white
+        dark:border-slate-700
+        dark:bg-slate-900
+      "
+    >
+      <summary
+        className="
+          cursor-pointer
+          select-none
+          px-4
+          py-3
+          text-sm
+          font-extrabold
+          text-slate-600
+          transition
+          hover:bg-slate-50
+          dark:text-slate-300
+          dark:hover:bg-slate-800
+        "
+      >
+        <span
+          style={{
+            color: accentColor,
+          }}
+        >
+          {labels.showDetails}
+        </span>
+      </summary>
+
+      <div
+        className="
+          border-t
+          border-slate-100
+          p-4
+          dark:border-slate-800
+        "
+      >
+        {entries.length > 0 && (
+          <div
+            className="
+              mb-4
+              grid
+              gap-2
+              sm:grid-cols-2
+              lg:grid-cols-3
+            "
+          >
+            {entries
+              .slice(0, 9)
+              .map(([key, value]) => (
+                <div
+                  key={key}
+                  className="
+                    rounded-xl
+                    bg-slate-50
+                    p-3
+                    dark:bg-slate-800/70
+                  "
+                >
+                  <p
+                    className="
+                      text-[11px]
+                      font-bold
+                      text-slate-400
+                    "
+                  >
+                    {humanizeValue(key)}
+                  </p>
+
+                  <p
+                    className="
+                      mt-1
+                      break-words
+                      text-sm
+                      font-extrabold
+                      text-slate-800
+                      dark:text-slate-100
+                    "
+                    dir={
+                      typeof value === 'number'
+                      || /^-?\d+([.,]\d+)?$/.test(
+                        String(value || ''),
+                      )
+                        ? 'ltr'
+                        : undefined
+                    }
+                  >
+                    {typeof value === 'object'
+                    && value !== null
+                      ? JSON.stringify(value)
+                      : String(value ?? '—')}
+                  </p>
+                </div>
+              ))}
+          </div>
+        )}
+
+        <div
+          className="
+            rounded-xl
+            bg-slate-950
+            p-4
+          "
+        >
+          <pre
+            className="
+              max-h-72
+              overflow-auto
+              whitespace-pre-wrap
+              break-words
+              text-xs
+              leading-6
+              text-slate-200
+            "
+            dir="ltr"
+          >
+            {JSON.stringify(
+              details,
+              null,
+              2,
+            )}
+          </pre>
+        </div>
+      </div>
+    </details>
+  );
+};
 
 const OperationalLogs = () => {
   const {
@@ -76,6 +405,208 @@ const OperationalLogs = () => {
     currentColor,
   } = useStateContext();
 
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const locale = (
+    i18n.resolvedLanguage
+    || i18n.language
+    || (isArabic ? 'ar' : 'en')
+  );
+
+  const accentColor = currentColor || '#06b6d4';
+
+  const labels = useMemo(() => ({
+    category: t(
+      'operationalLogs.category',
+      isArabic
+        ? 'المراقبة والتدقيق'
+        : 'Monitoring & Audit',
+    ),
+
+    title: t(
+      'operationalLogs.title',
+      isArabic
+        ? 'سجلات التشغيل'
+        : 'Operational Logs',
+    ),
+
+    subtitle: t(
+      'operationalLogs.subtitle',
+      isArabic
+        ? 'راجع نشاط الإدارة وسجلات النظام بشكل واضح ومنظم.'
+        : 'Review administrator activity and system logs in a clear, organized view.',
+    ),
+
+    refresh: t(
+      'operationalLogs.refresh',
+      isArabic
+        ? 'تحديث البيانات'
+        : 'Refresh',
+    ),
+
+    audit: t(
+      'operationalLogs.tabs.audit',
+      isArabic
+        ? 'سجل التدقيق'
+        : 'Audit log',
+    ),
+
+    system: t(
+      'operationalLogs.tabs.system',
+      isArabic
+        ? 'سجل النظام'
+        : 'System log',
+    ),
+
+    totalRecords: isArabic
+      ? 'إجمالي السجلات'
+      : 'Total records',
+
+    currentPage: isArabic
+      ? 'الصفحة الحالية'
+      : 'Current page',
+
+    activeFilters: isArabic
+      ? 'الفلاتر المطبقة'
+      : 'Active filters',
+
+    shownRecords: isArabic
+      ? 'السجلات الظاهرة'
+      : 'Visible records',
+
+    filterTitle: isArabic
+      ? 'تصفية سجل التدقيق'
+      : 'Filter audit log',
+
+    filterSubtitle: isArabic
+      ? 'استخدم الحقول التالية للوصول للسجل المطلوب بسرعة.'
+      : 'Use the fields below to quickly find the record you need.',
+
+    action: t(
+      'operationalLogs.filters.action',
+      isArabic
+        ? 'الإجراء'
+        : 'Action',
+    ),
+
+    resourceType: t(
+      'operationalLogs.filters.resourceType',
+      isArabic
+        ? 'نوع المورد'
+        : 'Resource type',
+    ),
+
+    adminId: t(
+      'operationalLogs.filters.adminUserId',
+      isArabic
+        ? 'معرف المدير'
+        : 'Admin ID',
+    ),
+
+    startDate: t(
+      'operationalLogs.filters.startDate',
+      isArabic
+        ? 'من تاريخ'
+        : 'From date',
+    ),
+
+    endDate: t(
+      'operationalLogs.filters.endDate',
+      isArabic
+        ? 'إلى تاريخ'
+        : 'To date',
+    ),
+
+    apply: t(
+      'operationalLogs.filters.apply',
+      isArabic
+        ? 'تطبيق'
+        : 'Apply',
+    ),
+
+    clear: t(
+      'operationalLogs.filters.clear',
+      isArabic
+        ? 'مسح'
+        : 'Clear',
+    ),
+
+    loading: t(
+      'operationalLogs.loading',
+      isArabic
+        ? 'جاري تحميل السجلات...'
+        : 'Loading logs...',
+    ),
+
+    empty: t(
+      'operationalLogs.empty',
+      isArabic
+        ? 'لا توجد سجلات.'
+        : 'No logs found.',
+    ),
+
+    time: isArabic
+      ? 'الوقت'
+      : 'Time',
+
+    admin: isArabic
+      ? 'المدير'
+      : 'Administrator',
+
+    user: isArabic
+      ? 'المستخدم'
+      : 'User',
+
+    resource: isArabic
+      ? 'المورد'
+      : 'Resource',
+
+    ip: isArabic
+      ? 'عنوان IP'
+      : 'IP address',
+
+    operation: isArabic
+      ? 'العملية'
+      : 'Operation',
+
+    url: isArabic
+      ? 'الرابط'
+      : 'URL',
+
+    description: isArabic
+      ? 'الوصف'
+      : 'Description',
+
+    showDetails: isArabic
+      ? 'عرض التفاصيل'
+      : 'Show details',
+
+    recordNumber: isArabic
+      ? 'سجل'
+      : 'Record',
+
+    systemUser: t(
+      'operationalLogs.labels.system',
+      isArabic
+        ? 'النظام'
+        : 'System',
+    ),
+
+    page: isArabic
+      ? 'صفحة'
+      : 'Page',
+
+    of: isArabic
+      ? 'من'
+      : 'of',
+  }), [
+    isArabic,
+    t,
+  ]);
+
   const [tab, setTab] = useState('audit');
 
   const [auditLogs, setAuditLogs] = useState([]);
@@ -87,46 +618,78 @@ const OperationalLogs = () => {
   const [systemLogs, setSystemLogs] = useState([]);
   const [systemPage, setSystemPage] = useState(1);
 
-  const [filters, setFilters] = useState({
-    action: '',
-    resource_type: '',
-    user_id: '',
-    start_date: '',
-    end_date: '',
-  });
+  const [filters, setFilters] = useState(
+    createEmptyFilters,
+  );
 
-  const [appliedFilters, setAppliedFilters] = useState(filters);
+  const [appliedFilters, setAppliedFilters] = useState(
+    createEmptyFilters,
+  );
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const locale = (
-    i18n.resolvedLanguage
-    || i18n.language
+  const dateTime = useCallback(
+    (value) => {
+      if (!value) {
+        return '—';
+      }
+
+      const date = new Date(value);
+
+      if (
+        Number.isNaN(
+          date.getTime(),
+        )
+      ) {
+        return String(value);
+      }
+
+      return date.toLocaleString(
+        locale,
+      );
+    },
+    [locale],
   );
 
-  const dateTime = (value) => (
-    value
-      ? new Date(value).toLocaleString(locale)
-      : '—'
-  );
+  const runtimeLabel = useCallback(
+    (prefix, value) => {
+      if (
+        value === null
+        || value === undefined
+        || value === ''
+      ) {
+        return '—';
+      }
 
-  const runtimeLabel = (prefix, value) => (
-    localizeRuntimeValue({
-      t,
+      const normalized = String(value)
+        .trim()
+        .toUpperCase();
+
+      if (
+        prefix === 'actions'
+        && normalized === 'BALANCE_ADJUSTMENT'
+      ) {
+        return isArabic
+          ? 'تعديل الرصيد'
+          : 'Balance adjustment';
+      }
+
+      return localizeRuntimeValue({
+        t,
+        i18n,
+        value,
+        namespace: 'activity',
+        prefix: `operationalLogs.${prefix}`,
+        fallback: () => humanizeValue(value),
+      });
+    },
+    [
       i18n,
-      value,
-      namespace: 'activity',
-      prefix: `operationalLogs.${prefix}`,
-      fallback: () => (
-        t('operationalLogs.labels.unknownSystemValue')
-      ),
-    })
+      isArabic,
+      t,
+    ],
   );
-
-  // ====================================================
-  // Audit logs
-  // ====================================================
 
   const loadAudit = useCallback(async () => {
     setLoading(true);
@@ -152,27 +715,38 @@ const OperationalLogs = () => {
         },
       );
 
-      setAuditLogs(
-        listFrom(response.data),
+      const rows = listFrom(
+        response.data,
       );
+
+      setAuditLogs(rows);
 
       setAuditCount(
         response.data?.count
-        ?? listFrom(response.data).length,
+        ?? rows.length,
       );
 
       setAuditNext(
-        Boolean(response.data?.next),
+        Boolean(
+          response.data?.next,
+        ),
       );
 
       setAuditPrevious(
-        Boolean(response.data?.previous),
+        Boolean(
+          response.data?.previous,
+        ),
       );
     } catch (loadError) {
       setError(
         errorMessage(
           loadError,
-          t('operationalLogs.errors.audit'),
+          t(
+            'operationalLogs.errors.audit',
+            isArabic
+              ? 'تعذر تحميل سجل التدقيق.'
+              : 'Failed to load audit log.',
+          ),
         ),
       );
     } finally {
@@ -181,12 +755,9 @@ const OperationalLogs = () => {
   }, [
     appliedFilters,
     auditPage,
+    isArabic,
     t,
   ]);
-
-  // ====================================================
-  // System logs
-  // ====================================================
 
   const loadSystem = useCallback(async () => {
     setLoading(true);
@@ -198,19 +769,29 @@ const OperationalLogs = () => {
       );
 
       setSystemLogs(
-        listFrom(response.data),
+        listFrom(
+          response.data,
+        ),
       );
     } catch (loadError) {
       setError(
         errorMessage(
           loadError,
-          t('operationalLogs.errors.system'),
+          t(
+            'operationalLogs.errors.system',
+            isArabic
+              ? 'تعذر تحميل سجل النظام.'
+              : 'Failed to load system log.',
+          ),
         ),
       );
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [
+    isArabic,
+    t,
+  ]);
 
   useEffect(() => {
     if (tab === 'audit') {
@@ -219,14 +800,10 @@ const OperationalLogs = () => {
       loadSystem();
     }
   }, [
-    tab,
     loadAudit,
     loadSystem,
+    tab,
   ]);
-
-  // ====================================================
-  // System pagination
-  // ====================================================
 
   const displayedSystemLogs = useMemo(() => {
     const start = (
@@ -249,25 +826,41 @@ const OperationalLogs = () => {
     ),
   );
 
-  // ====================================================
-  // Filters
-  // ====================================================
+  const appliedFilterCount = useMemo(
+    () => Object.values(
+      appliedFilters,
+    ).filter(Boolean).length,
+    [appliedFilters],
+  );
+
+  const currentRows = (
+    tab === 'audit'
+      ? auditLogs
+      : displayedSystemLogs
+  );
+
+  const currentTotal = (
+    tab === 'audit'
+      ? auditCount
+      : systemLogs.length
+  );
+
+  const currentPage = (
+    tab === 'audit'
+      ? auditPage
+      : systemPage
+  );
 
   const applyFilters = (event) => {
     event.preventDefault();
-
     setAuditPage(1);
-    setAppliedFilters(filters);
+    setAppliedFilters({
+      ...filters,
+    });
   };
 
   const clearFilters = () => {
-    const cleared = {
-      action: '',
-      resource_type: '',
-      user_id: '',
-      start_date: '',
-      end_date: '',
-    };
+    const cleared = createEmptyFilters();
 
     setFilters(cleared);
     setAppliedFilters(cleared);
@@ -282,30 +875,419 @@ const OperationalLogs = () => {
     }
   };
 
-  const auditHeaders = [
-    'time',
-    'admin',
-    'action',
-    'resource',
-    'ip',
-    'details',
-  ];
+  const updateFilter = (key, value) => {
+    setFilters(
+      (current) => ({
+        ...current,
+        [key]: value,
+      }),
+    );
+  };
 
-  const systemHeaders = [
-    'time',
-    'user',
-    'operation',
-    'url',
-    'ip',
-    'description',
-  ];
+  const renderAuditCard = (log, index) => {
+    const userName = (
+      log.user_name
+      || t(
+        'operationalLogs.labels.userNumber',
+        {
+          id: log.user ?? '—',
+          defaultValue: isArabic
+            ? `مستخدم #${log.user ?? '—'}`
+            : `User #${log.user ?? '—'}`,
+        },
+      )
+    );
 
-  const currentRows = tab === 'audit'
-    ? auditLogs
-    : displayedSystemLogs;
+    const actionLabel = runtimeLabel(
+      'actions',
+      log.action,
+    );
+
+    const resourceLabel = runtimeLabel(
+      'resources',
+      log.resource_type,
+    );
+
+    return (
+      <article
+        key={
+          log.id
+          || `audit-${auditPage}-${index}`
+        }
+        className="
+          group
+          rounded-2xl
+          border
+          border-slate-100
+          bg-white
+          p-4
+          shadow-sm
+          transition
+          hover:border-slate-200
+          hover:shadow-md
+          dark:border-slate-800
+          dark:bg-secondary-dark-bg
+          dark:hover:border-slate-700
+          sm:p-5
+        "
+      >
+        <div
+          className="
+            flex
+            flex-col
+            gap-4
+            lg:flex-row
+            lg:items-start
+            lg:justify-between
+          "
+        >
+          <div
+            className="
+              flex
+              min-w-0
+              items-start
+              gap-3
+            "
+          >
+            <div
+              className="
+                flex
+                h-11
+                w-11
+                shrink-0
+                items-center
+                justify-center
+                rounded-xl
+                text-lg
+              "
+              style={{
+                backgroundColor: `${accentColor}14`,
+                color: accentColor,
+              }}
+            >
+              <FiShield />
+            </div>
+
+            <div className="min-w-0 text-start">
+              <div
+                className="
+                  flex
+                  flex-wrap
+                  items-center
+                  gap-2
+                "
+              >
+                <span
+                  className="
+                    rounded-full
+                    border
+                    px-2.5
+                    py-1
+                    text-xs
+                    font-black
+                  "
+                  style={{
+                    backgroundColor: `${accentColor}10`,
+                    borderColor: `${accentColor}28`,
+                    color: accentColor,
+                  }}
+                >
+                  {actionLabel}
+                </span>
+
+                {log.id && (
+                  <span
+                    className="
+                      text-xs
+                      font-bold
+                      text-slate-400
+                    "
+                    dir="ltr"
+                  >
+                    #{log.id}
+                  </span>
+                )}
+              </div>
+
+              <div
+                className="
+                  mt-2
+                  flex
+                  flex-wrap
+                  items-center
+                  gap-x-3
+                  gap-y-1
+                "
+              >
+                <p
+                  className="
+                    font-black
+                    text-slate-900
+                    dark:text-white
+                  "
+                >
+                  {userName}
+                </p>
+
+                {log.user_email && (
+                  <p
+                    dir="ltr"
+                    className="
+                      text-xs
+                      font-semibold
+                      text-slate-400
+                    "
+                  >
+                    {log.user_email}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="
+              flex
+              shrink-0
+              items-center
+              gap-2
+              text-xs
+              font-bold
+              text-slate-400
+            "
+          >
+            <FiClock />
+            <span>
+              {dateTime(
+                log.created_at,
+              )}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className="
+            mt-4
+            grid
+            gap-3
+            md:grid-cols-3
+          "
+        >
+          <MetaItem
+            icon={<FiHash />}
+            label={labels.resource}
+            value={
+              log.resource_id
+                ? `${resourceLabel} #${log.resource_id}`
+                : resourceLabel
+            }
+          />
+
+          <MetaItem
+            icon={<FiGlobe />}
+            label={labels.ip}
+            value={log.ip_address}
+            dir="ltr"
+          />
+
+          <MetaItem
+            icon={<FiUser />}
+            label={labels.admin}
+            value={
+              log.user
+                ? `#${log.user}`
+                : '—'
+            }
+            dir="ltr"
+          />
+        </div>
+
+        <DetailsPanel
+          details={log.details}
+          labels={labels}
+          accentColor={accentColor}
+        />
+      </article>
+    );
+  };
+
+  const renderSystemCard = (log, index) => {
+    const operationLabel = runtimeLabel(
+      'operations',
+      log.operation_type
+      || log.operation_name,
+    );
+
+    return (
+      <article
+        key={
+          log.id
+          || `system-${systemPage}-${index}`
+        }
+        className="
+          rounded-2xl
+          border
+          border-slate-100
+          bg-white
+          p-4
+          shadow-sm
+          transition
+          hover:border-slate-200
+          hover:shadow-md
+          dark:border-slate-800
+          dark:bg-secondary-dark-bg
+          dark:hover:border-slate-700
+          sm:p-5
+        "
+      >
+        <div
+          className="
+            flex
+            flex-col
+            gap-4
+            lg:flex-row
+            lg:items-start
+            lg:justify-between
+          "
+        >
+          <div
+            className="
+              flex
+              min-w-0
+              items-start
+              gap-3
+            "
+          >
+            <div
+              className="
+                flex
+                h-11
+                w-11
+                shrink-0
+                items-center
+                justify-center
+                rounded-xl
+                text-lg
+              "
+              style={{
+                backgroundColor: `${accentColor}14`,
+                color: accentColor,
+              }}
+            >
+              <FiServer />
+            </div>
+
+            <div className="min-w-0 text-start">
+              <div
+                className="
+                  flex
+                  flex-wrap
+                  items-center
+                  gap-2
+                "
+              >
+                <span
+                  className="
+                    rounded-full
+                    border
+                    px-2.5
+                    py-1
+                    text-xs
+                    font-black
+                  "
+                  style={{
+                    backgroundColor: `${accentColor}10`,
+                    borderColor: `${accentColor}28`,
+                    color: accentColor,
+                  }}
+                >
+                  {operationLabel}
+                </span>
+
+                {log.id && (
+                  <span
+                    className="
+                      text-xs
+                      font-bold
+                      text-slate-400
+                    "
+                    dir="ltr"
+                  >
+                    #{log.id}
+                  </span>
+                )}
+              </div>
+
+              <p
+                className="
+                  mt-2
+                  font-black
+                  text-slate-900
+                  dark:text-white
+                "
+              >
+                {log.user_name
+                  || labels.systemUser}
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="
+              flex
+              shrink-0
+              items-center
+              gap-2
+              text-xs
+              font-bold
+              text-slate-400
+            "
+          >
+            <FiClock />
+            <span>
+              {dateTime(
+                log.created_at,
+              )}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className="
+            mt-4
+            grid
+            gap-3
+            md:grid-cols-2
+            xl:grid-cols-3
+          "
+        >
+          <MetaItem
+            icon={<FiGlobe />}
+            label={labels.ip}
+            value={log.ip_address}
+            dir="ltr"
+          />
+
+          <MetaItem
+            icon={<FiServer />}
+            label={labels.url}
+            value={log.url}
+            dir="ltr"
+          />
+
+          <MetaItem
+            icon={<FiActivity />}
+            label={labels.description}
+            value={log.description}
+          />
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div
+      dir={isArabic ? 'rtl' : 'ltr'}
       className="
         mt-20
         px-3
@@ -321,43 +1303,55 @@ const OperationalLogs = () => {
           mx-auto
           w-full
           max-w-7xl
-          space-y-6
+          space-y-5
         "
       >
-        {/* =========================================
-            Header
-        ========================================= */}
-
         <section
           className="
             relative
             overflow-hidden
-            rounded-2xl
+            rounded-3xl
             border
             border-slate-100
             bg-white
             px-5
-            py-5
+            py-6
             shadow-sm
             dark:border-slate-800
             dark:bg-secondary-dark-bg
             md:px-7
-            md:py-6
+            md:py-7
           "
         >
           <div
             className="
               pointer-events-none
               absolute
-              -start-16
-              -top-20
-              h-52
-              w-52
+              -start-24
+              -top-28
+              h-64
+              w-64
               rounded-full
-              opacity-[0.07]
+              opacity-[0.08]
             "
             style={{
-              backgroundColor: currentColor,
+              backgroundColor: accentColor,
+            }}
+          />
+
+          <div
+            className="
+              pointer-events-none
+              absolute
+              -bottom-24
+              end-10
+              h-48
+              w-48
+              rounded-full
+              opacity-[0.04]
+            "
+            style={{
+              backgroundColor: accentColor,
             }}
           />
 
@@ -373,10 +1367,10 @@ const OperationalLogs = () => {
               sm:items-center
             "
           >
-            <div className="text-start">
+            <div className="max-w-2xl text-start">
               <div
                 className="
-                  mb-2
+                  mb-3
                   flex
                   items-center
                   gap-2
@@ -389,127 +1383,77 @@ const OperationalLogs = () => {
                     rounded-full
                   "
                   style={{
-                    backgroundColor: currentColor,
+                    backgroundColor: accentColor,
                   }}
                 />
 
                 <span
                   className="
                     text-sm
-                    font-bold
-                    md:text-base
+                    font-extrabold
                   "
                   style={{
-                    color: currentColor,
+                    color: accentColor,
                   }}
                 >
-                  {t(
-                    'operationalLogs.category',
-                  )}
+                  {labels.category}
                 </span>
               </div>
 
               <h1
                 className="
-                  text-2xl
-                  font-extrabold
+                  text-3xl
+                  font-black
                   tracking-tight
-                  text-slate-900
+                  text-slate-950
                   dark:text-white
-                  md:text-3xl
-                  lg:text-4xl
+                  md:text-4xl
                 "
               >
-                {t(
-                  'operationalLogs.title',
-                )}
+                {labels.title}
               </h1>
 
               <p
                 className="
                   mt-2
-                  max-w-2xl
+                  max-w-xl
                   text-sm
-                  leading-6
+                  font-medium
+                  leading-7
                   text-slate-500
                   dark:text-slate-400
                 "
               >
-                {t(
-                  'operationalLogs.subtitle',
-                )}
+                {labels.subtitle}
               </p>
-
-              <div
-                className="
-                  mt-4
-                  flex
-                  items-center
-                  gap-1.5
-                "
-              >
-                <span
-                  className="h-1 w-14 rounded-full"
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
-                />
-
-                <span
-                  className="
-                    h-1
-                    w-6
-                    rounded-full
-                    opacity-60
-                  "
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
-                />
-
-                <span
-                  className="
-                    h-1
-                    w-2
-                    rounded-full
-                    opacity-30
-                  "
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
-                />
-              </div>
             </div>
 
             <button
               type="button"
               onClick={handleRefresh}
               disabled={loading}
-              style={{
-                backgroundColor: currentColor,
-              }}
               className="
                 flex
                 w-full
                 items-center
                 justify-center
                 gap-2
-                rounded-xl
+                rounded-2xl
                 px-5
-                py-2.5
+                py-3
                 text-sm
-                font-bold
+                font-black
                 text-white
-                shadow-md
-                transition-all
-                duration-200
+                shadow-sm
+                transition
                 hover:opacity-90
-                hover:shadow-lg
-                active:scale-95
                 disabled:cursor-not-allowed
                 disabled:opacity-60
                 sm:w-auto
               "
+              style={{
+                backgroundColor: accentColor,
+              }}
             >
               <FiRefreshCw
                 className={
@@ -519,99 +1463,137 @@ const OperationalLogs = () => {
                 }
               />
 
-              {t(
-                'operationalLogs.refresh',
-              )}
+              {labels.refresh}
             </button>
           </div>
         </section>
 
-        {/* =========================================
-            Tabs
-        ========================================= */}
-
-        <div className="flex justify-start">
+        <section
+          className="
+            rounded-2xl
+            border
+            border-slate-100
+            bg-white
+            p-2
+            shadow-sm
+            dark:border-slate-800
+            dark:bg-secondary-dark-bg
+          "
+        >
           <div
             className="
-              inline-flex
-              items-center
-              gap-1
-              rounded-xl
-              border
-              border-slate-200
-              bg-slate-100
-              p-1
-              dark:border-slate-700
-              dark:bg-slate-800
+              grid
+              gap-2
+              sm:grid-cols-2
             "
           >
             {[
-              'audit',
-              'system',
-            ].map((value) => {
-              const active = tab === value;
+              {
+                id: 'audit',
+                label: labels.audit,
+                icon: <FiShield />,
+              },
+              {
+                id: 'system',
+                label: labels.system,
+                icon: <FiServer />,
+              },
+            ].map((item) => {
+              const active = (
+                tab === item.id
+              );
 
               return (
                 <button
+                  key={item.id}
                   type="button"
-                  key={value}
                   onClick={() => {
-                    setTab(value);
+                    setTab(item.id);
                     setError('');
 
-                    if (value === 'system') {
+                    if (
+                      item.id === 'system'
+                    ) {
                       setSystemPage(1);
                     }
                   }}
-                  style={
-                    active
-                      ? {
-                          backgroundColor: currentColor,
-                        }
-                      : undefined
-                  }
                   className={`
                     flex
                     items-center
+                    justify-center
                     gap-2
-                    rounded-lg
+                    rounded-xl
                     px-4
-                    py-2
+                    py-3
                     text-sm
-                    font-bold
-                    transition-all
-                    duration-200
-
+                    font-black
+                    transition
                     ${
                       active
                         ? 'text-white shadow-sm'
-                        : `
-                          text-slate-500
-                          hover:bg-white
-                          hover:text-slate-800
-                          dark:text-slate-400
-                          dark:hover:bg-slate-700
-                          dark:hover:text-white
-                        `
+                        : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'
                     }
                   `}
+                  style={
+                    active
+                      ? {
+                          backgroundColor: accentColor,
+                        }
+                      : undefined
+                  }
                 >
-                  {value === 'audit'
-                    ? <FiShield />
-                    : <FiServer />}
-
-                  {t(
-                    `operationalLogs.tabs.${value}`,
-                  )}
+                  {item.icon}
+                  {item.label}
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* =========================================
-            Error
-        ========================================= */}
+        <section
+          className="
+            grid
+            gap-3
+            sm:grid-cols-2
+            xl:grid-cols-4
+          "
+        >
+          <StatCard
+            icon={
+              tab === 'audit'
+                ? <FiShield />
+                : <FiServer />
+            }
+            label={labels.totalRecords}
+            value={currentTotal}
+            accentColor={accentColor}
+          />
+
+          <StatCard
+            icon={<FiHash />}
+            label={labels.currentPage}
+            value={currentPage}
+            accentColor={accentColor}
+          />
+
+          <StatCard
+            icon={<FiActivity />}
+            label={labels.shownRecords}
+            value={currentRows.length}
+            accentColor={accentColor}
+          />
+
+          <StatCard
+            icon={<FiFilter />}
+            label={labels.activeFilters}
+            value={
+              tab === 'audit'
+                ? appliedFilterCount
+                : '—'
+            }
+            accentColor={accentColor}
+          />
+        </section>
 
         {error && (
           <div
@@ -619,15 +1601,16 @@ const OperationalLogs = () => {
               flex
               items-start
               gap-3
-              rounded-xl
+              rounded-2xl
               border
               border-red-200
               bg-red-50
               px-4
-              py-3.5
+              py-3
               text-sm
+              font-bold
               text-red-700
-              dark:border-red-900
+              dark:border-red-900/40
               dark:bg-red-950/30
               dark:text-red-300
             "
@@ -635,8 +1618,7 @@ const OperationalLogs = () => {
             <FiAlertCircle
               className="
                 mt-0.5
-                flex-shrink-0
-                text-lg
+                shrink-0
               "
             />
 
@@ -647,86 +1629,104 @@ const OperationalLogs = () => {
             <button
               type="button"
               onClick={() => setError('')}
-              className="
-                flex
-                h-7
-                w-7
-                items-center
-                justify-center
-                rounded-lg
-                hover:bg-red-100
-                dark:hover:bg-red-900/50
-              "
             >
               <FiX />
             </button>
           </div>
         )}
 
-        {/* =========================================
-            Filters
-        ========================================= */}
-
         {tab === 'audit' && (
           <section
             className="
-              rounded-2xl
+              rounded-3xl
               border
               border-slate-100
               bg-white
-              p-5
+              p-4
               shadow-sm
               dark:border-slate-800
               dark:bg-secondary-dark-bg
+              sm:p-5
             "
           >
             <div
               className="
-                mb-4
+                mb-5
                 flex
-                items-center
+                flex-col
                 gap-3
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
               "
             >
               <div
                 className="
                   flex
-                  h-10
-                  w-10
                   items-center
-                  justify-center
-                  rounded-xl
+                  gap-3
                 "
-                style={{
-                  color: currentColor,
-                  backgroundColor: `${currentColor}15`,
-                }}
               >
-                <FiFilter />
+                <div
+                  className="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                  "
+                  style={{
+                    backgroundColor: `${accentColor}14`,
+                    color: accentColor,
+                  }}
+                >
+                  <FiFilter />
+                </div>
+
+                <div className="text-start">
+                  <h2
+                    className="
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {labels.filterTitle}
+                  </h2>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-xs
+                      font-semibold
+                      text-slate-400
+                    "
+                  >
+                    {labels.filterSubtitle}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <p
+              {appliedFilterCount > 0 && (
+                <span
                   className="
-                    font-extrabold
-                    text-slate-900
-                    dark:text-white
-                  "
-                >
-                  {t(
-                    'operationalLogs.tabs.audit',
-                  )}
-                </p>
-
-                <p
-                  className="
+                    rounded-full
+                    border
+                    px-3
+                    py-1
                     text-xs
-                    text-slate-400
+                    font-black
                   "
+                  style={{
+                    backgroundColor: `${accentColor}10`,
+                    borderColor: `${accentColor}28`,
+                    color: accentColor,
+                  }}
                 >
-                  {auditCount}
-                </p>
-              </div>
+                  {appliedFilterCount} {labels.activeFilters}
+                </span>
+              )}
             </div>
 
             <form
@@ -735,34 +1735,30 @@ const OperationalLogs = () => {
                 grid
                 gap-3
                 md:grid-cols-2
-                xl:grid-cols-6
+                xl:grid-cols-5
               "
             >
               <input
                 className={inputClass}
-                placeholder={t(
-                  'operationalLogs.filters.action',
-                )}
+                placeholder={labels.action}
                 value={filters.action}
                 onChange={(event) => (
-                  setFilters({
-                    ...filters,
-                    action: event.target.value,
-                  })
+                  updateFilter(
+                    'action',
+                    event.target.value,
+                  )
                 )}
               />
 
               <input
                 className={inputClass}
-                placeholder={t(
-                  'operationalLogs.filters.resourceType',
-                )}
+                placeholder={labels.resourceType}
                 value={filters.resource_type}
                 onChange={(event) => (
-                  setFilters({
-                    ...filters,
-                    resource_type: event.target.value,
-                  })
+                  updateFilter(
+                    'resource_type',
+                    event.target.value,
+                  )
                 )}
               />
 
@@ -770,77 +1766,101 @@ const OperationalLogs = () => {
                 className={inputClass}
                 type="number"
                 min="1"
-                placeholder={t(
-                  'operationalLogs.filters.adminUserId',
-                )}
+                placeholder={labels.adminId}
                 value={filters.user_id}
                 onChange={(event) => (
-                  setFilters({
-                    ...filters,
-                    user_id: event.target.value,
-                  })
+                  updateFilter(
+                    'user_id',
+                    event.target.value,
+                  )
                 )}
               />
 
-              <input
-                className={inputClass}
-                type="date"
-                aria-label={t(
-                  'operationalLogs.filters.startDate',
-                )}
-                value={filters.start_date}
-                onChange={(event) => (
-                  setFilters({
-                    ...filters,
-                    start_date: event.target.value,
-                  })
-                )}
-              />
-
-              <input
-                className={inputClass}
-                type="date"
-                aria-label={t(
-                  'operationalLogs.filters.endDate',
-                )}
-                value={filters.end_date}
-                onChange={(event) => (
-                  setFilters({
-                    ...filters,
-                    end_date: event.target.value,
-                  })
-                )}
-              />
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
+              <label
+                className="
+                  relative
+                  block
+                "
+              >
+                <span
                   className="
-                    flex
-                    flex-1
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    px-3
-                    py-2.5
-                    text-sm
+                    pointer-events-none
+                    absolute
+                    start-3.5
+                    top-1/2
+                    -translate-y-1/2
+                    text-xs
                     font-bold
-                    text-white
-                    transition-all
-                    hover:opacity-90
+                    text-slate-400
                   "
                 >
-                  <FiSearch />
+                  {labels.startDate}
+                </span>
 
-                  {t(
-                    'operationalLogs.filters.apply',
+                <input
+                  className={`
+                    ${inputClass}
+                    ps-24
+                  `}
+                  type="date"
+                  aria-label={labels.startDate}
+                  value={filters.start_date}
+                  onChange={(event) => (
+                    updateFilter(
+                      'start_date',
+                      event.target.value,
+                    )
                   )}
-                </button>
+                />
+              </label>
 
+              <label
+                className="
+                  relative
+                  block
+                "
+              >
+                <span
+                  className="
+                    pointer-events-none
+                    absolute
+                    start-3.5
+                    top-1/2
+                    -translate-y-1/2
+                    text-xs
+                    font-bold
+                    text-slate-400
+                  "
+                >
+                  {labels.endDate}
+                </span>
+
+                <input
+                  className={`
+                    ${inputClass}
+                    ps-24
+                  `}
+                  type="date"
+                  aria-label={labels.endDate}
+                  value={filters.end_date}
+                  onChange={(event) => (
+                    updateFilter(
+                      'end_date',
+                      event.target.value,
+                    )
+                  )}
+                />
+              </label>
+
+              <div
+                className="
+                  flex
+                  gap-2
+                  md:col-span-2
+                  xl:col-span-5
+                  xl:justify-end
+                "
+              >
                 <button
                   type="button"
                   onClick={clearFilters}
@@ -853,10 +1873,10 @@ const OperationalLogs = () => {
                     border
                     border-slate-200
                     bg-white
-                    px-3
+                    px-4
                     py-2.5
                     text-sm
-                    font-semibold
+                    font-black
                     text-slate-600
                     transition
                     hover:bg-slate-50
@@ -867,138 +1887,69 @@ const OperationalLogs = () => {
                   "
                 >
                   <FiTrash2 />
+                  {labels.clear}
+                </button>
 
-                  {t(
-                    'operationalLogs.filters.clear',
-                  )}
+                <button
+                  type="submit"
+                  className="
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-xl
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-black
+                    text-white
+                    transition
+                    hover:opacity-90
+                  "
+                  style={{
+                    backgroundColor: accentColor,
+                  }}
+                >
+                  <FiSearch />
+                  {labels.apply}
                 </button>
               </div>
             </form>
           </section>
         )}
 
-        {/* =========================================
-            Logs Card
-        ========================================= */}
-
-        <section
-          className="
-            min-w-0
-            overflow-hidden
-            rounded-2xl
-            border
-            border-slate-100
-            bg-white
-            shadow-sm
-            dark:border-slate-800
-            dark:bg-secondary-dark-bg
-          "
-        >
-          <div
-            className="
-              flex
-              items-center
-              justify-between
-              border-b
-              border-slate-100
-              px-5
-              py-4
-              dark:border-slate-800
-            "
-          >
+        <section className="space-y-3">
+          {loading ? (
             <div
               className="
                 flex
-                items-center
-                gap-3
-              "
-            >
-              <div
-                className="
-                  flex
-                  h-10
-                  w-10
-                  items-center
-                  justify-center
-                  rounded-xl
-                "
-                style={{
-                  color: currentColor,
-                  backgroundColor: `${currentColor}15`,
-                }}
-              >
-                {tab === 'audit'
-                  ? <FiShield />
-                  : <FiActivity />}
-              </div>
-
-              <div>
-                <h2
-                  className="
-                    font-extrabold
-                    text-slate-900
-                    dark:text-white
-                  "
-                >
-                  {t(
-                    `operationalLogs.tabs.${tab}`,
-                  )}
-                </h2>
-
-                <p
-                  className="
-                    mt-0.5
-                    text-xs
-                    text-slate-400
-                  "
-                >
-                  {tab === 'audit'
-                    ? auditCount
-                    : systemLogs.length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Loading */}
-
-          {loading && (
-            <div
-              className="
-                flex
-                min-h-[320px]
+                min-h-[360px]
+                flex-col
                 items-center
                 justify-center
+                gap-3
+                rounded-3xl
+                border
+                border-slate-100
+                bg-white
+                text-slate-400
+                shadow-sm
+                dark:border-slate-800
+                dark:bg-secondary-dark-bg
               "
             >
-              <div
+              <FiRefreshCw
                 className="
-                  flex
-                  flex-col
-                  items-center
-                  gap-3
-                  text-slate-400
+                  animate-spin
+                  text-3xl
                 "
-              >
-                <FiRefreshCw
-                  className="
-                    animate-spin
-                    text-3xl
-                  "
-                />
+              />
 
-                <span className="text-sm">
-                  {t(
-                    'operationalLogs.loading',
-                  )}
-                </span>
-              </div>
+              <span className="text-sm font-bold">
+                {labels.loading}
+              </span>
             </div>
-          )}
-
-          {/* Empty */}
-
-          {!loading && currentRows.length === 0 && (
+          ) : currentRows.length === 0 ? (
             <div
               className="
                 flex
@@ -1006,404 +1957,52 @@ const OperationalLogs = () => {
                 flex-col
                 items-center
                 justify-center
-                px-5
+                gap-4
+                rounded-3xl
+                border
+                border-slate-100
+                bg-white
                 text-center
+                shadow-sm
+                dark:border-slate-800
+                dark:bg-secondary-dark-bg
               "
             >
               <div
                 className="
-                  mb-3
                   flex
                   h-16
                   w-16
                   items-center
                   justify-center
                   rounded-2xl
-                  bg-slate-100
-                  text-2xl
-                  text-slate-400
-                  dark:bg-slate-800
                 "
+                style={{
+                  backgroundColor: `${accentColor}12`,
+                  color: accentColor,
+                }}
               >
-                <FiActivity />
+                <FiActivity className="text-2xl" />
               </div>
 
               <p
                 className="
-                  font-semibold
-                  text-slate-500
-                  dark:text-slate-400
+                  text-sm
+                  font-bold
+                  text-slate-400
                 "
               >
-                {t(
-                  'operationalLogs.empty',
-                )}
+                {labels.empty}
               </p>
             </div>
-          )}
-
-          {/* Tables */}
-
-          {!loading && currentRows.length > 0 && (
-            <div className="overflow-x-auto">
-              {tab === 'audit' ? (
-                <table
-                  className="
-                    min-w-full
-                    divide-y
-                    divide-slate-100
-                    text-sm
-                    dark:divide-slate-800
-                  "
-                >
-                  <thead
-                    className="
-                      bg-slate-50
-                      dark:bg-slate-900/60
-                    "
-                  >
-                    <tr>
-                      {auditHeaders.map((heading) => (
-                        <th
-                          key={heading}
-                          className="
-                            whitespace-nowrap
-                            px-4
-                            py-3.5
-                            text-start
-                            text-xs
-                            font-bold
-                            text-slate-500
-                            dark:text-slate-400
-                          "
-                        >
-                          {t(
-                            `operationalLogs.auditHeaders.${heading}`,
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-
-                  <tbody
-                    className="
-                      divide-y
-                      divide-slate-100
-                      dark:divide-slate-800
-                    "
-                  >
-                    {auditLogs.map((log) => (
-                      <tr
-                        key={log.id}
-                        className="
-                          transition-colors
-                          hover:bg-slate-50/70
-                          dark:hover:bg-slate-800/40
-                        "
-                      >
-                        <td
-                          className="
-                            whitespace-nowrap
-                            px-4
-                            py-4
-                            text-xs
-                            text-slate-500
-                          "
-                        >
-                          <div
-                            className="
-                              flex
-                              items-center
-                              gap-2
-                            "
-                          >
-                            <FiClock />
-
-                            {dateTime(
-                              log.created_at,
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <p
-                            className="
-                              font-bold
-                              text-slate-900
-                              dark:text-white
-                            "
-                          >
-                            {log.user_name
-                              || t(
-                                'operationalLogs.labels.userNumber',
-                                {
-                                  id: log.user ?? '—',
-                                },
-                              )}
-                          </p>
-
-                          <p
-                            className="
-                              mt-0.5
-                              text-xs
-                              text-slate-400
-                            "
-                            dir="ltr"
-                          >
-                            {log.user_email || ''}
-                          </p>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <span
-                            className="
-                              inline-flex
-                              rounded-full
-                              bg-cyan-50
-                              px-2.5
-                              py-1
-                              text-xs
-                              font-bold
-                              text-cyan-700
-                              dark:bg-cyan-950/30
-                              dark:text-cyan-300
-                            "
-                          >
-                            {runtimeLabel(
-                              'actions',
-                              log.action,
-                            )}
-                          </span>
-                        </td>
-
-                        <td
-                          className="
-                            px-4
-                            py-4
-                            text-slate-700
-                            dark:text-slate-200
-                          "
-                        >
-                          {runtimeLabel(
-                            'resources',
-                            log.resource_type,
-                          )}
-
-                          {log.resource_id && (
-                            <>
-                              {' '}
-                              <bdi>
-                                #{log.resource_id}
-                              </bdi>
-                            </>
-                          )}
-                        </td>
-
-                        <td
-                          className="
-                            whitespace-nowrap
-                            px-4
-                            py-4
-                            text-xs
-                            text-slate-500
-                          "
-                          dir="ltr"
-                        >
-                          {log.ip_address || '—'}
-                        </td>
-
-                        <td
-                          className="
-                            max-w-sm
-                            px-4
-                            py-4
-                          "
-                        >
-                          <pre
-                            className="
-                              max-h-28
-                              overflow-auto
-                              whitespace-pre-wrap
-                              rounded-lg
-                              bg-slate-50
-                              p-2.5
-                              text-xs
-                              text-slate-600
-                              dark:bg-slate-900
-                              dark:text-slate-300
-                            "
-                            dir="ltr"
-                          >
-                            {log.details
-                              ? JSON.stringify(
-                                  log.details,
-                                  null,
-                                  2,
-                                )
-                              : '—'}
-                          </pre>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <table
-                  className="
-                    min-w-full
-                    divide-y
-                    divide-slate-100
-                    text-sm
-                    dark:divide-slate-800
-                  "
-                >
-                  <thead
-                    className="
-                      bg-slate-50
-                      dark:bg-slate-900/60
-                    "
-                  >
-                    <tr>
-                      {systemHeaders.map((heading) => (
-                        <th
-                          key={heading}
-                          className="
-                            whitespace-nowrap
-                            px-4
-                            py-3.5
-                            text-start
-                            text-xs
-                            font-bold
-                            text-slate-500
-                            dark:text-slate-400
-                          "
-                        >
-                          {t(
-                            `operationalLogs.systemHeaders.${heading}`,
-                          )}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-
-                  <tbody
-                    className="
-                      divide-y
-                      divide-slate-100
-                      dark:divide-slate-800
-                    "
-                  >
-                    {displayedSystemLogs.map((log) => (
-                      <tr
-                        key={log.id}
-                        className="
-                          transition-colors
-                          hover:bg-slate-50/70
-                          dark:hover:bg-slate-800/40
-                        "
-                      >
-                        <td
-                          className="
-                            whitespace-nowrap
-                            px-4
-                            py-4
-                            text-xs
-                            text-slate-500
-                          "
-                        >
-                          {dateTime(
-                            log.created_at,
-                          )}
-                        </td>
-
-                        <td
-                          className="
-                            px-4
-                            py-4
-                            font-bold
-                            text-slate-900
-                            dark:text-white
-                          "
-                        >
-                          {log.user_name
-                            || t(
-                              'operationalLogs.labels.system',
-                            )}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <span
-                            className="
-                              inline-flex
-                              rounded-full
-                              bg-violet-50
-                              px-2.5
-                              py-1
-                              text-xs
-                              font-bold
-                              text-violet-700
-                              dark:bg-violet-950/30
-                              dark:text-violet-300
-                            "
-                          >
-                            {runtimeLabel(
-                              'operations',
-                              log.operation_type
-                              || log.operation_name,
-                            )}
-                          </span>
-                        </td>
-
-                        <td
-                          className="
-                            max-w-xs
-                            break-all
-                            px-4
-                            py-4
-                            text-xs
-                            text-slate-500
-                          "
-                          dir="ltr"
-                        >
-                          {log.url || '—'}
-                        </td>
-
-                        <td
-                          className="
-                            whitespace-nowrap
-                            px-4
-                            py-4
-                            text-xs
-                            text-slate-500
-                          "
-                          dir="ltr"
-                        >
-                          {log.ip_address || '—'}
-                        </td>
-
-                        <td
-                          className="
-                            max-w-sm
-                            px-4
-                            py-4
-                            text-slate-600
-                            dark:text-slate-300
-                          "
-                        >
-                          {log.description || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+          ) : (
+            currentRows.map(
+              tab === 'audit'
+                ? renderAuditCard
+                : renderSystemCard,
+            )
           )}
         </section>
-
-        {/* =========================================
-            Pagination
-        ========================================= */}
 
         {!loading
           && tab === 'audit'
@@ -1411,38 +2010,44 @@ const OperationalLogs = () => {
             auditPrevious
             || auditNext
           ) && (
-          <div
+          <section
             className="
               flex
               flex-col
-              items-center
-              justify-between
               gap-3
-              rounded-xl
+              rounded-2xl
               border
               border-slate-100
               bg-white
               px-4
               py-3
+              shadow-sm
               dark:border-slate-800
               dark:bg-secondary-dark-bg
               sm:flex-row
+              sm:items-center
+              sm:justify-between
             "
           >
-            <span
+            <p
               className="
                 text-sm
+                font-bold
                 text-slate-500
                 dark:text-slate-400
               "
             >
-              {t(
-                'operationalLogs.labels.auditCount',
-                {
-                  count: auditCount,
-                },
-              )}
-            </span>
+              {labels.totalRecords}:{' '}
+              <span
+                className="
+                  font-black
+                  text-slate-900
+                  dark:text-white
+                "
+              >
+                {auditCount}
+              </span>
+            </p>
 
             <div
               className="
@@ -1456,118 +2061,132 @@ const OperationalLogs = () => {
                 disabled={!auditPrevious}
                 onClick={() => (
                   setAuditPage(
-                    (page) => Math.max(
+                    (value) => Math.max(
                       1,
-                      page - 1,
+                      value - 1,
                     ),
                   )
                 )}
                 className="
                   flex
-                  h-9
-                  w-9
+                  h-10
+                  w-10
                   items-center
                   justify-center
-                  rounded-lg
+                  rounded-xl
                   border
                   border-slate-200
+                  bg-white
                   text-slate-500
                   transition
                   hover:bg-slate-50
                   disabled:cursor-not-allowed
                   disabled:opacity-30
                   dark:border-slate-700
-                  dark:hover:bg-slate-800
+                  dark:bg-slate-900
+                  dark:text-slate-300
                 "
               >
-                <FiChevronRight />
+                {isArabic
+                  ? <FiChevronRight />
+                  : <FiChevronLeft />}
               </button>
 
-              <span
+              <div
                 className="
-                  min-w-[80px]
+                  min-w-[88px]
+                  rounded-xl
+                  px-3
+                  py-2
                   text-center
                   text-sm
-                  font-bold
-                  text-slate-700
-                  dark:text-slate-200
+                  font-black
+                  text-white
                 "
+                style={{
+                  backgroundColor: accentColor,
+                }}
               >
-                {t(
-                  'operationalLogs.labels.page',
-                  {
-                    page: auditPage,
-                  },
-                )}
-              </span>
+                {labels.page} {auditPage}
+              </div>
 
               <button
                 type="button"
                 disabled={!auditNext}
                 onClick={() => (
                   setAuditPage(
-                    (page) => page + 1,
+                    (value) => value + 1,
                   )
                 )}
                 className="
                   flex
-                  h-9
-                  w-9
+                  h-10
+                  w-10
                   items-center
                   justify-center
-                  rounded-lg
+                  rounded-xl
                   border
                   border-slate-200
+                  bg-white
                   text-slate-500
                   transition
                   hover:bg-slate-50
                   disabled:cursor-not-allowed
                   disabled:opacity-30
                   dark:border-slate-700
-                  dark:hover:bg-slate-800
+                  dark:bg-slate-900
+                  dark:text-slate-300
                 "
               >
-                <FiChevronLeft />
+                {isArabic
+                  ? <FiChevronLeft />
+                  : <FiChevronRight />}
               </button>
             </div>
-          </div>
+          </section>
         )}
 
         {!loading
           && tab === 'system'
           && systemPages > 1 && (
-          <div
+          <section
             className="
               flex
               flex-col
-              items-center
-              justify-between
               gap-3
-              rounded-xl
+              rounded-2xl
               border
               border-slate-100
               bg-white
               px-4
               py-3
+              shadow-sm
               dark:border-slate-800
               dark:bg-secondary-dark-bg
               sm:flex-row
+              sm:items-center
+              sm:justify-between
             "
           >
-            <span
+            <p
               className="
                 text-sm
+                font-bold
                 text-slate-500
                 dark:text-slate-400
               "
             >
-              {t(
-                'operationalLogs.labels.systemCount',
-                {
-                  count: systemLogs.length,
-                },
-              )}
-            </span>
+              {labels.totalRecords}:{' '}
+              <span
+                className="
+                  font-black
+                  text-slate-900
+                  dark:text-white
+                "
+              >
+                {systemLogs.length}
+              </span>
+            </p>
 
             <div
               className="
@@ -1581,79 +2200,94 @@ const OperationalLogs = () => {
                 disabled={systemPage === 1}
                 onClick={() => (
                   setSystemPage(
-                    (page) => page - 1,
+                    (value) => Math.max(
+                      1,
+                      value - 1,
+                    ),
                   )
                 )}
                 className="
                   flex
-                  h-9
-                  w-9
+                  h-10
+                  w-10
                   items-center
                   justify-center
-                  rounded-lg
+                  rounded-xl
                   border
                   border-slate-200
+                  bg-white
                   text-slate-500
                   transition
                   hover:bg-slate-50
+                  disabled:cursor-not-allowed
                   disabled:opacity-30
                   dark:border-slate-700
-                  dark:hover:bg-slate-800
+                  dark:bg-slate-900
+                  dark:text-slate-300
                 "
               >
-                <FiChevronRight />
+                {isArabic
+                  ? <FiChevronRight />
+                  : <FiChevronLeft />}
               </button>
 
-              <span
+              <div
                 className="
-                  min-w-[100px]
+                  min-w-[110px]
+                  rounded-xl
+                  px-3
+                  py-2
                   text-center
                   text-sm
-                  font-bold
-                  text-slate-700
-                  dark:text-slate-200
+                  font-black
+                  text-white
                 "
+                style={{
+                  backgroundColor: accentColor,
+                }}
               >
-                {t(
-                  'operationalLogs.labels.pageOf',
-                  {
-                    page: systemPage,
-                    pages: systemPages,
-                  },
-                )}
-              </span>
+                {systemPage} / {systemPages}
+              </div>
 
               <button
                 type="button"
                 disabled={
-                  systemPage === systemPages
+                  systemPage >= systemPages
                 }
                 onClick={() => (
                   setSystemPage(
-                    (page) => page + 1,
+                    (value) => Math.min(
+                      systemPages,
+                      value + 1,
+                    ),
                   )
                 )}
                 className="
                   flex
-                  h-9
-                  w-9
+                  h-10
+                  w-10
                   items-center
                   justify-center
-                  rounded-lg
+                  rounded-xl
                   border
                   border-slate-200
+                  bg-white
                   text-slate-500
                   transition
                   hover:bg-slate-50
+                  disabled:cursor-not-allowed
                   disabled:opacity-30
                   dark:border-slate-700
-                  dark:hover:bg-slate-800
+                  dark:bg-slate-900
+                  dark:text-slate-300
                 "
               >
-                <FiChevronLeft />
+                {isArabic
+                  ? <FiChevronLeft />
+                  : <FiChevronRight />}
               </button>
             </div>
-          </div>
+          </section>
         )}
       </div>
     </div>

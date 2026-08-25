@@ -1,667 +1,2755 @@
-import {
-  ColumnDirective,
-  ColumnsDirective,
-  Filter,
-  GridComponent,
-  Inject,
-  Page,
-  Selection,
-  Sort,
-  Toolbar,
-} from '@syncfusion/ej2-react-grids';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 import { useTranslation } from 'react-i18next';
-import { Header } from '../../components';
+
+import {
+  FiAlertCircle,
+  FiCheck,
+  FiChevronLeft,
+  FiChevronRight,
+  FiClock,
+  FiHash,
+  FiKey,
+  FiMail,
+  FiPhone,
+  FiRefreshCw,
+  FiSearch,
+  FiShield,
+  FiTrash2,
+  FiUser,
+  FiUsers,
+  FiX,
+} from 'react-icons/fi';
+
 import axiosInstance from '../../utils/axiosConfig';
+import { useStateContext } from '../../contexts/ContextProvider';
 
-const AdminDetailsModal = ({
-  isOpen,
+const PAGE_SIZE = 12;
+
+const normalizeList = (data) => {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.results)) {
+    return data.results;
+  }
+
+  return [];
+};
+
+const getInitials = (name) => {
+  const value = String(name || '').trim();
+
+  if (!value) {
+    return 'AD';
+  }
+
+  const parts = value
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[1][0]}`
+    .toUpperCase();
+};
+
+const getApiError = (error, fallback) => (
+  error?.response?.data?.error
+  || error?.response?.data?.detail
+  || error?.response?.data?.message
+  || fallback
+);
+
+const ModalShell = ({
+  open,
+  title,
+  subtitle,
+  children,
   onClose,
-  admin,
-  onSetPassword,
-  onRemoveAdmin,
+  busy,
 }) => {
-  const { t, i18n } = useTranslation(['admins', 'common']);
-  const isArabic = i18n.resolvedLanguage === 'ar';
-
-  const [activeTab, setActiveTab] = useState('overview');
-  const [passwordData, setPasswordData] = useState({
-    second_password: '',
-    confirm_password: '',
-  });
-  const [passwordErrors, setPasswordErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  if (!isOpen || !admin) return null;
-
-  const handleSetPassword = async () => {
-    const errors = {};
-    if (passwordData.second_password.length < 8) {
-      errors.second_password = t('alerts.passwordLength');
-    }
-    if (passwordData.second_password !== passwordData.confirm_password) {
-      errors.confirm_password = t('alerts.passwordsDoNotMatch');
-    }
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/.test(passwordData.second_password)) {
-      errors.second_password = t('alerts.passwordPattern');
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await onSetPassword(admin.id, passwordData.second_password);
-      if (result.success) {
-        setPasswordData({ second_password: '', confirm_password: '' });
-        setPasswordErrors({});
-        alert(t('alerts.passwordUpdateSuccess'));
-      }
-    } catch (error) {
-      console.error('Password setup failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRemoveAdmin = async () => {
-    if (window.confirm(t('alerts.removeConfirm', { name: admin.name }))) {
-      setLoading(true);
-      try {
-        const result = await onRemoveAdmin(admin.id);
-        if (result.success) {
-          onClose();
-        }
-      } catch (error) {
-        console.error('Remove admin failed:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return t('modal.overview.notSet');
-    return new Date(dateString).toLocaleString(i18n.resolvedLanguage);
-  };
-
-  const getStatusClass = (isActive) => {
-    return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-  };
-
-  const getSuperUserClass = (isSuperuser) => {
-    return isSuperuser ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800';
-  };
-
-  const getStaffClass = (isStaff) => {
-    return isStaff ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800';
-  };
-
-  const getSecurityClass = (hasPassword) => {
-    return hasPassword ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-  };
+  if (!open) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-secondary-dark-bg border dark:border-gray-700 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden text-start">
-        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                {t('modal.title', { name: admin.full_name })}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">@{admin.name}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-2xl"
+    <div
+      className="
+        fixed
+        inset-0
+        z-[1300]
+        flex
+        items-center
+        justify-center
+        bg-slate-950/60
+        p-4
+        backdrop-blur-sm
+      "
+    >
+      <div
+        className="
+          flex
+          max-h-[92vh]
+          w-full
+          max-w-5xl
+          flex-col
+          overflow-hidden
+          rounded-3xl
+          border
+          border-slate-200
+          bg-white
+          shadow-2xl
+          dark:border-slate-700
+          dark:bg-slate-900
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+            gap-4
+            border-b
+            border-slate-100
+            px-5
+            py-4
+            dark:border-slate-800
+          "
+        >
+          <div className="min-w-0 text-start">
+            <h3
+              className="
+                truncate
+                text-lg
+                font-black
+                text-slate-900
+                dark:text-white
+              "
             >
-              ×
-            </button>
-          </div>
-        </div>
+              {title}
+            </h3>
 
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex gap-8 px-6">
-            {['overview', 'security', 'actions'].map((tab) => (
-              <button
-                type="button"
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${
-                  activeTab === tab
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
+            {subtitle && (
+              <p
+                className="
+                  mt-1
+                  truncate
+                  text-xs
+                  font-semibold
+                  text-slate-400
+                "
               >
-                {t(`modal.tabs.${tab}`)}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white">{t('modal.overview.basicInfo')}</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.username')}</label>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{admin.name}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.fullName')}</label>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{admin.full_name}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.email')}</label>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{admin.email || t('modal.overview.notSet')}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.phone')}</label>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{admin.phone || t('modal.overview.notSet')}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white">{t('modal.overview.status')}</h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.accountStatus')}</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${getStatusClass(admin.is_active)}`}>
-                      {admin.is_active ? t('table.status.active') : t('table.status.inactive')}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.superAdmin')}</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${getSuperUserClass(admin.is_superuser)}`}>
-                      {admin.is_superuser ? t('table.status.yes') : t('table.status.no')}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.staffAccess')}</label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${getStaffClass(admin.is_staff)}`}>
-                      {admin.is_staff ? t('table.status.yes') : t('table.status.no')}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.joinedDate')}</label>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDate(admin.date_joined)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('modal.overview.lastLogin')}</label>
-                    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDate(admin.last_login)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'security' && (
-            <div className="space-y-6">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">{t('modal.security.title')}</h4>
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-4 border dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h5 className="font-medium text-gray-800 dark:text-white">{t('modal.security.subtitle')}</h5>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {admin.security?.has_second_password
-                          ? t('modal.security.msgSet')
-                          : t('modal.security.msgNotSet')}
-                      </p>
-                      {admin.security?.second_password_set_at && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {t('modal.security.lastUpdated', { date: formatDate(admin.security.second_password_set_at) })}
-                        </p>
-                      )}
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getSecurityClass(admin.security?.has_second_password)}`}>
-                      {admin.security?.has_second_password ? t('modal.security.statusConfigured') : t('modal.security.statusNotConfigured')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-800 dark:text-white mb-3">{t('modal.security.formTitle')}</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('modal.security.passwordLabel')}
-                      </label>
-                      <input
-                        type="password"
-                        value={passwordData.second_password}
-                        onChange={(e) => setPasswordData({ ...passwordData, second_password: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#20232A] dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder={t('modal.security.passwordPlaceholder')}
-                      />
-                      {passwordErrors.second_password && (
-                        <p className="text-red-500 text-xs mt-1">{passwordErrors.second_password}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('modal.security.confirmLabel')}
-                      </label>
-                      <input
-                        type="password"
-                        value={passwordData.confirm_password}
-                        onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-[#20232A] dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder={t('modal.security.confirmPlaceholder')}
-                      />
-                      {passwordErrors.confirm_password && (
-                        <p className="text-red-500 text-xs mt-1">{passwordErrors.confirm_password}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                    <p>{t('modal.security.rulesTitle')}</p>
-                    <ul className="list-disc list-inside space-y-1 mt-1">
-                      <li>{t('modal.security.rule1')}</li>
-                      <li>{t('modal.security.rule2')}</li>
-                      <li>{t('modal.security.rule3')}</li>
-                      <li>{t('modal.security.rule4')}</li>
-                    </ul>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSetPassword}
-                    disabled={loading || !passwordData.second_password || !passwordData.confirm_password}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    {loading ? t('modal.security.btnUpdating') : t('modal.security.btnUpdate')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'actions' && (
-            <div className="space-y-6">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">{t('modal.actions.title')}</h4>
-                <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900 rounded-lg p-4">
-                  <h5 className="font-medium text-red-800 dark:text-red-300 mb-2">{t('modal.actions.dangerZone')}</h5>
-                  <p className="text-sm text-red-700 dark:text-red-400 mb-4">
-                    {t('modal.actions.dangerDesc')}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleRemoveAdmin}
-                    disabled={loading}
-                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 transition"
-                  >
-                    {loading ? t('modal.actions.btnRemoving') : t('modal.actions.btnRemove')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 dark:border-gray-600 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-            >
-              {t('modal.buttons.close')}
-            </button>
+                {subtitle}
+              </p>
+            )}
           </div>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-xl
+              text-slate-400
+              transition
+              hover:bg-slate-100
+              hover:text-slate-700
+              disabled:cursor-not-allowed
+              disabled:opacity-50
+              dark:hover:bg-slate-800
+              dark:hover:text-white
+            "
+          >
+            <FiX />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {children}
         </div>
       </div>
     </div>
   );
 };
 
-const Admins = () => {
-  const { t, i18n } = useTranslation(['admins', 'common']);
-  const isArabic = i18n.resolvedLanguage === 'ar';
+const InfoCard = ({
+  icon,
+  label,
+  value,
+  accentColor,
+  dir,
+}) => (
+  <div
+    className="
+      rounded-2xl
+      border
+      border-slate-100
+      bg-slate-50/70
+      p-4
+      dark:border-slate-700
+      dark:bg-slate-900/40
+    "
+  >
+    <div
+      className="
+        mb-3
+        flex
+        items-center
+        gap-2
+      "
+    >
+      <div
+        className="
+          flex
+          h-9
+          w-9
+          items-center
+          justify-center
+          rounded-xl
+        "
+        style={{
+          backgroundColor: `${accentColor}14`,
+          color: accentColor,
+        }}
+      >
+        {icon}
+      </div>
 
-  const [gridInstance, setGridInstance] = useState(null);
+      <span
+        className="
+          text-xs
+          font-bold
+          text-slate-400
+        "
+      >
+        {label}
+      </span>
+    </div>
+
+    <p
+      dir={dir}
+      className="
+        break-words
+        text-base
+        font-black
+        text-slate-900
+        dark:text-white
+      "
+    >
+      {value === null
+        || value === undefined
+        || value === ''
+        ? '—'
+        : String(value)}
+    </p>
+  </div>
+);
+
+const Admins = () => {
+  const {
+    i18n,
+  } = useTranslation();
+
+  const {
+    currentColor,
+  } = useStateContext();
+
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const locale = (
+    i18n.resolvedLanguage
+    || i18n.language
+    || (isArabic ? 'ar' : 'en')
+  );
+
+  const accentColor = currentColor || '#06b6d4';
+
+  const labels = useMemo(() => ({
+    category: isArabic
+      ? 'إدارة المستخدمين'
+      : 'User Management',
+
+    title: isArabic
+      ? 'المدراء'
+      : 'Administrators',
+
+    subtitle: isArabic
+      ? 'إدارة حسابات المدراء والحماية الإضافية وصلاحيات الوصول من مكان واحد.'
+      : 'Manage administrator accounts, additional security, and access privileges from one place.',
+
+    refresh: isArabic
+      ? 'تحديث البيانات'
+      : 'Refresh',
+
+    searchPlaceholder: isArabic
+      ? 'ابحث باسم المدير أو رقم ID...'
+      : 'Search by administrator name or ID...',
+
+    total: isArabic
+      ? 'إجمالي المدراء'
+      : 'Total admins',
+
+    active: isArabic
+      ? 'المدراء النشطون'
+      : 'Active admins',
+
+    superAdmins: isArabic
+      ? 'Super Admin'
+      : 'Super admins',
+
+    secured: isArabic
+      ? 'الحماية الإضافية'
+      : 'Extra security',
+
+    shown: isArabic
+      ? 'النتائج الظاهرة'
+      : 'Visible results',
+
+    loading: isArabic
+      ? 'جاري تحميل المدراء...'
+      : 'Loading administrators...',
+
+    loadFailed: isArabic
+      ? 'تعذر تحميل قائمة المدراء.'
+      : 'Failed to load administrators.',
+
+    empty: isArabic
+      ? 'لا يوجد مدراء مطابقون للبحث.'
+      : 'No administrators match your search.',
+
+    openProfile: isArabic
+      ? 'عرض تفاصيل المدير'
+      : 'View administrator details',
+
+    page: isArabic
+      ? 'صفحة'
+      : 'Page',
+
+    of: isArabic
+      ? 'من'
+      : 'of',
+
+    admin: isArabic
+      ? 'مدير'
+      : 'Admin',
+
+    super: isArabic
+      ? 'Super'
+      : 'Super',
+
+    activeStatus: isArabic
+      ? 'نشط'
+      : 'Active',
+
+    inactiveStatus: isArabic
+      ? 'غير نشط'
+      : 'Inactive',
+
+    securedStatus: isArabic
+      ? 'الحماية مفعّلة'
+      : 'Security enabled',
+
+    securityNeeded: isArabic
+      ? 'بحاجة لإعداد'
+      : 'Setup needed',
+
+    securityWarning: isArabic
+      ? 'يوجد مدير أو أكثر لم يتم إعداد كلمة المرور الإضافية له بعد.'
+      : 'One or more administrators still need an additional password configured.',
+
+    detailsTitle: isArabic
+      ? 'تفاصيل المدير'
+      : 'Administrator Details',
+
+    overview: isArabic
+      ? 'نظرة عامة'
+      : 'Overview',
+
+    security: isArabic
+      ? 'الحماية'
+      : 'Security',
+
+    actions: isArabic
+      ? 'الإجراءات'
+      : 'Actions',
+
+    basicInfo: isArabic
+      ? 'المعلومات الأساسية'
+      : 'Basic information',
+
+    accountStatus: isArabic
+      ? 'حالة الحساب'
+      : 'Account status',
+
+    username: isArabic
+      ? 'اسم المستخدم'
+      : 'Username',
+
+    fullName: isArabic
+      ? 'الاسم الكامل'
+      : 'Full name',
+
+    email: isArabic
+      ? 'البريد الإلكتروني'
+      : 'Email',
+
+    phone: isArabic
+      ? 'رقم الهاتف'
+      : 'Phone',
+
+    joined: isArabic
+      ? 'تاريخ الانضمام'
+      : 'Joined date',
+
+    lastLogin: isArabic
+      ? 'آخر تسجيل دخول'
+      : 'Last login',
+
+    staff: isArabic
+      ? 'Staff access'
+      : 'Staff access',
+
+    categoryLabel: isArabic
+      ? 'الفئة'
+      : 'Category',
+
+    permissions: isArabic
+      ? 'الصلاحيات'
+      : 'Permissions',
+
+    groups: isArabic
+      ? 'المجموعات'
+      : 'Groups',
+
+    userPermissions: isArabic
+      ? 'صلاحيات المستخدم'
+      : 'User permissions',
+
+    noPermissions: isArabic
+      ? 'لا توجد صلاحيات مخصصة.'
+      : 'No custom permissions.',
+
+    secondPassword: isArabic
+      ? 'كلمة المرور الإضافية'
+      : 'Additional password',
+
+    passwordConfigured: isArabic
+      ? 'تم إعداد كلمة المرور الإضافية لهذا المدير.'
+      : 'The additional password is configured for this administrator.',
+
+    passwordNotConfigured: isArabic
+      ? 'لم يتم إعداد كلمة المرور الإضافية بعد.'
+      : 'The additional password has not been configured yet.',
+
+    lastUpdated: isArabic
+      ? 'آخر تحديث'
+      : 'Last updated',
+
+    newPassword: isArabic
+      ? 'كلمة المرور الجديدة'
+      : 'New password',
+
+    confirmPassword: isArabic
+      ? 'تأكيد كلمة المرور'
+      : 'Confirm password',
+
+    passwordRules: isArabic
+      ? 'يجب أن تكون 8 أحرف على الأقل وتحتوي على حرف كبير وصغير ورقم ورمز خاص.'
+      : 'Use at least 8 characters with uppercase, lowercase, number, and special character.',
+
+    updatePassword: isArabic
+      ? 'تحديث كلمة المرور'
+      : 'Update password',
+
+    updatingPassword: isArabic
+      ? 'جاري التحديث...'
+      : 'Updating...',
+
+    passwordUpdated: isArabic
+      ? 'تم تحديث كلمة المرور الإضافية بنجاح.'
+      : 'Additional password updated successfully.',
+
+    passwordsMismatch: isArabic
+      ? 'كلمتا المرور غير متطابقتين.'
+      : 'Passwords do not match.',
+
+    passwordInvalid: isArabic
+      ? 'كلمة المرور لا تحقق شروط الأمان المطلوبة.'
+      : 'Password does not meet the required security rules.',
+
+    passwordFailed: isArabic
+      ? 'تعذر تحديث كلمة المرور الإضافية.'
+      : 'Failed to update the additional password.',
+
+    dangerTitle: isArabic
+      ? 'إزالة صلاحية المدير'
+      : 'Remove administrator role',
+
+    dangerDescription: isArabic
+      ? 'سيتم تحويل هذا الحساب إلى مستخدم عادي وإزالة صلاحيات Staff وSuperuser. لا يمكن للمدير إزالة صلاحية حسابه بنفسه.'
+      : 'This account will be demoted to a regular user and Staff/Superuser privileges will be removed. Administrators cannot demote their own account.',
+
+    removeAdmin: isArabic
+      ? 'إزالة صلاحية المدير'
+      : 'Remove admin role',
+
+    removing: isArabic
+      ? 'جاري التنفيذ...'
+      : 'Removing...',
+
+    removeConfirm: isArabic
+      ? 'هل أنت متأكد من إزالة صلاحية المدير لهذا الحساب؟'
+      : 'Are you sure you want to remove administrator privileges from this account?',
+
+    removeSuccess: isArabic
+      ? 'تم تحويل الحساب إلى مستخدم عادي.'
+      : 'The account was demoted to a regular user.',
+
+    removeFailed: isArabic
+      ? 'تعذر إزالة صلاحية المدير.'
+      : 'Failed to remove administrator role.',
+
+    detailsFailed: isArabic
+      ? 'تعذر تحميل تفاصيل المدير.'
+      : 'Failed to load administrator details.',
+
+    close: isArabic
+      ? 'إغلاق'
+      : 'Close',
+  }), [isArabic]);
+
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+
   const [selectedAdmin, setSelectedAdmin] = useState(null);
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [adminDetails, setAdminDetails] = useState(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const selectionsettings = { persistSelection: true };
-  const editing = { allowDeleting: false, allowEditing: false };
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [updatingPassword, setUpdatingPassword] = useState(false);
 
-  const toolbarOptions = useMemo(() => [
-    { text: t('table.buttons.refresh', 'Refresh'), id: 'Refresh', prefixIcon: 'e-refresh' },
-    { text: t('table.buttons.viewDetails', 'View Details'), id: 'View Details', prefixIcon: 'e-description' }
-  ], [t]);
+  const [removingAdmin, setRemovingAdmin] = useState(false);
+  const [notice, setNotice] = useState(null);
 
-  const fetchAdmins = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await axiosInstance.get('/users/admin-users/');
-      setAdmins(response.data);
-    } catch (err) {
-      console.error('Error fetching admins:', err);
-      setError(t('error'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchAdmins = useCallback(
+    async ({ background = false } = {}) => {
+      if (background) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError('');
+
+      try {
+        const response = await axiosInstance.get(
+          '/users/admin-users/',
+        );
+
+        setAdmins(
+          normalizeList(response.data),
+        );
+      } catch (loadError) {
+        console.error(
+          'Error loading admins:',
+          loadError,
+        );
+
+        setError(
+          getApiError(
+            loadError,
+            labels.loadFailed,
+          ),
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [labels.loadFailed],
+  );
 
   useEffect(() => {
     fetchAdmins();
-  }, []);
+  }, [fetchAdmins]);
 
-  const setAdminSecondPassword = async (adminId, password) => {
-    try {
-      await axiosInstance.post(`/users/set-admin-password/${adminId}/`, {
-        second_password: password,
-        confirm_password: password,
-      });
-      await fetchAdmins();
-      return { success: true };
-    } catch (err) {
-      console.error('Error setting admin password:', err);
-      const errorMsg = err.response?.data?.error || 'Failed to set second password';
-      alert(`${t('common:error', 'Error')}: ${errorMsg}`);
-      return { success: false };
-    }
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
-  const removeAdminRole = async (adminId) => {
-    try {
-      await axiosInstance.post(`/users/remove-admin/${adminId}/`);
-      await fetchAdmins();
-      alert(t('alerts.removeSuccess'));
-      return { success: true };
-    } catch (err) {
-      console.error('Error removing admin role:', err);
-      const errorMsg = err.response?.data?.error || 'Failed to remove admin role';
-      alert(`${t('common:error', 'Error')}: ${errorMsg}`);
-      return { success: false };
-    }
-  };
+  const filteredAdmins = useMemo(() => {
+    const query = search
+      .trim()
+      .toLowerCase();
 
-  const toolbarClick = async (args) => {
-    if (args.item.id.includes('Refresh')) {
-      fetchAdmins();
+    if (!query) {
+      return admins;
     }
 
-    if (args.item.id.includes('View Details')) {
-      const selected = gridInstance.getSelectedRecords();
-      if (selected.length > 0) {
-        if (selected.length > 1) {
-          alert(t('alerts.selectSingle'));
-          return;
-        }
-        const admin = selected[0];
-        setSelectedAdmin(admin);
-        setDetailsModalOpen(true);
-      } else {
-        alert(t('alerts.selectOne'));
-      }
-    }
-  };
+    return admins.filter((admin) => {
+      const values = [
+        admin?.id,
+        admin?.name,
+        admin?.full_name,
+        admin?.email,
+        admin?.phone,
+      ];
 
-  const handleRowClick = () => {};
+      return values.some((value) => (
+        value !== null
+        && value !== undefined
+        && String(value)
+          .toLowerCase()
+          .includes(query)
+      ));
+    });
+  }, [
+    admins,
+    search,
+  ]);
 
   const stats = useMemo(() => {
-    const totalAdmins = admins.length;
-    const activeAdmins = admins.filter((admin) => admin.is_active).length;
-    const superAdmins = admins.filter((admin) => admin.is_superuser).length;
-    const adminsWithSecondPassword = admins.filter((admin) => admin.has_second_password).length;
+    const total = admins.length;
+    const active = admins.filter(
+      (admin) => admin.is_active,
+    ).length;
+    const superAdmins = admins.filter(
+      (admin) => admin.is_superuser,
+    ).length;
+    const secured = admins.filter(
+      (admin) => admin.has_second_password,
+    ).length;
 
     return {
-      totalAdmins,
-      activeAdmins,
+      total,
+      active,
       superAdmins,
-      adminsWithSecondPassword,
-      inactiveAdmins: totalAdmins - activeAdmins,
-      securityPercentage: totalAdmins > 0 ? Math.round((adminsWithSecondPassword / totalAdmins) * 100) : 0,
+      secured,
+      securityPercent: total > 0
+        ? Math.round(
+            (secured / total) * 100,
+          )
+        : 0,
     };
   }, [admins]);
 
-  const getStatusClass = (isActive) => {
-    return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-  };
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredAdmins.length / PAGE_SIZE,
+    ),
+  );
 
-  const getSuperUserClass = (isSuperuser) => {
-    return isSuperuser ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800';
-  };
+  const currentPage = Math.min(
+    page,
+    totalPages,
+  );
 
-  const getSecurityClass = (hasPassword) => {
-    return hasPassword ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-  };
+  const visibleAdmins = useMemo(() => {
+    const start = (
+      currentPage - 1
+    ) * PAGE_SIZE;
 
-  const adminsGrid = useMemo(() => [
-    {
-      type: 'checkbox',
-      width: '50',
-    },
-    {
-      field: 'id',
-      headerText: t('table.headers.id'),
-      width: '80',
-      textAlign: 'Center',
-      isPrimaryKey: true,
-    },
-    {
-      field: 'name',
-      headerText: t('table.headers.username'),
-      width: '120',
-      textAlign: isArabic ? 'Right' : 'Left',
-    },
-    {
-      field: 'full_name',
-      headerText: t('table.headers.fullName'),
-      width: '150',
-      textAlign: isArabic ? 'Right' : 'Left',
-    },
-    {
-      field: 'email',
-      headerText: t('table.headers.email'),
-      width: '180',
-      textAlign: isArabic ? 'Right' : 'Left',
-    },
-    {
-      field: 'phone',
-      headerText: t('table.headers.phone'),
-      width: '130',
-      textAlign: isArabic ? 'Right' : 'Left',
-    },
-    {
-      field: 'is_active',
-      headerText: t('table.headers.status'),
-      width: '100',
-      textAlign: 'Center',
-      template: (props) => (
-        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusClass(props.is_active)}`}>
-          {props.is_active ? t('table.status.active') : t('table.status.inactive')}
-        </span>
-      ),
-    },
-    {
-      field: 'is_superuser',
-      headerText: t('table.headers.superAdmin'),
-      width: '100',
-      textAlign: 'Center',
-      template: (props) => (
-        <span className={`px-2 py-1 rounded text-xs font-medium ${getSuperUserClass(props.is_superuser)}`}>
-          {props.is_superuser ? t('table.status.yes') : t('table.status.no')}
-        </span>
-      ),
-    },
-    {
-      field: 'has_second_password',
-      headerText: t('table.headers.security'),
-      width: '100',
-      textAlign: 'Center',
-      template: (props) => (
-        <span className={`px-2 py-1 rounded text-xs font-medium ${getSecurityClass(props.has_second_password)}`}>
-          {props.has_second_password ? t('table.status.secure') : t('table.status.setupNeeded')}
-        </span>
-      ),
-    },
-    {
-      field: 'date_joined',
-      headerText: t('table.headers.joinedDate'),
-      width: '120',
-      format: 'yMd',
-      textAlign: 'Center',
-    },
-    {
-      field: 'last_login',
-      headerText: t('table.headers.lastLogin'),
-      width: '120',
-      format: 'yMd',
-      textAlign: 'Center',
-      template: (props) => (
-        <span>
-          {props.last_login ? new Date(props.last_login).toLocaleDateString(i18n.resolvedLanguage) : t('table.never')}
-        </span>
-      ),
-    },
-  ], [t, isArabic, i18n.resolvedLanguage]);
-
-  if (loading) {
-    return (
-      <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-        <Header category={t('category')} title={t('title')} />
-        <div className="flex justify-center items-center h-40">
-          <div className="text-lg text-gray-700 dark:text-gray-300">{t('loading')}</div>
-        </div>
-      </div>
+    return filteredAdmins.slice(
+      start,
+      start + PAGE_SIZE,
     );
-  }
+  }, [
+    currentPage,
+    filteredAdmins,
+  ]);
 
-  if (error) {
-    return (
-      <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-        <Header category={t('category')} title={t('title')} />
-        <div className="flex justify-center items-center h-40">
-          <div className="text-lg text-red-500">{error}</div>
-          <button
-            type="button"
-            onClick={fetchAdmins}
-            className="ms-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            {t('tryAgain')}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const formatDate = useCallback(
+    (value) => {
+      if (!value) {
+        return '—';
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+
+      return date.toLocaleString(locale);
+    },
+    [locale],
+  );
+
+  const loadAdminDetails = useCallback(
+    async (admin) => {
+      setSelectedAdmin(admin);
+      setAdminDetails(null);
+      setDetailsError('');
+      setActiveTab('overview');
+      setPassword('');
+      setConfirmPassword('');
+      setPasswordError('');
+      setDetailsOpen(true);
+      setDetailsLoading(true);
+
+      try {
+        const response = await axiosInstance.get(
+          `/users/admin-users/${admin.id}/`,
+        );
+
+        setAdminDetails(
+          response.data,
+        );
+      } catch (loadError) {
+        console.error(
+          'Error loading admin details:',
+          loadError,
+        );
+
+        setDetailsError(
+          getApiError(
+            loadError,
+            labels.detailsFailed,
+          ),
+        );
+      } finally {
+        setDetailsLoading(false);
+      }
+    },
+    [labels.detailsFailed],
+  );
+
+  const closeDetails = () => {
+    if (
+      updatingPassword
+      || removingAdmin
+    ) {
+      return;
+    }
+
+    setDetailsOpen(false);
+    setSelectedAdmin(null);
+    setAdminDetails(null);
+    setDetailsError('');
+    setPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+  };
+
+  const updateSecondPassword = async (event) => {
+    event.preventDefault();
+
+    if (!selectedAdmin) {
+      return;
+    }
+
+    if (
+      password.length < 8
+      || !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/.test(
+        password,
+      )
+    ) {
+      setPasswordError(
+        labels.passwordInvalid,
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setPasswordError(
+        labels.passwordsMismatch,
+      );
+      return;
+    }
+
+    setUpdatingPassword(true);
+    setPasswordError('');
+
+    try {
+      await axiosInstance.post(
+        `/users/set-admin-password/${selectedAdmin.id}/`,
+        {
+          second_password: password,
+          confirm_password: confirmPassword,
+        },
+      );
+
+      setPassword('');
+      setConfirmPassword('');
+
+      setNotice({
+        type: 'success',
+        message: labels.passwordUpdated,
+      });
+
+      await fetchAdmins({
+        background: true,
+      });
+
+      const response = await axiosInstance.get(
+        `/users/admin-users/${selectedAdmin.id}/`,
+      );
+
+      setAdminDetails(
+        response.data,
+      );
+    } catch (updateError) {
+      setPasswordError(
+        getApiError(
+          updateError,
+          labels.passwordFailed,
+        ),
+      );
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
+  const removeAdminRole = async () => {
+    if (!selectedAdmin) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        labels.removeConfirm,
+      )
+    ) {
+      return;
+    }
+
+    setRemovingAdmin(true);
+    setNotice(null);
+
+    try {
+      await axiosInstance.post(
+        `/users/remove-admin/${selectedAdmin.id}/`,
+      );
+
+      closeDetails();
+
+      setNotice({
+        type: 'success',
+        message: labels.removeSuccess,
+      });
+
+      await fetchAdmins({
+        background: true,
+      });
+    } catch (removeError) {
+      setNotice({
+        type: 'error',
+        message: getApiError(
+          removeError,
+          labels.removeFailed,
+        ),
+      });
+    } finally {
+      setRemovingAdmin(false);
+    }
+  };
+
+  const details = (
+    adminDetails
+    || selectedAdmin
+  );
+
+  const hasSecondPassword = (
+    adminDetails?.security?.has_second_password
+    ?? selectedAdmin?.has_second_password
+    ?? false
+  );
+
+  const secondPasswordSetAt = (
+    adminDetails?.security?.second_password_set_at
+    ?? selectedAdmin?.second_password_set_at
+    ?? null
+  );
+
+  const tabs = [
+    {
+      id: 'overview',
+      label: labels.overview,
+      icon: <FiUser />,
+    },
+    {
+      id: 'security',
+      label: labels.security,
+      icon: <FiShield />,
+    },
+    {
+      id: 'actions',
+      label: labels.actions,
+      icon: <FiTrash2 />,
+    },
+  ];
 
   return (
-    <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl text-start">
-      <Header category={t('category')} title={t('title')} />
-
-      <div className="flex justify-end mb-4">
-        <button
-          type="button"
-          onClick={fetchAdmins}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition text-sm flex items-center gap-2"
+    <>
+      <div
+        dir={isArabic ? 'rtl' : 'ltr'}
+        className="
+          mt-20
+          px-3
+          py-4
+          sm:px-5
+          md:mt-4
+          md:px-8
+          md:py-6
+        "
+      >
+        <div
+          className="
+            mx-auto
+            w-full
+            max-w-7xl
+            space-y-5
+          "
         >
-          {t('stats.refresh')}
-        </button>
-      </div>
+          <section
+            className="
+              relative
+              overflow-hidden
+              rounded-3xl
+              border
+              border-slate-100
+              bg-white
+              px-5
+              py-6
+              shadow-sm
+              dark:border-slate-800
+              dark:bg-secondary-dark-bg
+              md:px-7
+              md:py-7
+            "
+          >
+            <div
+              className="
+                pointer-events-none
+                absolute
+                -start-24
+                -top-28
+                h-64
+                w-64
+                rounded-full
+                opacity-[0.08]
+              "
+              style={{
+                backgroundColor: accentColor,
+              }}
+            />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
-          <p className="text-blue-800 dark:text-blue-200 font-semibold">{t('stats.total')}</p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalAdmins}</p>
-        </div>
-        <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <p className="text-green-800 dark:text-green-200 font-semibold">{t('stats.active')}</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.activeAdmins}</p>
-          <p className="text-sm text-green-600 dark:text-green-400">
-            {t('stats.activeSuffix', { percent: stats.totalAdmins > 0 ? Math.round((stats.activeAdmins / stats.totalAdmins) * 100) : 0 })}
-          </p>
-        </div>
-        <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <p className="text-purple-800 dark:text-purple-200 font-semibold">{t('stats.super')}</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.superAdmins}</p>
-        </div>
-        <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-          <p className="text-orange-800 dark:text-orange-200 font-semibold">{t('stats.security')}</p>
-          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.adminsWithSecondPassword}</p>
-          <p className="text-sm text-orange-600 dark:text-orange-400">
-            {t('stats.securedSuffix', { percent: stats.securityPercentage })}
-          </p>
-        </div>
-      </div>
+            <div
+              className="
+                pointer-events-none
+                absolute
+                -bottom-24
+                end-10
+                h-48
+                w-48
+                rounded-full
+                opacity-[0.04]
+              "
+              style={{
+                backgroundColor: accentColor,
+              }}
+            />
 
-      {stats.securityPercentage < 100 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900 rounded-lg p-4 mb-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <span className="text-yellow-400 dark:text-yellow-300">⚠</span>
+            <div
+              className="
+                relative
+                z-10
+                flex
+                flex-col
+                gap-6
+                xl:flex-row
+                xl:items-end
+                xl:justify-between
+              "
+            >
+              <div className="max-w-2xl text-start">
+                <div
+                  className="
+                    mb-3
+                    flex
+                    items-center
+                    gap-2
+                  "
+                >
+                  <span
+                    className="
+                      h-2.5
+                      w-2.5
+                      rounded-full
+                    "
+                    style={{
+                      backgroundColor: accentColor,
+                    }}
+                  />
+
+                  <span
+                    className="
+                      text-sm
+                      font-extrabold
+                    "
+                    style={{
+                      color: accentColor,
+                    }}
+                  >
+                    {labels.category}
+                  </span>
+                </div>
+
+                <h1
+                  className="
+                    text-3xl
+                    font-black
+                    tracking-tight
+                    text-slate-950
+                    dark:text-white
+                    md:text-4xl
+                  "
+                >
+                  {labels.title}
+                </h1>
+
+                <p
+                  className="
+                    mt-2
+                    max-w-xl
+                    text-sm
+                    font-medium
+                    leading-7
+                    text-slate-500
+                    dark:text-slate-400
+                  "
+                >
+                  {labels.subtitle}
+                </p>
+              </div>
+
+              <div
+                className="
+                  flex
+                  w-full
+                  flex-col
+                  gap-3
+                  sm:flex-row
+                  xl:w-auto
+                "
+              >
+                <div
+                  className="
+                    relative
+                    min-w-0
+                    flex-1
+                    xl:w-[360px]
+                  "
+                >
+                  <FiSearch
+                    className="
+                      pointer-events-none
+                      absolute
+                      start-4
+                      top-1/2
+                      -translate-y-1/2
+                      text-slate-400
+                    "
+                  />
+
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => (
+                      setSearch(
+                        event.target.value,
+                      )
+                    )}
+                    placeholder={labels.searchPlaceholder}
+                    className="
+                      h-12
+                      w-full
+                      rounded-2xl
+                      border
+                      border-slate-200
+                      bg-white
+                      ps-11
+                      pe-4
+                      text-sm
+                      font-semibold
+                      text-slate-900
+                      outline-none
+                      transition
+                      placeholder:text-slate-400
+                      focus:border-slate-300
+                      focus:ring-4
+                      focus:ring-slate-100
+                      dark:border-slate-700
+                      dark:bg-slate-900
+                      dark:text-white
+                      dark:focus:ring-slate-800
+                    "
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={refreshing}
+                  onClick={() => (
+                    fetchAdmins({
+                      background: true,
+                    })
+                  )}
+                  className="
+                    flex
+                    h-12
+                    shrink-0
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-2xl
+                    px-5
+                    text-sm
+                    font-extrabold
+                    text-white
+                    shadow-sm
+                    transition
+                    hover:opacity-90
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
+                  "
+                  style={{
+                    backgroundColor: accentColor,
+                  }}
+                >
+                  <FiRefreshCw
+                    className={
+                      refreshing
+                        ? 'animate-spin'
+                        : ''
+                    }
+                  />
+
+                  {labels.refresh}
+                </button>
+              </div>
             </div>
-            <div className="ms-3">
-              <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                {t('notice.title')}
-              </h3>
-              <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-                <p>
-                  {t('notice.desc', { count: stats.totalAdmins - stats.adminsWithSecondPassword })}
+          </section>
+
+          <section
+            className="
+              grid
+              gap-3
+              sm:grid-cols-2
+              xl:grid-cols-4
+            "
+          >
+            {[
+              {
+                label: labels.total,
+                value: stats.total,
+                icon: <FiUsers />,
+              },
+              {
+                label: labels.active,
+                value: stats.active,
+                icon: <FiCheck />,
+              },
+              {
+                label: labels.superAdmins,
+                value: stats.superAdmins,
+                icon: <FiShield />,
+              },
+              {
+                label: labels.secured,
+                value: `${stats.secured} / ${stats.total}`,
+                icon: <FiKey />,
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="
+                  flex
+                  items-center
+                  gap-4
+                  rounded-2xl
+                  border
+                  border-slate-100
+                  bg-white
+                  p-4
+                  shadow-sm
+                  dark:border-slate-800
+                  dark:bg-secondary-dark-bg
+                "
+              >
+                <div
+                  className="
+                    flex
+                    h-11
+                    w-11
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                  "
+                  style={{
+                    backgroundColor: `${accentColor}14`,
+                    color: accentColor,
+                  }}
+                >
+                  {stat.icon}
+                </div>
+
+                <div className="text-start">
+                  <p
+                    className="
+                      text-xs
+                      font-bold
+                      text-slate-400
+                    "
+                  >
+                    {stat.label}
+                  </p>
+
+                  <p
+                    className="
+                      mt-0.5
+                      text-2xl
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {stat.value}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {stats.securityPercent < 100
+            && stats.total > 0 && (
+            <div
+              className="
+                flex
+                items-start
+                gap-3
+                rounded-2xl
+                border
+                border-amber-200
+                bg-amber-50
+                px-4
+                py-3
+                text-sm
+                font-bold
+                text-amber-800
+                dark:border-amber-900/40
+                dark:bg-amber-950/30
+                dark:text-amber-300
+              "
+            >
+              <FiAlertCircle
+                className="
+                  mt-0.5
+                  shrink-0
+                "
+              />
+
+              <span>
+                {labels.securityWarning}
+              </span>
+            </div>
+          )}
+
+          {notice && (
+            <div
+              className={`
+                flex
+                items-start
+                gap-3
+                rounded-2xl
+                border
+                px-4
+                py-3
+                text-sm
+                font-bold
+                ${
+                  notice.type === 'success'
+                    ? 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                    : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300'
+                }
+              `}
+            >
+              {notice.type === 'success'
+                ? (
+                  <FiCheck
+                    className="
+                      mt-0.5
+                      shrink-0
+                    "
+                    style={{
+                      color: accentColor,
+                    }}
+                  />
+                )
+                : (
+                  <FiAlertCircle
+                    className="
+                      mt-0.5
+                      shrink-0
+                    "
+                  />
+                )}
+
+              <span className="flex-1">
+                {notice.message}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setNotice(null)}
+              >
+                <FiX />
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <div
+              className="
+                rounded-2xl
+                border
+                border-red-200
+                bg-red-50
+                px-4
+                py-3
+                text-sm
+                font-bold
+                text-red-700
+                dark:border-red-900/40
+                dark:bg-red-950/30
+                dark:text-red-300
+              "
+            >
+              {error}
+            </div>
+          )}
+
+          <section
+            className="
+              rounded-3xl
+              border
+              border-slate-100
+              bg-white
+              p-4
+              shadow-sm
+              dark:border-slate-800
+              dark:bg-secondary-dark-bg
+              sm:p-5
+            "
+          >
+            {loading ? (
+              <div
+                className="
+                  flex
+                  min-h-[360px]
+                  flex-col
+                  items-center
+                  justify-center
+                  gap-3
+                  text-slate-400
+                "
+              >
+                <FiRefreshCw
+                  className="
+                    animate-spin
+                    text-3xl
+                  "
+                />
+
+                <p className="text-sm font-bold">
+                  {labels.loading}
+                </p>
+              </div>
+            ) : visibleAdmins.length === 0 ? (
+              <div
+                className="
+                  flex
+                  min-h-[320px]
+                  flex-col
+                  items-center
+                  justify-center
+                  gap-4
+                  text-center
+                "
+              >
+                <div
+                  className="
+                    flex
+                    h-16
+                    w-16
+                    items-center
+                    justify-center
+                    rounded-2xl
+                  "
+                  style={{
+                    backgroundColor: `${accentColor}12`,
+                    color: accentColor,
+                  }}
+                >
+                  <FiShield className="text-2xl" />
+                </div>
+
+                <p
+                  className="
+                    text-sm
+                    font-bold
+                    text-slate-400
+                  "
+                >
+                  {labels.empty}
+                </p>
+              </div>
+            ) : (
+              <div
+                className="
+                  grid
+                  gap-3
+                  sm:grid-cols-2
+                  xl:grid-cols-3
+                "
+              >
+                {visibleAdmins.map((admin) => {
+                  const name = (
+                    admin.full_name
+                    || admin.name
+                    || `${labels.admin} #${admin.id}`
+                  );
+
+                  return (
+                    <button
+                      key={admin.id}
+                      type="button"
+                      onClick={() => (
+                        loadAdminDetails(
+                          admin,
+                        )
+                      )}
+                      className="
+                        group
+                        relative
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-slate-100
+                        bg-slate-50/70
+                        p-4
+                        text-start
+                        transition-all
+                        duration-200
+                        hover:-translate-y-0.5
+                        hover:border-slate-200
+                        hover:bg-white
+                        hover:shadow-md
+                        dark:border-slate-700
+                        dark:bg-slate-900/40
+                        dark:hover:border-slate-600
+                        dark:hover:bg-slate-900
+                      "
+                    >
+                      <div
+                        className="
+                          absolute
+                          inset-y-0
+                          start-0
+                          w-1
+                          opacity-0
+                          transition-opacity
+                          group-hover:opacity-100
+                        "
+                        style={{
+                          backgroundColor: accentColor,
+                        }}
+                      />
+
+                      <div
+                        className="
+                          flex
+                          items-start
+                          gap-4
+                        "
+                      >
+                        <div
+                          className="
+                            flex
+                            h-12
+                            w-12
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-2xl
+                            text-sm
+                            font-black
+                            text-white
+                            shadow-sm
+                          "
+                          style={{
+                            backgroundColor: accentColor,
+                          }}
+                        >
+                          {getInitials(name)}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="
+                              flex
+                              flex-wrap
+                              items-center
+                              gap-2
+                            "
+                          >
+                            <p
+                              className="
+                                truncate
+                                text-base
+                                font-black
+                                text-slate-900
+                                dark:text-white
+                              "
+                            >
+                              {name}
+                            </p>
+
+                            {admin.is_superuser && (
+                              <span
+                                className="
+                                  rounded-full
+                                  border
+                                  px-2
+                                  py-0.5
+                                  text-[10px]
+                                  font-black
+                                "
+                                style={{
+                                  backgroundColor: `${accentColor}10`,
+                                  borderColor: `${accentColor}28`,
+                                  color: accentColor,
+                                }}
+                              >
+                                {labels.super}
+                              </span>
+                            )}
+                          </div>
+
+                          <div
+                            className="
+                              mt-1.5
+                              flex
+                              flex-wrap
+                              items-center
+                              gap-2
+                            "
+                          >
+                            <span
+                              className="
+                                rounded-lg
+                                bg-white
+                                px-2
+                                py-1
+                                text-xs
+                                font-extrabold
+                                text-slate-500
+                                shadow-sm
+                                dark:bg-slate-800
+                                dark:text-slate-300
+                              "
+                              dir="ltr"
+                            >
+                              #{admin.id}
+                            </span>
+
+                            <span
+                              className="
+                                text-xs
+                                font-bold
+                                text-slate-400
+                              "
+                            >
+                              {admin.is_active
+                                ? labels.activeStatus
+                                : labels.inactiveStatus}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div
+                          className="
+                            flex
+                            h-9
+                            w-9
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
+                            bg-white
+                            text-slate-400
+                            shadow-sm
+                            transition
+                            group-hover:text-slate-700
+                            dark:bg-slate-800
+                            dark:group-hover:text-white
+                          "
+                        >
+                          {isArabic
+                            ? <FiChevronLeft />
+                            : <FiChevronRight />}
+                        </div>
+                      </div>
+
+                      <div
+                        className="
+                          mt-4
+                          flex
+                          items-center
+                          justify-between
+                          border-t
+                          border-slate-100
+                          pt-3
+                          dark:border-slate-700
+                        "
+                      >
+                        <span
+                          className="
+                            flex
+                            items-center
+                            gap-1.5
+                            text-xs
+                            font-bold
+                            text-slate-400
+                          "
+                        >
+                          <FiKey />
+
+                          {admin.has_second_password
+                            ? labels.securedStatus
+                            : labels.securityNeeded}
+                        </span>
+
+                        <span
+                          className="
+                            text-xs
+                            font-black
+                          "
+                          style={{
+                            color: accentColor,
+                          }}
+                        >
+                          {labels.openProfile}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {!loading
+            && filteredAdmins.length > 0
+            && totalPages > 1 && (
+            <section
+              className="
+                flex
+                flex-col
+                gap-3
+                rounded-2xl
+                border
+                border-slate-100
+                bg-white
+                px-4
+                py-3
+                shadow-sm
+                dark:border-slate-800
+                dark:bg-secondary-dark-bg
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+              "
+            >
+              <p
+                className="
+                  text-sm
+                  font-bold
+                  text-slate-500
+                  dark:text-slate-400
+                "
+              >
+                {labels.page}{' '}
+                <span
+                  className="
+                    font-black
+                    text-slate-900
+                    dark:text-white
+                  "
+                >
+                  {currentPage}
+                </span>{' '}
+                {labels.of}{' '}
+                <span
+                  className="
+                    font-black
+                    text-slate-900
+                    dark:text-white
+                  "
+                >
+                  {totalPages}
+                </span>
+              </p>
+
+              <div
+                className="
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => (
+                    setPage(
+                      (previous) => Math.max(
+                        1,
+                        previous - 1,
+                      ),
+                    )
+                  )}
+                  className="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-white
+                    text-slate-500
+                    transition
+                    hover:bg-slate-50
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                    dark:border-slate-700
+                    dark:bg-slate-900
+                    dark:text-slate-300
+                  "
+                >
+                  {isArabic
+                    ? <FiChevronRight />
+                    : <FiChevronLeft />}
+                </button>
+
+                <div
+                  className="
+                    min-w-[72px]
+                    rounded-xl
+                    px-3
+                    py-2
+                    text-center
+                    text-sm
+                    font-black
+                    text-white
+                  "
+                  style={{
+                    backgroundColor: accentColor,
+                  }}
+                >
+                  {currentPage} / {totalPages}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => (
+                    setPage(
+                      (previous) => Math.min(
+                        totalPages,
+                        previous + 1,
+                      ),
+                    )
+                  )}
+                  className="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-white
+                    text-slate-500
+                    transition
+                    hover:bg-slate-50
+                    disabled:cursor-not-allowed
+                    disabled:opacity-30
+                    dark:border-slate-700
+                    dark:bg-slate-900
+                    dark:text-slate-300
+                  "
+                >
+                  {isArabic
+                    ? <FiChevronLeft />
+                    : <FiChevronRight />}
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      <ModalShell
+        open={detailsOpen}
+        busy={
+          updatingPassword
+          || removingAdmin
+        }
+        onClose={closeDetails}
+        title={
+          details
+            ? (
+              details.full_name
+              || details.name
+              || labels.detailsTitle
+            )
+            : labels.detailsTitle
+        }
+        subtitle={
+          selectedAdmin
+            ? `#${selectedAdmin.id}`
+            : ''
+        }
+      >
+        {detailsLoading ? (
+          <div
+            className="
+              flex
+              min-h-[420px]
+              flex-col
+              items-center
+              justify-center
+              gap-3
+              text-slate-400
+            "
+          >
+            <FiRefreshCw
+              className="
+                animate-spin
+                text-3xl
+              "
+            />
+
+            <span className="text-sm font-bold">
+              {labels.loading}
+            </span>
+          </div>
+        ) : detailsError ? (
+          <div
+            className="
+              m-5
+              rounded-2xl
+              border
+              border-red-200
+              bg-red-50
+              p-4
+              text-sm
+              font-bold
+              text-red-700
+              dark:border-red-900/40
+              dark:bg-red-950/30
+              dark:text-red-300
+            "
+          >
+            {detailsError}
+          </div>
+        ) : details ? (
+          <div
+            dir={isArabic ? 'rtl' : 'ltr'}
+            className="p-5"
+          >
+            <div
+              className="
+                mb-5
+                flex
+                flex-col
+                gap-4
+                rounded-2xl
+                border
+                border-slate-100
+                bg-slate-50/70
+                p-4
+                dark:border-slate-700
+                dark:bg-slate-900/40
+                sm:flex-row
+                sm:items-center
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-16
+                  w-16
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-2xl
+                  text-xl
+                  font-black
+                  text-white
+                "
+                style={{
+                  backgroundColor: accentColor,
+                }}
+              >
+                {getInitials(
+                  details.full_name
+                  || details.name,
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1 text-start">
+                <div
+                  className="
+                    flex
+                    flex-wrap
+                    items-center
+                    gap-2
+                  "
+                >
+                  <h4
+                    className="
+                      truncate
+                      text-xl
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {details.full_name
+                      || details.name}
+                  </h4>
+
+                  {details.is_superuser && (
+                    <span
+                      className="
+                        rounded-full
+                        border
+                        px-2.5
+                        py-1
+                        text-[10px]
+                        font-black
+                      "
+                      style={{
+                        backgroundColor: `${accentColor}10`,
+                        borderColor: `${accentColor}28`,
+                        color: accentColor,
+                      }}
+                    >
+                      {labels.super}
+                    </span>
+                  )}
+                </div>
+
+                <p
+                  className="
+                    mt-1
+                    text-sm
+                    font-bold
+                    text-slate-400
+                  "
+                  dir="ltr"
+                >
+                  #{details.id} · @{details.name}
                 </p>
               </div>
             </div>
+
+            <div
+              className="
+                mb-5
+                grid
+                gap-2
+                rounded-2xl
+                border
+                border-slate-100
+                bg-white
+                p-2
+                dark:border-slate-800
+                dark:bg-slate-950/20
+                md:grid-cols-3
+              "
+            >
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => (
+                    setActiveTab(
+                      tab.id,
+                    )
+                  )}
+                  className={`
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-xl
+                    px-4
+                    py-3
+                    text-sm
+                    font-black
+                    transition
+                    ${
+                      activeTab === tab.id
+                        ? 'text-white shadow-sm'
+                        : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'
+                    }
+                  `}
+                  style={
+                    activeTab === tab.id
+                      ? {
+                          backgroundColor: accentColor,
+                        }
+                      : undefined
+                  }
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'overview' && (
+              <div className="space-y-5">
+                <section>
+                  <h5
+                    className="
+                      mb-4
+                      text-base
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {labels.basicInfo}
+                  </h5>
+
+                  <div
+                    className="
+                      grid
+                      gap-3
+                      sm:grid-cols-2
+                      xl:grid-cols-3
+                    "
+                  >
+                    <InfoCard
+                      icon={<FiHash />}
+                      label="ID"
+                      value={`#${details.id}`}
+                      accentColor={accentColor}
+                      dir="ltr"
+                    />
+
+                    <InfoCard
+                      icon={<FiUser />}
+                      label={labels.username}
+                      value={details.name}
+                      accentColor={accentColor}
+                    />
+
+                    <InfoCard
+                      icon={<FiUser />}
+                      label={labels.fullName}
+                      value={details.full_name}
+                      accentColor={accentColor}
+                    />
+
+                    <InfoCard
+                      icon={<FiMail />}
+                      label={labels.email}
+                      value={details.email}
+                      accentColor={accentColor}
+                      dir="ltr"
+                    />
+
+                    <InfoCard
+                      icon={<FiPhone />}
+                      label={labels.phone}
+                      value={details.phone}
+                      accentColor={accentColor}
+                      dir="ltr"
+                    />
+
+                    <InfoCard
+                      icon={<FiUsers />}
+                      label={labels.categoryLabel}
+                      value={
+                        details.category?.display_name
+                        || details.category
+                      }
+                      accentColor={accentColor}
+                    />
+                  </div>
+                </section>
+
+                <section>
+                  <h5
+                    className="
+                      mb-4
+                      text-base
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {labels.accountStatus}
+                  </h5>
+
+                  <div
+                    className="
+                      grid
+                      gap-3
+                      sm:grid-cols-2
+                      xl:grid-cols-4
+                    "
+                  >
+                    <InfoCard
+                      icon={<FiCheck />}
+                      label={labels.accountStatus}
+                      value={
+                        details.is_active
+                          ? labels.activeStatus
+                          : labels.inactiveStatus
+                      }
+                      accentColor={accentColor}
+                    />
+
+                    <InfoCard
+                      icon={<FiShield />}
+                      label={labels.superAdmins}
+                      value={
+                        details.is_superuser
+                          ? labels.super
+                          : '—'
+                      }
+                      accentColor={accentColor}
+                    />
+
+                    <InfoCard
+                      icon={<FiShield />}
+                      label={labels.staff}
+                      value={
+                        details.is_staff
+                          ? 'Yes'
+                          : 'No'
+                      }
+                      accentColor={accentColor}
+                    />
+
+                    <InfoCard
+                      icon={<FiClock />}
+                      label={labels.joined}
+                      value={formatDate(
+                        details.date_joined,
+                      )}
+                      accentColor={accentColor}
+                    />
+
+                    <InfoCard
+                      icon={<FiClock />}
+                      label={labels.lastLogin}
+                      value={formatDate(
+                        details.last_login,
+                      )}
+                      accentColor={accentColor}
+                    />
+                  </div>
+                </section>
+
+                <section>
+                  <h5
+                    className="
+                      mb-4
+                      text-base
+                      font-black
+                      text-slate-900
+                      dark:text-white
+                    "
+                  >
+                    {labels.permissions}
+                  </h5>
+
+                  <div
+                    className="
+                      grid
+                      gap-3
+                      md:grid-cols-2
+                    "
+                  >
+                    <div
+                      className="
+                        rounded-2xl
+                        border
+                        border-slate-100
+                        bg-slate-50/70
+                        p-4
+                        dark:border-slate-700
+                        dark:bg-slate-900/40
+                      "
+                    >
+                      <p
+                        className="
+                          mb-3
+                          text-xs
+                          font-black
+                          text-slate-400
+                        "
+                      >
+                        {labels.groups}
+                      </p>
+
+                      <div
+                        className="
+                          flex
+                          flex-wrap
+                          gap-2
+                        "
+                      >
+                        {details.permissions?.groups?.length ? (
+                          details.permissions.groups.map((group) => (
+                            <span
+                              key={group}
+                              className="
+                                rounded-xl
+                                border
+                                px-2.5
+                                py-1
+                                text-xs
+                                font-bold
+                              "
+                              style={{
+                                backgroundColor: `${accentColor}10`,
+                                borderColor: `${accentColor}24`,
+                                color: accentColor,
+                              }}
+                            >
+                              {group}
+                            </span>
+                          ))
+                        ) : (
+                          <span
+                            className="
+                              text-sm
+                              font-semibold
+                              text-slate-400
+                            "
+                          >
+                            {labels.noPermissions}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className="
+                        rounded-2xl
+                        border
+                        border-slate-100
+                        bg-slate-50/70
+                        p-4
+                        dark:border-slate-700
+                        dark:bg-slate-900/40
+                      "
+                    >
+                      <p
+                        className="
+                          mb-3
+                          text-xs
+                          font-black
+                          text-slate-400
+                        "
+                      >
+                        {labels.userPermissions}
+                      </p>
+
+                      <div
+                        className="
+                          flex
+                          flex-wrap
+                          gap-2
+                        "
+                      >
+                        {details.permissions?.user_permissions?.length ? (
+                          details.permissions.user_permissions.map(
+                            (permission) => (
+                              <span
+                                key={permission}
+                                className="
+                                  rounded-xl
+                                  border
+                                  px-2.5
+                                  py-1
+                                  text-xs
+                                  font-bold
+                                "
+                                style={{
+                                  backgroundColor: `${accentColor}10`,
+                                  borderColor: `${accentColor}24`,
+                                  color: accentColor,
+                                }}
+                              >
+                                {permission}
+                              </span>
+                            ),
+                          )
+                        ) : (
+                          <span
+                            className="
+                              text-sm
+                              font-semibold
+                              text-slate-400
+                            "
+                          >
+                            {labels.noPermissions}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {activeTab === 'security' && (
+              <div className="space-y-5">
+                <div
+                  className="
+                    rounded-2xl
+                    border
+                    border-slate-100
+                    bg-slate-50/70
+                    p-4
+                    dark:border-slate-700
+                    dark:bg-slate-900/40
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      flex-col
+                      gap-4
+                      sm:flex-row
+                      sm:items-center
+                      sm:justify-between
+                    "
+                  >
+                    <div className="text-start">
+                      <p
+                        className="
+                          text-base
+                          font-black
+                          text-slate-900
+                          dark:text-white
+                        "
+                      >
+                        {labels.secondPassword}
+                      </p>
+
+                      <p
+                        className="
+                          mt-1
+                          text-sm
+                          font-semibold
+                          text-slate-500
+                          dark:text-slate-400
+                        "
+                      >
+                        {hasSecondPassword
+                          ? labels.passwordConfigured
+                          : labels.passwordNotConfigured}
+                      </p>
+
+                      {secondPasswordSetAt && (
+                        <p
+                          className="
+                            mt-2
+                            text-xs
+                            font-bold
+                            text-slate-400
+                          "
+                        >
+                          {labels.lastUpdated}: {formatDate(
+                            secondPasswordSetAt,
+                          )}
+                        </p>
+                      )}
+                    </div>
+
+                    <div
+                      className="
+                        flex
+                        h-12
+                        w-12
+                        items-center
+                        justify-center
+                        rounded-2xl
+                      "
+                      style={{
+                        backgroundColor: `${accentColor}14`,
+                        color: accentColor,
+                      }}
+                    >
+                      <FiKey className="text-xl" />
+                    </div>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={updateSecondPassword}
+                  className="
+                    rounded-2xl
+                    border
+                    border-slate-100
+                    bg-white
+                    p-4
+                    dark:border-slate-700
+                    dark:bg-slate-950/20
+                  "
+                >
+                  {passwordError && (
+                    <div
+                      className="
+                        mb-4
+                        rounded-xl
+                        border
+                        border-red-200
+                        bg-red-50
+                        p-3
+                        text-sm
+                        font-bold
+                        text-red-700
+                        dark:border-red-900/40
+                        dark:bg-red-950/30
+                        dark:text-red-300
+                      "
+                    >
+                      {passwordError}
+                    </div>
+                  )}
+
+                  <div
+                    className="
+                      grid
+                      gap-4
+                      md:grid-cols-2
+                    "
+                  >
+                    <label className="block">
+                      <span
+                        className="
+                          mb-2
+                          block
+                          text-sm
+                          font-black
+                          text-slate-700
+                          dark:text-slate-200
+                        "
+                      >
+                        {labels.newPassword}
+                      </span>
+
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(event) => (
+                          setPassword(
+                            event.target.value,
+                          )
+                        )}
+                        className="
+                          w-full
+                          rounded-xl
+                          border
+                          border-slate-200
+                          bg-white
+                          px-4
+                          py-3
+                          font-semibold
+                          text-slate-900
+                          outline-none
+                          transition
+                          focus:border-slate-300
+                          focus:ring-4
+                          focus:ring-slate-100
+                          dark:border-slate-700
+                          dark:bg-slate-950
+                          dark:text-white
+                          dark:focus:ring-slate-800
+                        "
+                        required
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span
+                        className="
+                          mb-2
+                          block
+                          text-sm
+                          font-black
+                          text-slate-700
+                          dark:text-slate-200
+                        "
+                      >
+                        {labels.confirmPassword}
+                      </span>
+
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(event) => (
+                          setConfirmPassword(
+                            event.target.value,
+                          )
+                        )}
+                        className="
+                          w-full
+                          rounded-xl
+                          border
+                          border-slate-200
+                          bg-white
+                          px-4
+                          py-3
+                          font-semibold
+                          text-slate-900
+                          outline-none
+                          transition
+                          focus:border-slate-300
+                          focus:ring-4
+                          focus:ring-slate-100
+                          dark:border-slate-700
+                          dark:bg-slate-950
+                          dark:text-white
+                          dark:focus:ring-slate-800
+                        "
+                        required
+                      />
+                    </label>
+                  </div>
+
+                  <p
+                    className="
+                      mt-3
+                      text-xs
+                      font-semibold
+                      text-slate-400
+                    "
+                  >
+                    {labels.passwordRules}
+                  </p>
+
+                  <button
+                    type="submit"
+                    disabled={
+                      updatingPassword
+                      || !password
+                      || !confirmPassword
+                    }
+                    className="
+                      mt-5
+                      flex
+                      items-center
+                      justify-center
+                      gap-2
+                      rounded-xl
+                      px-4
+                      py-2.5
+                      text-sm
+                      font-black
+                      text-white
+                      disabled:cursor-not-allowed
+                      disabled:opacity-50
+                    "
+                    style={{
+                      backgroundColor: accentColor,
+                    }}
+                  >
+                    {updatingPassword
+                      ? <FiRefreshCw className="animate-spin" />
+                      : <FiKey />}
+
+                    {updatingPassword
+                      ? labels.updatingPassword
+                      : labels.updatePassword}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {activeTab === 'actions' && (
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-red-200
+                  bg-red-50
+                  p-5
+                  dark:border-red-900/40
+                  dark:bg-red-950/20
+                "
+              >
+                <div
+                  className="
+                    flex
+                    flex-col
+                    justify-between
+                    gap-4
+                    sm:flex-row
+                    sm:items-center
+                  "
+                >
+                  <div className="text-start">
+                    <h5
+                      className="
+                        text-lg
+                        font-black
+                        text-red-700
+                        dark:text-red-300
+                      "
+                    >
+                      {labels.dangerTitle}
+                    </h5>
+
+                    <p
+                      className="
+                        mt-1
+                        max-w-2xl
+                        text-sm
+                        font-semibold
+                        leading-6
+                        text-red-600
+                        dark:text-red-400
+                      "
+                    >
+                      {labels.dangerDescription}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={removingAdmin}
+                    onClick={removeAdminRole}
+                    className="
+                      flex
+                      shrink-0
+                      items-center
+                      justify-center
+                      gap-2
+                      rounded-xl
+                      bg-red-600
+                      px-4
+                      py-2.5
+                      text-sm
+                      font-black
+                      text-white
+                      transition
+                      hover:bg-red-700
+                      disabled:cursor-not-allowed
+                      disabled:opacity-50
+                    "
+                  >
+                    {removingAdmin
+                      ? <FiRefreshCw className="animate-spin" />
+                      : <FiTrash2 />}
+
+                    {removingAdmin
+                      ? labels.removing
+                      : labels.removeAdmin}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div
+              className="
+                mt-6
+                flex
+                justify-end
+                border-t
+                border-slate-100
+                pt-4
+                dark:border-slate-800
+              "
+            >
+              <button
+                type="button"
+                disabled={
+                  updatingPassword
+                  || removingAdmin
+                }
+                onClick={closeDetails}
+                className="
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  px-4
+                  py-2.5
+                  text-sm
+                  font-black
+                  text-slate-600
+                  transition
+                  hover:bg-slate-50
+                  disabled:opacity-50
+                  dark:border-slate-700
+                  dark:bg-slate-950
+                  dark:text-slate-300
+                  dark:hover:bg-slate-800
+                "
+              >
+                {labels.close}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-
-      {admins.length > 0 ? (
-        <GridComponent
-          dataSource={admins}
-          ref={(g) => setGridInstance(g)}
-          enableHover={false}
-          allowPaging
-          pageSettings={{ pageCount: 5, pageSize: 10 }}
-          selectionSettings={selectionsettings}
-          toolbar={toolbarOptions}
-          editSettings={editing}
-          allowSorting
-          allowFiltering
-          toolbarClick={toolbarClick}
-          rowSelected={handleRowClick}
-          enableRtl={isArabic}
-          locale={isArabic ? 'ar' : 'en-US'}
-        >
-          <ColumnsDirective>
-            {adminsGrid.map((item, index) => (
-              <ColumnDirective key={index} {...item} />
-            ))}
-          </ColumnsDirective>
-          <Inject services={[Page, Selection, Toolbar, Sort, Filter]} />
-        </GridComponent>
-      ) : (
-        <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-lg">
-          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">{t('emptyState.title')}</p>
-          <p className="text-gray-400 dark:text-gray-500 mt-2">
-            {t('emptyState.desc')}
-          </p>
-        </div>
-      )}
-
-      <AdminDetailsModal
-        isOpen={detailsModalOpen}
-        onClose={() => {
-          setDetailsModalOpen(false);
-          setSelectedAdmin(null);
-        }}
-        admin={selectedAdmin}
-        onSetPassword={setAdminSecondPassword}
-        onRemoveAdmin={removeAdminRole}
-      />
-    </div>
+        ) : null}
+      </ModalShell>
+    </>
   );
 };
 

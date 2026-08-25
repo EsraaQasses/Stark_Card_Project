@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 
@@ -42,19 +43,20 @@ const inputClass = `
   px-3.5
   py-2.5
   text-sm
+  font-semibold
   text-slate-900
   outline-none
   transition-all
   duration-200
-  focus:border-cyan-400
-  focus:ring-2
-  focus:ring-cyan-100
+  focus:border-slate-300
+  focus:ring-4
+  focus:ring-slate-100
   disabled:cursor-not-allowed
   disabled:opacity-60
   dark:border-slate-700
   dark:bg-slate-900
   dark:text-white
-  dark:focus:ring-cyan-900/30
+  dark:focus:ring-slate-800
 `;
 
 const FINANCE_METRIC_ALIASES = {
@@ -83,7 +85,9 @@ const CurrencyAmounts = ({
   values,
   locale,
 }) => {
-  const entries = Object.entries(values || {});
+  const entries = Object.entries(
+    values || {},
+  );
 
   if (!entries.length) {
     return (
@@ -95,41 +99,170 @@ const CurrencyAmounts = ({
 
   return (
     <div className="space-y-1.5">
-      {entries.map(([currency, amount]) => (
-        <div
-          key={currency}
-          className="flex items-center gap-2"
-        >
-          <span className="font-bold text-slate-800 dark:text-white">
-            {Number(amount || 0).toLocaleString(
-              locale,
-              {
-                maximumFractionDigits: 6,
-              },
-            )}
-          </span>
-
-          <span
+      {entries.map(
+        ([currency, amount]) => (
+          <div
+            key={currency}
             className="
-              rounded-md
-              bg-slate-100
-              px-1.5
-              py-0.5
-              text-[10px]
-              font-bold
-              text-slate-500
-              dark:bg-slate-800
-              dark:text-slate-400
+              flex
+              items-center
+              gap-2
             "
-            dir="ltr"
           >
-            {currency}
-          </span>
-        </div>
-      ))}
+            <span
+              className="
+                font-bold
+                text-slate-800
+                dark:text-white
+              "
+            >
+              {Number(
+                amount || 0,
+              ).toLocaleString(
+                locale,
+                {
+                  maximumFractionDigits: 6,
+                },
+              )}
+            </span>
+
+            <span
+              className="
+                rounded-md
+                bg-slate-100
+                px-1.5
+                py-0.5
+                text-[10px]
+                font-bold
+                text-slate-500
+                dark:bg-slate-800
+                dark:text-slate-400
+              "
+              dir="ltr"
+            >
+              {currency}
+            </span>
+          </div>
+        ),
+      )}
     </div>
   );
 };
+
+// ======================================================
+// Rate Card
+// ======================================================
+
+const RateCard = ({
+  label,
+  helper,
+  value,
+  suffix = 'SYP',
+  accentColor,
+  icon,
+}) => (
+  <div
+    className="
+      rounded-2xl
+      border
+      border-slate-100
+      bg-slate-50/70
+      p-4
+      dark:border-slate-700
+      dark:bg-slate-900/40
+    "
+  >
+    <div
+      className="
+        flex
+        items-start
+        justify-between
+        gap-3
+      "
+    >
+      <div className="min-w-0 text-start">
+        <p
+          className="
+            text-xs
+            font-extrabold
+            text-slate-500
+            dark:text-slate-400
+          "
+        >
+          {label}
+        </p>
+
+        <div
+          className="
+            mt-2
+            flex
+            flex-wrap
+            items-baseline
+            gap-2
+          "
+          dir="ltr"
+        >
+          <span
+            className="
+              text-2xl
+              font-black
+              tracking-tight
+              text-slate-950
+              dark:text-white
+              md:text-3xl
+            "
+          >
+            {value}
+          </span>
+
+          {suffix && (
+            <span
+              className="
+                text-xs
+                font-black
+                text-slate-400
+              "
+            >
+              {suffix}
+            </span>
+          )}
+        </div>
+
+        {helper && (
+          <p
+            className="
+              mt-2
+              text-xs
+              font-semibold
+              leading-5
+              text-slate-400
+            "
+          >
+            {helper}
+          </p>
+        )}
+      </div>
+
+      <div
+        className="
+          flex
+          h-10
+          w-10
+          shrink-0
+          items-center
+          justify-center
+          rounded-xl
+        "
+        style={{
+          backgroundColor: `${accentColor}14`,
+          color: accentColor,
+        }}
+      >
+        {icon}
+      </div>
+    </div>
+  </div>
+);
 
 // ======================================================
 // Finance Controls
@@ -148,16 +281,166 @@ const FinanceControls = () => {
     currentColor,
   } = useStateContext();
 
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const locale = (
+    i18n.resolvedLanguage
+    || i18n.language
+    || (isArabic ? 'ar' : 'en')
+  );
+
+  const accentColor = (
+    currentColor || '#06b6d4'
+  );
+
+  const labels = useMemo(() => ({
+    buyRate: isArabic
+      ? 'سعر شراء الدولار'
+      : 'USD buy rate',
+
+    sellRate: isArabic
+      ? 'سعر بيع الدولار'
+      : 'USD sell rate',
+
+    buyHelper: isArabic
+      ? 'السعر الذي تشتري به المنصة 1 USD.'
+      : 'The rate at which the platform buys 1 USD.',
+
+    sellHelper: isArabic
+      ? 'السعر الذي تبيع به المنصة 1 USD.'
+      : 'The rate at which the platform sells 1 USD.',
+
+    spread: isArabic
+      ? 'فرق السعر'
+      : 'Spread',
+
+    spreadPercent: isArabic
+      ? 'نسبة الفرق'
+      : 'Spread percentage',
+
+    currentQuote: isArabic
+      ? 'سعر الصرف الحالي'
+      : 'Current exchange quote',
+
+    currentQuoteSubtitle: isArabic
+      ? 'سعر شراء وسعر بيع الدولار مقابل الليرة السورية.'
+      : 'USD buy and sell rates against SYP.',
+
+    activateTitle: isArabic
+      ? 'تفعيل سعر صرف جديد'
+      : 'Activate new exchange quote',
+
+    activateHint: isArabic
+      ? 'حدد سعر الشراء وسعر البيع بشكل منفصل. يجب أن يكون سعر البيع أكبر من أو يساوي سعر الشراء.'
+      : 'Set buy and sell rates separately. Sell rate must be greater than or equal to buy rate.',
+
+    note: isArabic
+      ? 'ملاحظة التفعيل'
+      : 'Activation note',
+
+    notePlaceholder: isArabic
+      ? 'مثال: تحديث سعر الصرف حسب السوق...'
+      : 'Example: Market exchange-rate update...',
+
+    preview: isArabic
+      ? 'معاينة قبل التفعيل'
+      : 'Preview before activation',
+
+    invalidRates: isArabic
+      ? 'أدخل سعر شراء وسعر بيع صحيحين وأكبر من صفر.'
+      : 'Enter valid buy and sell rates greater than zero.',
+
+    sellBelowBuy: isArabic
+      ? 'سعر البيع لا يمكن أن يكون أقل من سعر الشراء.'
+      : 'Sell rate cannot be below buy rate.',
+
+    noteRequired: isArabic
+      ? 'ملاحظة التفعيل مطلوبة.'
+      : 'Activation note is required.',
+
+    confirm: (buy, sell, spread, percent) => (
+      isArabic
+        ? `تأكيد تفعيل السعر الجديد؟\nشراء: ${buy} SYP\nبيع: ${sell} SYP\nالفرق: ${spread} SYP (${percent}%)`
+        : `Activate the new quote?\nBuy: ${buy} SYP\nSell: ${sell} SYP\nSpread: ${spread} SYP (${percent}%)`
+    ),
+
+    activated: isArabic
+      ? 'تم تفعيل سعر الصرف الجديد بنجاح.'
+      : 'The new exchange quote was activated successfully.',
+
+    active: isArabic
+      ? 'نشط'
+      : 'Active',
+
+    noCurrent: isArabic
+      ? 'لا يوجد سعر صرف نشط حالياً.'
+      : 'There is no active exchange quote.',
+
+    history: isArabic
+      ? 'سجل أسعار الصرف'
+      : 'Exchange-rate history',
+
+    historySubtitle: isArabic
+      ? 'كل نسخة محفوظة مع سعر الشراء والبيع والفرق.'
+      : 'Every quote version with buy rate, sell rate, and spread.',
+
+    version: isArabic
+      ? 'النسخة'
+      : 'Version',
+
+    status: isArabic
+      ? 'الحالة'
+      : 'Status',
+
+    created: isArabic
+      ? 'تاريخ الإنشاء'
+      : 'Created',
+
+    superseded: isArabic
+      ? 'تاريخ الاستبدال'
+      : 'Superseded',
+
+    activate: isArabic
+      ? 'تفعيل السعر'
+      : 'Activate quote',
+
+    activating: isArabic
+      ? 'جاري التفعيل...'
+      : 'Activating...',
+
+    live: isArabic
+      ? 'السعر الفعّال حالياً'
+      : 'Currently active quote',
+
+    oneUsd: isArabic
+      ? 'لكل 1 USD'
+      : 'per 1 USD',
+
+    noHistory: isArabic
+      ? 'لا يوجد سجل أسعار صرف بعد.'
+      : 'No exchange-rate history yet.',
+
+    reports: isArabic
+      ? 'التقارير المالية'
+      : 'Financial reports',
+
+    rates: isArabic
+      ? 'أسعار الصرف'
+      : 'Exchange rates',
+  }), [isArabic]);
+
   const [tab, setTab] = useState('rates');
 
   const [currentQuote, setCurrentQuote] = useState(null);
-
   const [history, setHistory] = useState([]);
-
   const [report, setReport] = useState(null);
 
   const [rateForm, setRateForm] = useState({
-    rate: '',
+    buy_rate: '',
+    sell_rate: '',
     activation_note: '',
   });
 
@@ -169,12 +452,97 @@ const FinanceControls = () => {
   });
 
   const [loading, setLoading] = useState(true);
-
   const [mutating, setMutating] = useState(false);
 
   const [error, setError] = useState('');
-
   const [notice, setNotice] = useState('');
+
+  // ====================================================
+  // Formatting
+  // ====================================================
+
+  const money = useCallback(
+    (value) => (
+      Number(
+        value || 0,
+      ).toLocaleString(
+        locale,
+        {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 6,
+        },
+      )
+    ),
+    [locale],
+  );
+
+  const formatDate = useCallback(
+    (value) => {
+      if (!value) {
+        return '—';
+      }
+
+      const date = new Date(
+        value,
+      );
+
+      if (
+        Number.isNaN(
+          date.getTime(),
+        )
+      ) {
+        return String(value);
+      }
+
+      return date.toLocaleString(
+        locale,
+      );
+    },
+    [locale],
+  );
+
+  const calculateSpread = useCallback(
+    (
+      buyValue,
+      sellValue,
+    ) => {
+      const buy = Number(
+        buyValue,
+      );
+
+      const sell = Number(
+        sellValue,
+      );
+
+      if (
+        !Number.isFinite(buy)
+        || !Number.isFinite(sell)
+        || buy <= 0
+        || sell <= 0
+      ) {
+        return {
+          valid: false,
+          amount: 0,
+          percentage: 0,
+        };
+      }
+
+      const amount = (
+        sell - buy
+      );
+
+      const percentage = (
+        amount / buy
+      ) * 100;
+
+      return {
+        valid: sell >= buy,
+        amount,
+        percentage,
+      };
+    },
+    [],
+  );
 
   // ====================================================
   // Load Exchange Rates
@@ -189,7 +557,9 @@ const FinanceControls = () => {
         '/wallets/exchange-rates/history/',
       );
 
-      const quotes = Array.isArray(historyResponse.data)
+      const quotes = Array.isArray(
+        historyResponse.data,
+      )
         ? historyResponse.data
         : historyResponse.data?.results || [];
 
@@ -200,19 +570,29 @@ const FinanceControls = () => {
           '/wallets/exchange-rates/current/',
         );
 
-        setCurrentQuote(currentResponse.data);
+        const quote = currentResponse.data;
+
+        setCurrentQuote(quote);
 
         setRateForm((previous) => ({
           ...previous,
-          rate: previous.rate
-            || String(
-              currentResponse.data?.platform_buy_usd_rate_syp
-              || currentResponse.data?.usd_to_syp
-              || '',
-            ),
+          buy_rate: String(
+            quote?.platform_buy_usd_rate_syp
+            || quote?.usd_to_syp
+            || '',
+          ),
+          sell_rate: String(
+            quote?.platform_sell_usd_rate_syp
+            || quote?.platform_buy_usd_rate_syp
+            || quote?.usd_to_syp
+            || '',
+          ),
         }));
       } catch (currentError) {
-        if (currentError?.response?.status !== 503) {
+        if (
+          currentError?.response?.status
+          !== 503
+        ) {
           throw currentError;
         }
 
@@ -222,58 +602,92 @@ const FinanceControls = () => {
       setError(
         messageFrom(
           loadError,
-          t('financeControls.errors.loadRates'),
-        ),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  // ====================================================
-  // Load Financial Report
-  // ====================================================
-
-  const loadReport = useCallback(async (params) => {
-    const selectedParams = params || reportForm;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const requestParams = {
-        period: selectedParams.period,
-      };
-
-      if (selectedParams.period === 'custom') {
-        requestParams.start_date = selectedParams.start_date;
-        requestParams.end_date = selectedParams.end_date;
-      } else if (selectedParams.date) {
-        requestParams.date = selectedParams.date;
-      }
-
-      const response = await axiosInstance.get(
-        '/finance/reports/financial/',
-        {
-          params: requestParams,
-        },
-      );
-
-      setReport(response.data);
-    } catch (loadError) {
-      setError(
-        messageFrom(
-          loadError,
-          t('financeControls.errors.loadReport'),
+          t(
+            'financeControls.errors.loadRates',
+            {
+              defaultValue: isArabic
+                ? 'تعذر تحميل أسعار الصرف.'
+                : 'Failed to load exchange rates.',
+            },
+          ),
         ),
       );
     } finally {
       setLoading(false);
     }
   }, [
-    reportForm,
+    isArabic,
     t,
   ]);
+
+  // ====================================================
+  // Load Financial Report
+  // ====================================================
+
+  const loadReport = useCallback(
+    async (params) => {
+      const selectedParams = (
+        params || reportForm
+      );
+
+      setLoading(true);
+      setError('');
+
+      try {
+        const requestParams = {
+          period: selectedParams.period,
+        };
+
+        if (
+          selectedParams.period
+          === 'custom'
+        ) {
+          requestParams.start_date =
+            selectedParams.start_date;
+
+          requestParams.end_date =
+            selectedParams.end_date;
+        } else if (
+          selectedParams.date
+        ) {
+          requestParams.date =
+            selectedParams.date;
+        }
+
+        const response = await axiosInstance.get(
+          '/finance/reports/financial/',
+          {
+            params: requestParams,
+          },
+        );
+
+        setReport(
+          response.data,
+        );
+      } catch (loadError) {
+        setError(
+          messageFrom(
+            loadError,
+            t(
+              'financeControls.errors.loadReport',
+              {
+                defaultValue: isArabic
+                  ? 'تعذر تحميل التقرير المالي.'
+                  : 'Failed to load the financial report.',
+              },
+            ),
+          ),
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      isArabic,
+      reportForm,
+      t,
+    ],
+  );
 
   // ====================================================
   // Initial / Tab Loading
@@ -286,9 +700,9 @@ const FinanceControls = () => {
       loadReport();
     }
   }, [
-    tab,
     loadRates,
     loadReport,
+    tab,
   ]);
 
   // ====================================================
@@ -302,27 +716,61 @@ const FinanceControls = () => {
       return;
     }
 
-    const rate = Number(rateForm.rate);
+    const buyRate = Number(
+      rateForm.buy_rate,
+    );
+
+    const sellRate = Number(
+      rateForm.sell_rate,
+    );
+
+    const note = (
+      rateForm.activation_note.trim()
+    );
 
     if (
-      !Number.isFinite(rate)
-      || rate <= 0
-      || !rateForm.activation_note.trim()
+      !Number.isFinite(buyRate)
+      || !Number.isFinite(sellRate)
+      || buyRate <= 0
+      || sellRate <= 0
     ) {
       setError(
-        t('financeControls.validation.quote'),
+        labels.invalidRates,
       );
 
       return;
     }
 
     if (
+      sellRate < buyRate
+    ) {
+      setError(
+        labels.sellBelowBuy,
+      );
+
+      return;
+    }
+
+    if (!note) {
+      setError(
+        labels.noteRequired,
+      );
+
+      return;
+    }
+
+    const spread = calculateSpread(
+      buyRate,
+      sellRate,
+    );
+
+    if (
       !window.confirm(
-        t(
-          'financeControls.confirm',
-          {
-            rate,
-          },
+        labels.confirm(
+          money(buyRate),
+          money(sellRate),
+          money(spread.amount),
+          money(spread.percentage),
         ),
       )
     ) {
@@ -337,16 +785,22 @@ const FinanceControls = () => {
       await axiosInstance.post(
         '/wallets/exchange-rates/activate/',
         {
-          platform_buy_usd_rate_syp: rate,
-          platform_sell_usd_rate_syp: rate,
-          activation_note: rateForm.activation_note.trim(),
+          platform_buy_usd_rate_syp:
+            buyRate,
+
+          platform_sell_usd_rate_syp:
+            sellRate,
+
+          activation_note:
+            note,
+
           expected_current_quote_id:
             currentQuote?.quote_id ?? null,
         },
       );
 
       setNotice(
-        t('financeControls.notices.activated'),
+        labels.activated,
       );
 
       setRateForm((previous) => ({
@@ -356,9 +810,26 @@ const FinanceControls = () => {
 
       await loadRates();
     } catch (saveError) {
-      const fallback = saveError?.response?.status === 409
-        ? t('financeControls.errors.quoteChanged')
-        : t('financeControls.errors.activate');
+      const fallback = (
+        saveError?.response?.status
+        === 409
+      )
+        ? t(
+            'financeControls.errors.quoteChanged',
+            {
+              defaultValue: isArabic
+                ? 'تم تغيير السعر الحالي من مدير آخر. حدث الصفحة وحاول مجدداً.'
+                : 'The active quote changed. Refresh and try again.',
+            },
+          )
+        : t(
+            'financeControls.errors.activate',
+            {
+              defaultValue: isArabic
+                ? 'تعذر تفعيل سعر الصرف.'
+                : 'Failed to activate the exchange quote.',
+            },
+          );
 
       setError(
         messageFrom(
@@ -388,51 +859,25 @@ const FinanceControls = () => {
       setError(
         t(
           'financeControls.validation.customDates',
+          {
+            defaultValue: isArabic
+              ? 'حدد تاريخ البداية والنهاية.'
+              : 'Select both start and end dates.',
+          },
         ),
       );
 
       return;
     }
 
-    loadReport(reportForm);
-  };
-
-  // ====================================================
-  // Formatting
-  // ====================================================
-
-  const locale = (
-    i18n.resolvedLanguage
-    || i18n.language
-  );
-
-  const money = (value) => (
-    Number(value || 0).toLocaleString(
-      locale,
-      {
-        maximumFractionDigits: 6,
-      },
-    )
-  );
-
-  const formatDate = (value) => {
-    if (!value) {
-      return '—';
-    }
-
-    return new Date(value).toLocaleString(
-      locale,
+    loadReport(
+      reportForm,
     );
   };
 
-  const historyHeaders = [
-    'version',
-    'rate',
-    'status',
-    'note',
-    'created',
-    'superseded',
-  ];
+  // ====================================================
+  // Runtime labels
+  // ====================================================
 
   const metricLabel = (key) => (
     localizeRuntimeValue({
@@ -443,7 +888,12 @@ const FinanceControls = () => {
       prefix: 'financeControls.metrics',
       aliases: FINANCE_METRIC_ALIASES,
       fallback: () => (
-        t('financeControls.metrics.other')
+        t(
+          'financeControls.metrics.other',
+          {
+            defaultValue: key,
+          },
+        )
       ),
     })
   );
@@ -457,7 +907,13 @@ const FinanceControls = () => {
       prefix: 'financeControls.status',
       aliases: FINANCE_STATUS_ALIASES,
       fallback: () => (
-        t('financeControls.status.unknown')
+        t(
+          'financeControls.status.unknown',
+          {
+            defaultValue:
+              status || '—',
+          },
+        )
       ),
     })
   );
@@ -470,9 +926,79 @@ const FinanceControls = () => {
       namespace: 'currencies',
       prefix: 'financeControls.periods',
       fallback: () => (
-        t('financeControls.periods.unknown')
+        t(
+          'financeControls.periods.unknown',
+          {
+            defaultValue:
+              period || '—',
+          },
+        )
       ),
     })
+  );
+
+  // ====================================================
+  // Derived rate values
+  // ====================================================
+
+  const currentBuyRate = Number(
+    currentQuote?.platform_buy_usd_rate_syp
+    || currentQuote?.usd_to_syp
+    || 0,
+  );
+
+  const currentSellRate = Number(
+    currentQuote?.platform_sell_usd_rate_syp
+    || currentQuote?.platform_buy_usd_rate_syp
+    || currentQuote?.usd_to_syp
+    || 0,
+  );
+
+  const currentSpread = (
+    currentQuote
+      ? {
+          amount: Number(
+            currentQuote.spread_amount
+            ?? (
+              currentSellRate
+              - currentBuyRate
+            ),
+          ),
+
+          percentage: Number(
+            currentQuote.spread_percentage
+            ?? (
+              currentBuyRate > 0
+                ? (
+                    (
+                      currentSellRate
+                      - currentBuyRate
+                    )
+                    / currentBuyRate
+                  ) * 100
+                : 0
+            ),
+          ),
+        }
+      : {
+          amount: 0,
+          percentage: 0,
+        }
+  );
+
+  const previewSpread = calculateSpread(
+    rateForm.buy_rate,
+    rateForm.sell_rate,
+  );
+
+  const hasPreviewRates = Boolean(
+    rateForm.buy_rate
+    && rateForm.sell_rate
+  );
+
+  const previewInvalid = (
+    hasPreviewRates
+    && !previewSpread.valid
   );
 
   const handleRefresh = () => {
@@ -481,7 +1007,9 @@ const FinanceControls = () => {
     if (tab === 'rates') {
       loadRates();
     } else {
-      loadReport(reportForm);
+      loadReport(
+        reportForm,
+      );
     }
   };
 
@@ -491,6 +1019,7 @@ const FinanceControls = () => {
 
   return (
     <div
+      dir={isArabic ? 'rtl' : 'ltr'}
       className="
         mt-20
         px-3
@@ -517,33 +1046,50 @@ const FinanceControls = () => {
           className="
             relative
             overflow-hidden
-            rounded-2xl
+            rounded-3xl
             border
             border-slate-100
             bg-white
             px-5
-            py-5
+            py-6
             shadow-sm
             dark:border-slate-800
             dark:bg-secondary-dark-bg
             md:px-7
-            md:py-6
+            md:py-7
           "
         >
-          {/* Decoration */}
           <div
             className="
               pointer-events-none
               absolute
-              -start-16
-              -top-20
-              h-52
-              w-52
+              -start-24
+              -top-28
+              h-64
+              w-64
               rounded-full
-              opacity-[0.07]
+              opacity-[0.08]
             "
             style={{
-              backgroundColor: currentColor,
+              backgroundColor:
+                accentColor,
+            }}
+          />
+
+          <div
+            className="
+              pointer-events-none
+              absolute
+              -bottom-24
+              end-10
+              h-48
+              w-48
+              rounded-full
+              opacity-[0.04]
+            "
+            style={{
+              backgroundColor:
+                accentColor,
             }}
           />
 
@@ -559,7 +1105,6 @@ const FinanceControls = () => {
               sm:items-center
             "
           >
-            {/* Title */}
             <div className="text-start">
               <div
                 className="
@@ -576,7 +1121,8 @@ const FinanceControls = () => {
                     rounded-full
                   "
                   style={{
-                    backgroundColor: currentColor,
+                    backgroundColor:
+                      accentColor,
                   }}
                 />
 
@@ -587,11 +1133,18 @@ const FinanceControls = () => {
                     md:text-base
                   "
                   style={{
-                    color: currentColor,
+                    color:
+                      accentColor,
                   }}
                 >
                   {t(
                     'financeControls.category',
+                    {
+                      defaultValue:
+                        isArabic
+                          ? 'الإدارة المالية'
+                          : 'Finance Management',
+                    },
                   )}
                 </span>
               </div>
@@ -609,6 +1162,12 @@ const FinanceControls = () => {
               >
                 {t(
                   'financeControls.title',
+                  {
+                    defaultValue:
+                      isArabic
+                        ? 'التحكم المالي'
+                        : 'Finance Controls',
+                  },
                 )}
               </h1>
 
@@ -624,58 +1183,20 @@ const FinanceControls = () => {
               >
                 {t(
                   'financeControls.subtitle',
+                  {
+                    defaultValue:
+                      isArabic
+                        ? 'إدارة أسعار الصرف والتقارير المالية من مكان واحد.'
+                        : 'Manage exchange rates and financial reports from one place.',
+                  },
                 )}
               </p>
-
-              <div
-                className="
-                  mt-4
-                  flex
-                  items-center
-                  gap-1.5
-                "
-              >
-                <span
-                  className="h-1 w-14 rounded-full"
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
-                />
-
-                <span
-                  className="
-                    h-1
-                    w-6
-                    rounded-full
-                    opacity-60
-                  "
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
-                />
-
-                <span
-                  className="
-                    h-1
-                    w-2
-                    rounded-full
-                    opacity-30
-                  "
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
-                />
-              </div>
             </div>
 
-            {/* Refresh */}
             <button
               type="button"
               onClick={handleRefresh}
               disabled={loading}
-              style={{
-                backgroundColor: currentColor,
-              }}
               className="
                 flex
                 w-full
@@ -688,16 +1209,17 @@ const FinanceControls = () => {
                 text-sm
                 font-bold
                 text-white
-                shadow-md
-                transition-all
-                duration-200
+                shadow-sm
+                transition
                 hover:opacity-90
-                hover:shadow-lg
-                active:scale-95
                 disabled:cursor-not-allowed
                 disabled:opacity-60
                 sm:w-auto
               "
+              style={{
+                backgroundColor:
+                  accentColor,
+              }}
             >
               <FiRefreshCw
                 className={
@@ -709,6 +1231,12 @@ const FinanceControls = () => {
 
               {t(
                 'financeControls.refresh',
+                {
+                  defaultValue:
+                    isArabic
+                      ? 'تحديث البيانات'
+                      : 'Refresh',
+                },
               )}
             </button>
           </div>
@@ -718,79 +1246,86 @@ const FinanceControls = () => {
             TABS
         ============================================= */}
 
-        <div
+        <section
           className="
-            flex
-            justify-start
+            rounded-2xl
+            border
+            border-slate-100
+            bg-white
+            p-2
+            shadow-sm
+            dark:border-slate-800
+            dark:bg-secondary-dark-bg
           "
         >
           <div
             className="
-              inline-flex
-              items-center
-              gap-1
-              rounded-xl
-              border
-              border-slate-200
-              bg-slate-100
-              p-1
-              dark:border-slate-700
-              dark:bg-slate-800
+              grid
+              gap-2
+              sm:grid-cols-2
             "
           >
             {[
-              'rates',
-              'reports',
-            ].map((value) => {
-              const active = tab === value;
+              {
+                id: 'rates',
+                label: labels.rates,
+                icon: <FiDollarSign />,
+              },
+              {
+                id: 'reports',
+                label: labels.reports,
+                icon: <FiBarChart2 />,
+              },
+            ].map((item) => {
+              const active = (
+                tab === item.id
+              );
 
               return (
                 <button
+                  key={item.id}
                   type="button"
-                  key={value}
                   onClick={() => {
-                    setTab(value);
+                    setTab(
+                      item.id,
+                    );
+
                     setError('');
                     setNotice('');
                   }}
-                  style={
-                    active
-                      ? {
-                          backgroundColor: currentColor,
-                        }
-                      : undefined
-                  }
                   className={`
-                    rounded-lg
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-xl
                     px-4
-                    py-2
+                    py-3
                     text-sm
-                    font-bold
-                    transition-all
-                    duration-200
-
+                    font-black
+                    transition
                     ${
                       active
                         ? 'text-white shadow-sm'
-                        : `
-                          text-slate-500
-                          hover:bg-white
-                          hover:text-slate-800
-                          dark:text-slate-400
-                          dark:hover:bg-slate-700
-                          dark:hover:text-white
-                        `
+                        : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'
                     }
                   `}
+                  style={
+                    active
+                      ? {
+                          backgroundColor:
+                            accentColor,
+                        }
+                      : undefined
+                  }
                 >
-                  {t(
-                    `financeControls.tabs.${value}`,
-                  )}
+                  {item.icon}
+                  {item.label}
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
         {/* =============================================
             NOTICE
@@ -799,29 +1334,34 @@ const FinanceControls = () => {
         {notice && (
           <div
             className="
-              relative
               flex
               items-start
               gap-3
-              rounded-xl
+              rounded-2xl
               border
-              border-emerald-200
-              bg-emerald-50
+              border-slate-200
+              bg-white
               px-4
               py-3.5
               text-sm
-              text-emerald-800
-              dark:border-emerald-900
-              dark:bg-emerald-950/30
-              dark:text-emerald-300
+              font-bold
+              text-slate-700
+              shadow-sm
+              dark:border-slate-700
+              dark:bg-slate-900
+              dark:text-slate-200
             "
           >
             <FiCheckCircle
               className="
                 mt-0.5
-                flex-shrink-0
+                shrink-0
                 text-lg
               "
+              style={{
+                color:
+                  accentColor,
+              }}
             />
 
             <span className="flex-1">
@@ -830,7 +1370,9 @@ const FinanceControls = () => {
 
             <button
               type="button"
-              onClick={() => setNotice('')}
+              onClick={() => (
+                setNotice('')
+              )}
               className="
                 flex
                 h-7
@@ -838,9 +1380,10 @@ const FinanceControls = () => {
                 items-center
                 justify-center
                 rounded-lg
+                text-slate-400
                 transition
-                hover:bg-emerald-100
-                dark:hover:bg-emerald-900/50
+                hover:bg-slate-100
+                dark:hover:bg-slate-800
               "
             >
               <FiX />
@@ -855,19 +1398,19 @@ const FinanceControls = () => {
         {error && (
           <div
             className="
-              relative
               flex
               items-start
               gap-3
-              rounded-xl
+              rounded-2xl
               border
               border-red-200
               bg-red-50
               px-4
               py-3.5
               text-sm
+              font-bold
               text-red-700
-              dark:border-red-900
+              dark:border-red-900/40
               dark:bg-red-950/30
               dark:text-red-300
             "
@@ -875,7 +1418,7 @@ const FinanceControls = () => {
             <FiAlertCircle
               className="
                 mt-0.5
-                flex-shrink-0
+                shrink-0
                 text-lg
               "
             />
@@ -886,7 +1429,9 @@ const FinanceControls = () => {
 
             <button
               type="button"
-              onClick={() => setError('')}
+              onClick={() => (
+                setError('')
+              )}
               className="
                 flex
                 h-7
@@ -909,288 +1454,333 @@ const FinanceControls = () => {
         ============================================= */}
 
         {tab === 'rates' && (
-          <div
-            className="
-              grid
-              gap-6
-              xl:grid-cols-[380px_minmax(0,1fr)]
-            "
-          >
-            {/* =========================================
-                RATE SIDE
-            ========================================= */}
+          <div className="space-y-6">
+            {/* Current Quote */}
 
-            <div className="space-y-6">
-              {/* Current Rate */}
-              <section
+            <section
+              className="
+                overflow-hidden
+                rounded-3xl
+                border
+                border-slate-100
+                bg-white
+                shadow-sm
+                dark:border-slate-800
+                dark:bg-secondary-dark-bg
+              "
+            >
+              <div
                 className="
-                  overflow-hidden
-                  rounded-2xl
-                  border
+                  flex
+                  flex-col
+                  justify-between
+                  gap-4
+                  border-b
                   border-slate-100
-                  bg-white
-                  shadow-sm
+                  px-5
+                  py-4
                   dark:border-slate-800
-                  dark:bg-secondary-dark-bg
+                  sm:flex-row
+                  sm:items-center
                 "
               >
                 <div
                   className="
                     flex
                     items-center
-                    justify-between
-                    border-b
-                    border-slate-100
-                    px-5
-                    py-4
-                    dark:border-slate-800
+                    gap-3
                   "
                 >
                   <div
                     className="
                       flex
+                      h-11
+                      w-11
                       items-center
-                      gap-3
+                      justify-center
+                      rounded-xl
                     "
+                    style={{
+                      color:
+                        accentColor,
+
+                      backgroundColor:
+                        `${accentColor}14`,
+                    }}
                   >
-                    <div
-                      className="
-                        flex
-                        h-10
-                        w-10
-                        items-center
-                        justify-center
-                        rounded-xl
-                      "
-                      style={{
-                        color: currentColor,
-                        backgroundColor: `${currentColor}15`,
-                      }}
-                    >
-                      <FiDollarSign />
-                    </div>
-
-                    <div>
-                      <p
-                        className="
-                          text-sm
-                          font-bold
-                          text-slate-900
-                          dark:text-white
-                        "
-                      >
-                        {t(
-                          'financeControls.current.title',
-                        )}
-                      </p>
-
-                      <p
-                        className="
-                          text-xs
-                          text-slate-400
-                        "
-                      >
-                        Live
-                      </p>
-                    </div>
+                    <FiDollarSign />
                   </div>
 
-                  {currentQuote && (
+                  <div className="text-start">
+                    <h2
+                      className="
+                        font-black
+                        text-slate-900
+                        dark:text-white
+                      "
+                    >
+                      {labels.currentQuote}
+                    </h2>
+
+                    <p
+                      className="
+                        mt-0.5
+                        text-xs
+                        font-semibold
+                        text-slate-400
+                      "
+                    >
+                      {labels.currentQuoteSubtitle}
+                    </p>
+                  </div>
+                </div>
+
+                {currentQuote && (
+                  <span
+                    className="
+                      inline-flex
+                      w-fit
+                      items-center
+                      gap-2
+                      rounded-full
+                      border
+                      px-3
+                      py-1.5
+                      text-xs
+                      font-black
+                    "
+                    style={{
+                      color:
+                        accentColor,
+
+                      backgroundColor:
+                        `${accentColor}10`,
+
+                      borderColor:
+                        `${accentColor}28`,
+                    }}
+                  >
                     <span
                       className="
-                        inline-flex
-                        items-center
-                        gap-1.5
+                        h-2
+                        w-2
                         rounded-full
-                        bg-emerald-50
-                        px-2.5
-                        py-1
-                        text-[11px]
-                        font-bold
-                        text-emerald-700
-                        dark:bg-emerald-950/40
-                        dark:text-emerald-300
                       "
-                    >
-                      <span
-                        className="
-                          h-1.5
-                          w-1.5
-                          rounded-full
-                          bg-emerald-500
-                        "
-                      />
+                      style={{
+                        backgroundColor:
+                          accentColor,
+                      }}
+                    />
 
-                      {statusLabel(
-                        'active',
-                      )}
-                    </span>
-                  )}
-                </div>
+                    {labels.active}
+                  </span>
+                )}
+              </div>
 
-                <div className="p-5">
-                  {loading ? (
+              <div className="p-5">
+                {loading ? (
+                  <div
+                    className="
+                      flex
+                      min-h-[180px]
+                      items-center
+                      justify-center
+                    "
+                  >
+                    <FiRefreshCw
+                      className="
+                        animate-spin
+                        text-3xl
+                        text-slate-400
+                      "
+                    />
+                  </div>
+                ) : currentQuote ? (
+                  <>
                     <div
                       className="
-                        flex
-                        min-h-[120px]
-                        items-center
-                        justify-center
+                        grid
+                        gap-3
+                        md:grid-cols-3
                       "
                     >
-                      <FiRefreshCw
-                        className="
-                          animate-spin
-                          text-2xl
-                          text-slate-400
-                        "
+                      <RateCard
+                        label={
+                          labels.buyRate
+                        }
+                        helper={
+                          labels.buyHelper
+                        }
+                        value={
+                          money(
+                            currentBuyRate,
+                          )
+                        }
+                        accentColor={
+                          accentColor
+                        }
+                        icon={
+                          <FiDollarSign />
+                        }
+                      />
+
+                      <RateCard
+                        label={
+                          labels.sellRate
+                        }
+                        helper={
+                          labels.sellHelper
+                        }
+                        value={
+                          money(
+                            currentSellRate,
+                          )
+                        }
+                        accentColor={
+                          accentColor
+                        }
+                        icon={
+                          <FiTrendingUp />
+                        }
+                      />
+
+                      <RateCard
+                        label={
+                          labels.spread
+                        }
+                        helper={`${labels.spreadPercent}: ${money(
+                          currentSpread.percentage,
+                        )}%`}
+                        value={
+                          money(
+                            currentSpread.amount,
+                          )
+                        }
+                        accentColor={
+                          accentColor
+                        }
+                        icon={
+                          <FiActivity />
+                        }
                       />
                     </div>
-                  ) : currentQuote ? (
-                    <div>
-                      <p
-                        className="
-                          text-xs
-                          font-semibold
-                          text-slate-400
-                        "
-                      >
-                        {t(
-                          'financeControls.activate.rate',
-                        )}
-                      </p>
 
+                    <div
+                      className="
+                        mt-4
+                        grid
+                        gap-3
+                        rounded-2xl
+                        border
+                        border-slate-100
+                        bg-slate-50/70
+                        p-4
+                        text-xs
+                        font-semibold
+                        text-slate-500
+                        dark:border-slate-700
+                        dark:bg-slate-900/40
+                        dark:text-slate-400
+                        md:grid-cols-3
+                      "
+                    >
                       <div
                         className="
-                          mt-2
                           flex
-                          items-baseline
+                          items-center
                           gap-2
                         "
-                        dir="ltr"
                       >
-                        <span
-                          className="
-                            text-3xl
-                            font-black
-                            tracking-tight
-                            text-slate-900
-                            dark:text-white
-                          "
-                        >
-                          {money(
-                            currentQuote.platform_buy_usd_rate_syp
-                            || currentQuote.usd_to_syp,
-                          )}
-                        </span>
+                        <FiActivity />
 
-                        <span
-                          className="
-                            text-sm
-                            font-bold
-                            text-slate-400
-                          "
-                        >
-                          SYP
+                        <span dir="ltr">
+                          v{currentQuote.version}
+                          {' · '}
+                          #{currentQuote.quote_id}
                         </span>
                       </div>
 
                       <div
                         className="
-                          mt-5
-                          space-y-2
-                          border-t
-                          border-slate-100
-                          pt-4
-                          text-xs
-                          text-slate-500
-                          dark:border-slate-800
-                          dark:text-slate-400
+                          flex
+                          items-center
+                          gap-2
                         "
                       >
-                        <div
-                          className="
-                            flex
-                            items-center
-                            gap-2
-                          "
-                        >
-                          <FiActivity />
+                        <FiClock />
 
-                          <span>
-                            {t(
-                              'financeControls.current.version',
-                              {
-                                version: currentQuote.version,
-                                id: currentQuote.quote_id,
-                              },
-                            )}
-                          </span>
-                        </div>
+                        <span>
+                          {formatDate(
+                            currentQuote.effective_at,
+                          )}
+                        </span>
+                      </div>
 
-                        <div
-                          className="
-                            flex
-                            items-center
-                            gap-2
-                          "
-                        >
-                          <FiClock />
-
-                          <span>
-                            {t(
-                              'financeControls.current.activated',
-                              {
-                                date: formatDate(
-                                  currentQuote.effective_at,
-                                ),
-                              },
-                            )}
-                          </span>
-                        </div>
+                      <div
+                        className="
+                          truncate
+                          text-start
+                        "
+                        title={
+                          currentQuote.activation_note
+                          || ''
+                        }
+                      >
+                        {currentQuote.activation_note
+                        || '—'}
                       </div>
                     </div>
-                  ) : (
-                    <div
+                  </>
+                ) : (
+                  <div
+                    className="
+                      flex
+                      min-h-[180px]
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      text-center
+                    "
+                  >
+                    <FiAlertCircle
                       className="
-                        flex
-                        min-h-[120px]
-                        flex-col
-                        items-center
-                        justify-center
-                        text-center
+                        text-3xl
+                        text-amber-500
+                      "
+                    />
+
+                    <p
+                      className="
+                        text-sm
+                        font-bold
+                        text-slate-500
+                        dark:text-slate-400
                       "
                     >
-                      <FiAlertCircle
-                        className="
-                          mb-2
-                          text-2xl
-                          text-amber-500
-                        "
-                      />
+                      {labels.noCurrent}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
 
-                      <p
-                        className="
-                          text-sm
-                          font-bold
-                          text-amber-600
-                          dark:text-amber-400
-                        "
-                      >
-                        {t(
-                          'financeControls.current.empty',
-                        )}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </section>
+            <div
+              className="
+                grid
+                gap-6
+                xl:grid-cols-[420px_minmax(0,1fr)]
+              "
+            >
+              {/* Activate Quote */}
 
-              {/* Activate Rate */}
               <form
-                onSubmit={activateQuote}
+                onSubmit={
+                  activateQuote
+                }
                 className="
-                  rounded-2xl
+                  h-fit
+                  rounded-3xl
                   border
                   border-slate-100
                   bg-white
@@ -1211,46 +1801,45 @@ const FinanceControls = () => {
                   <div
                     className="
                       flex
-                      h-10
-                      w-10
-                      flex-shrink-0
+                      h-11
+                      w-11
+                      shrink-0
                       items-center
                       justify-center
                       rounded-xl
                     "
                     style={{
-                      color: currentColor,
-                      backgroundColor: `${currentColor}15`,
+                      color:
+                        accentColor,
+
+                      backgroundColor:
+                        `${accentColor}14`,
                     }}
                   >
                     <FiTrendingUp />
                   </div>
 
-                  <div>
+                  <div className="text-start">
                     <h2
                       className="
-                        font-extrabold
+                        font-black
                         text-slate-900
                         dark:text-white
                       "
                     >
-                      {t(
-                        'financeControls.activate.title',
-                      )}
+                      {labels.activateTitle}
                     </h2>
 
                     <p
                       className="
                         mt-1
                         text-xs
+                        font-semibold
                         leading-5
-                        text-slate-500
-                        dark:text-slate-400
+                        text-slate-400
                       "
                     >
-                      {t(
-                        'financeControls.activate.hint',
-                      )}
+                      {labels.activateHint}
                     </p>
                   </div>
                 </div>
@@ -1260,28 +1849,37 @@ const FinanceControls = () => {
                     className="
                       block
                       text-sm
-                      font-bold
+                      font-black
                       text-slate-700
                       dark:text-slate-200
                     "
                   >
-                    {t(
-                      'financeControls.activate.rate',
-                    )}
+                    {labels.buyRate}
 
-                    <div className="relative mt-2">
+                    <div
+                      className="
+                        relative
+                        mt-2
+                      "
+                    >
                       <input
                         className={inputClass}
                         dir="ltr"
                         type="number"
                         min="0.000001"
                         step="0.000001"
-                        value={rateForm.rate}
+                        value={
+                          rateForm.buy_rate
+                        }
                         onChange={(event) => (
-                          setRateForm({
-                            ...rateForm,
-                            rate: event.target.value,
-                          })
+                          setRateForm(
+                            (previous) => ({
+                              ...previous,
+
+                              buy_rate:
+                                event.target.value,
+                            }),
+                          )
                         )}
                         required
                       />
@@ -1294,7 +1892,7 @@ const FinanceControls = () => {
                           top-1/2
                           -translate-y-1/2
                           text-xs
-                          font-bold
+                          font-black
                           text-slate-400
                         "
                       >
@@ -1307,35 +1905,202 @@ const FinanceControls = () => {
                     className="
                       block
                       text-sm
-                      font-bold
+                      font-black
                       text-slate-700
                       dark:text-slate-200
                     "
                   >
-                    {t(
-                      'financeControls.activate.note',
+                    {labels.sellRate}
+
+                    <div
+                      className="
+                        relative
+                        mt-2
+                      "
+                    >
+                      <input
+                        className={inputClass}
+                        dir="ltr"
+                        type="number"
+                        min="0.000001"
+                        step="0.000001"
+                        value={
+                          rateForm.sell_rate
+                        }
+                        onChange={(event) => (
+                          setRateForm(
+                            (previous) => ({
+                              ...previous,
+
+                              sell_rate:
+                                event.target.value,
+                            }),
+                          )
+                        )}
+                        required
+                      />
+
+                      <span
+                        className="
+                          pointer-events-none
+                          absolute
+                          end-3
+                          top-1/2
+                          -translate-y-1/2
+                          text-xs
+                          font-black
+                          text-slate-400
+                        "
+                      >
+                        SYP
+                      </span>
+                    </div>
+                  </label>
+
+                  <div
+                    className={`
+                      rounded-2xl
+                      border
+                      p-4
+                      ${
+                        previewInvalid
+                          ? 'border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20'
+                          : 'border-slate-100 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/40'
+                      }
+                    `}
+                  >
+                    <p
+                      className="
+                        text-xs
+                        font-black
+                        text-slate-400
+                      "
+                    >
+                      {labels.preview}
+                    </p>
+
+                    <div
+                      className="
+                        mt-3
+                        grid
+                        grid-cols-2
+                        gap-3
+                      "
+                    >
+                      <div>
+                        <p
+                          className="
+                            text-[11px]
+                            font-bold
+                            text-slate-400
+                          "
+                        >
+                          {labels.spread}
+                        </p>
+
+                        <p
+                          className="
+                            mt-1
+                            font-black
+                            text-slate-900
+                            dark:text-white
+                          "
+                          dir="ltr"
+                        >
+                          {money(
+                            previewSpread.amount,
+                          )} SYP
+                        </p>
+                      </div>
+
+                      <div>
+                        <p
+                          className="
+                            text-[11px]
+                            font-bold
+                            text-slate-400
+                          "
+                        >
+                          {labels.spreadPercent}
+                        </p>
+
+                        <p
+                          className="
+                            mt-1
+                            font-black
+                            text-slate-900
+                            dark:text-white
+                          "
+                          dir="ltr"
+                        >
+                          {money(
+                            previewSpread.percentage,
+                          )}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {previewInvalid && (
+                      <p
+                        className="
+                          mt-3
+                          text-xs
+                          font-bold
+                          text-red-600
+                          dark:text-red-300
+                        "
+                      >
+                        {labels.sellBelowBuy}
+                      </p>
                     )}
+                  </div>
+
+                  <label
+                    className="
+                      block
+                      text-sm
+                      font-black
+                      text-slate-700
+                      dark:text-slate-200
+                    "
+                  >
+                    {labels.note}
 
                     <textarea
-                      className={`${inputClass} mt-2 resize-none`}
-                      rows="4"
-                      value={rateForm.activation_note}
+                      className={`
+                        ${inputClass}
+                        mt-2
+                        min-h-[110px]
+                        resize-none
+                      `}
+                      value={
+                        rateForm.activation_note
+                      }
                       onChange={(event) => (
-                        setRateForm({
-                          ...rateForm,
-                          activation_note: event.target.value,
-                        })
+                        setRateForm(
+                          (previous) => ({
+                            ...previous,
+
+                            activation_note:
+                              event.target.value,
+                          }),
+                        )
                       )}
+                      placeholder={
+                        labels.notePlaceholder
+                      }
                       required
                     />
                   </label>
 
                   <button
                     type="submit"
-                    disabled={mutating}
-                    style={{
-                      backgroundColor: currentColor,
-                    }}
+                    disabled={
+                      mutating
+                      || (
+                        previewInvalid
+                      )
+                    }
                     className="
                       flex
                       w-full
@@ -1346,17 +2111,18 @@ const FinanceControls = () => {
                       px-4
                       py-3
                       text-sm
-                      font-bold
+                      font-black
                       text-white
                       shadow-sm
-                      transition-all
-                      duration-200
+                      transition
                       hover:opacity-90
-                      hover:shadow-md
-                      active:scale-[0.99]
                       disabled:cursor-not-allowed
                       disabled:opacity-50
                     "
+                    style={{
+                      backgroundColor:
+                        accentColor,
+                    }}
                   >
                     {mutating && (
                       <FiRefreshCw
@@ -1365,340 +2131,437 @@ const FinanceControls = () => {
                     )}
 
                     {mutating
-                      ? t(
-                          'financeControls.activate.activating',
-                        )
-                      : t(
-                          'financeControls.activate.button',
-                        )}
+                      ? labels.activating
+                      : labels.activate}
                   </button>
                 </div>
               </form>
-            </div>
 
-            {/* =========================================
-                HISTORY
-            ========================================= */}
+              {/* History */}
 
-            <section
-              className="
-                min-w-0
-                overflow-hidden
-                rounded-2xl
-                border
-                border-slate-100
-                bg-white
-                shadow-sm
-                dark:border-slate-800
-                dark:bg-secondary-dark-bg
-              "
-            >
-              <div
+              <section
                 className="
-                  flex
-                  items-center
-                  justify-between
-                  border-b
+                  min-w-0
+                  overflow-hidden
+                  rounded-3xl
+                  border
                   border-slate-100
-                  px-5
-                  py-4
+                  bg-white
+                  shadow-sm
                   dark:border-slate-800
+                  dark:bg-secondary-dark-bg
                 "
               >
                 <div
                   className="
                     flex
                     items-center
+                    justify-between
                     gap-3
+                    border-b
+                    border-slate-100
+                    px-5
+                    py-4
+                    dark:border-slate-800
                   "
                 >
                   <div
                     className="
                       flex
-                      h-10
-                      w-10
-                      items-center
-                      justify-center
-                      rounded-xl
-                    "
-                    style={{
-                      color: currentColor,
-                      backgroundColor: `${currentColor}15`,
-                    }}
-                  >
-                    <FiClock />
-                  </div>
-
-                  <div>
-                    <h2
-                      className="
-                        font-extrabold
-                        text-slate-900
-                        dark:text-white
-                      "
-                    >
-                      {t(
-                        'financeControls.history.title',
-                      )}
-                    </h2>
-
-                    <p
-                      className="
-                        mt-0.5
-                        text-xs
-                        text-slate-400
-                      "
-                    >
-                      {history.length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {loading ? (
-                <div
-                  className="
-                    flex
-                    min-h-[320px]
-                    items-center
-                    justify-center
-                  "
-                >
-                  <div
-                    className="
-                      flex
-                      flex-col
                       items-center
                       gap-3
-                      text-slate-400
+                    "
+                  >
+                    <div
+                      className="
+                        flex
+                        h-11
+                        w-11
+                        items-center
+                        justify-center
+                        rounded-xl
+                      "
+                      style={{
+                        color:
+                          accentColor,
+
+                        backgroundColor:
+                          `${accentColor}14`,
+                      }}
+                    >
+                      <FiClock />
+                    </div>
+
+                    <div className="text-start">
+                      <h2
+                        className="
+                          font-black
+                          text-slate-900
+                          dark:text-white
+                        "
+                      >
+                        {labels.history}
+                      </h2>
+
+                      <p
+                        className="
+                          mt-0.5
+                          text-xs
+                          font-semibold
+                          text-slate-400
+                        "
+                      >
+                        {labels.historySubtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className="
+                      rounded-xl
+                      px-3
+                      py-1.5
+                      text-xs
+                      font-black
+                    "
+                    style={{
+                      color:
+                        accentColor,
+
+                      backgroundColor:
+                        `${accentColor}12`,
+                    }}
+                  >
+                    {history.length}
+                  </span>
+                </div>
+
+                {loading ? (
+                  <div
+                    className="
+                      flex
+                      min-h-[380px]
+                      items-center
+                      justify-center
                     "
                   >
                     <FiRefreshCw
                       className="
                         animate-spin
-                        text-2xl
+                        text-3xl
+                        text-slate-400
+                      "
+                    />
+                  </div>
+                ) : history.length === 0 ? (
+                  <div
+                    className="
+                      flex
+                      min-h-[380px]
+                      flex-col
+                      items-center
+                      justify-center
+                      gap-3
+                      p-5
+                      text-center
+                    "
+                  >
+                    <FiClock
+                      className="
+                        text-3xl
+                        text-slate-300
                       "
                     />
 
-                    <span className="text-sm">
-                      {t(
-                        'financeControls.history.loading',
-                      )}
-                    </span>
-                  </div>
-                </div>
-              ) : history.length === 0 ? (
-                <div
-                  className="
-                    flex
-                    min-h-[320px]
-                    flex-col
-                    items-center
-                    justify-center
-                    px-5
-                    text-center
-                  "
-                >
-                  <div
-                    className="
-                      mb-3
-                      flex
-                      h-14
-                      w-14
-                      items-center
-                      justify-center
-                      rounded-2xl
-                      bg-slate-100
-                      text-2xl
-                      text-slate-400
-                      dark:bg-slate-800
-                    "
-                  >
-                    <FiClock />
-                  </div>
-
-                  <p
-                    className="
-                      text-sm
-                      font-semibold
-                      text-slate-500
-                      dark:text-slate-400
-                    "
-                  >
-                    {t(
-                      'financeControls.history.empty',
-                    )}
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table
-                    className="
-                      min-w-full
-                      divide-y
-                      divide-slate-100
-                      text-sm
-                      dark:divide-slate-800
-                    "
-                  >
-                    <thead
+                    <p
                       className="
-                        bg-slate-50
-                        dark:bg-slate-900/60
+                        text-sm
+                        font-bold
+                        text-slate-400
                       "
                     >
-                      <tr>
-                        {historyHeaders.map((heading) => (
-                          <th
-                            key={heading}
-                            className="
-                              whitespace-nowrap
-                              px-4
-                              py-3.5
-                              text-start
-                              text-xs
-                              font-bold
-                              text-slate-500
-                              dark:text-slate-400
-                            "
-                          >
-                            {t(
-                              `financeControls.history.headers.${heading}`,
-                            )}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-
-                    <tbody
+                      {labels.noHistory}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table
                       className="
+                        min-w-[1050px]
                         divide-y
                         divide-slate-100
+                        text-sm
                         dark:divide-slate-800
                       "
                     >
-                      {history.map((quote) => (
-                        <tr
-                          key={quote.quote_id}
-                          className="
-                            transition-colors
-                            hover:bg-slate-50/70
-                            dark:hover:bg-slate-800/40
-                          "
-                        >
-                          <td
-                            className="
-                              whitespace-nowrap
-                              px-4
-                              py-4
-                              font-bold
-                              text-slate-900
-                              dark:text-white
-                            "
-                            dir="ltr"
-                          >
-                            v{quote.version}
-                          </td>
-
-                          <td
-                            className="
-                              whitespace-nowrap
-                              px-4
-                              py-4
-                              font-semibold
-                              text-slate-700
-                              dark:text-slate-200
-                            "
-                          >
-                            <bdi>
-                              {money(
-                                quote.platform_buy_usd_rate_syp,
-                              )}{' '}
-                              SYP
-                            </bdi>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <span
-                              className={`
-                                inline-flex
-                                rounded-full
-                                px-2.5
-                                py-1
-                                text-xs
-                                font-bold
-
-                                ${
-                                  quote.status === 'active'
-                                    ? `
-                                      bg-emerald-50
-                                      text-emerald-700
-                                      dark:bg-emerald-950/40
-                                      dark:text-emerald-300
-                                    `
-                                    : `
-                                      bg-slate-100
-                                      text-slate-500
-                                      dark:bg-slate-800
-                                      dark:text-slate-400
-                                    `
-                                }
-                              `}
-                            >
-                              {statusLabel(
-                                quote.status,
-                              )}
-                            </span>
-                          </td>
-
-                          <td
-                            className="
-                              max-w-xs
-                              px-4
-                              py-4
-                              text-slate-600
-                              dark:text-slate-300
-                            "
-                          >
-                            {quote.activation_note || '—'}
-                          </td>
-
-                          <td
-                            className="
-                              whitespace-nowrap
-                              px-4
-                              py-4
-                              text-xs
-                              text-slate-500
-                              dark:text-slate-400
-                            "
-                          >
-                            {formatDate(
-                              quote.created_at,
-                            )}
-                          </td>
-
-                          <td
-                            className="
-                              whitespace-nowrap
-                              px-4
-                              py-4
-                              text-xs
-                              text-slate-500
-                              dark:text-slate-400
-                            "
-                          >
-                            {formatDate(
-                              quote.superseded_at,
-                            )}
-                          </td>
+                      <thead
+                        className="
+                          bg-slate-50
+                          dark:bg-slate-900/60
+                        "
+                      >
+                        <tr>
+                          {[
+                            labels.version,
+                            labels.buyRate,
+                            labels.sellRate,
+                            labels.spread,
+                            labels.status,
+                            labels.note,
+                            labels.created,
+                            labels.superseded,
+                          ].map(
+                            (heading) => (
+                              <th
+                                key={heading}
+                                className="
+                                  whitespace-nowrap
+                                  px-4
+                                  py-3.5
+                                  text-start
+                                  text-xs
+                                  font-black
+                                  text-slate-500
+                                  dark:text-slate-400
+                                "
+                              >
+                                {heading}
+                              </th>
+                            ),
+                          )}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
+                      </thead>
+
+                      <tbody
+                        className="
+                          divide-y
+                          divide-slate-100
+                          dark:divide-slate-800
+                        "
+                      >
+                        {history.map((quote) => {
+                          const buy = Number(
+                            quote.platform_buy_usd_rate_syp
+                            || quote.usd_to_syp
+                            || 0,
+                          );
+
+                          const sell = Number(
+                            quote.platform_sell_usd_rate_syp
+                            || quote.platform_buy_usd_rate_syp
+                            || quote.usd_to_syp
+                            || 0,
+                          );
+
+                          const spreadAmount = Number(
+                            quote.spread_amount
+                            ?? (
+                              sell - buy
+                            ),
+                          );
+
+                          const spreadPercentage = Number(
+                            quote.spread_percentage
+                            ?? (
+                              buy > 0
+                                ? (
+                                    (
+                                      sell - buy
+                                    )
+                                    / buy
+                                  ) * 100
+                                : 0
+                            ),
+                          );
+
+                          const active = (
+                            quote.status
+                            === 'active'
+                          );
+
+                          return (
+                            <tr
+                              key={
+                                quote.quote_id
+                              }
+                              className="
+                                transition-colors
+                                hover:bg-slate-50/70
+                                dark:hover:bg-slate-800/40
+                              "
+                            >
+                              <td
+                                className="
+                                  whitespace-nowrap
+                                  px-4
+                                  py-4
+                                  font-black
+                                  text-slate-900
+                                  dark:text-white
+                                "
+                                dir="ltr"
+                              >
+                                v{quote.version}
+                              </td>
+
+                              <td
+                                className="
+                                  whitespace-nowrap
+                                  px-4
+                                  py-4
+                                  font-bold
+                                  text-slate-700
+                                  dark:text-slate-200
+                                "
+                                dir="ltr"
+                              >
+                                {money(buy)} SYP
+                              </td>
+
+                              <td
+                                className="
+                                  whitespace-nowrap
+                                  px-4
+                                  py-4
+                                  font-bold
+                                  text-slate-700
+                                  dark:text-slate-200
+                                "
+                                dir="ltr"
+                              >
+                                {money(sell)} SYP
+                              </td>
+
+                              <td
+                                className="
+                                  whitespace-nowrap
+                                  px-4
+                                  py-4
+                                "
+                                dir="ltr"
+                              >
+                                <div
+                                  className="
+                                    font-black
+                                    text-slate-900
+                                    dark:text-white
+                                  "
+                                >
+                                  {money(
+                                    spreadAmount,
+                                  )} SYP
+                                </div>
+
+                                <div
+                                  className="
+                                    mt-0.5
+                                    text-[11px]
+                                    font-bold
+                                    text-slate-400
+                                  "
+                                >
+                                  {money(
+                                    spreadPercentage,
+                                  )}%
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-4">
+                                <span
+                                  className="
+                                    inline-flex
+                                    rounded-full
+                                    border
+                                    px-2.5
+                                    py-1
+                                    text-xs
+                                    font-black
+                                  "
+                                  style={
+                                    active
+                                      ? {
+                                          color:
+                                            accentColor,
+
+                                          backgroundColor:
+                                            `${accentColor}10`,
+
+                                          borderColor:
+                                            `${accentColor}28`,
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  {statusLabel(
+                                    quote.status,
+                                  )}
+                                </span>
+                              </td>
+
+                              <td
+                                className="
+                                  max-w-xs
+                                  px-4
+                                  py-4
+                                  text-slate-600
+                                  dark:text-slate-300
+                                "
+                              >
+                                <p
+                                  className="
+                                    line-clamp-2
+                                    min-w-[180px]
+                                  "
+                                  title={
+                                    quote.activation_note
+                                    || ''
+                                  }
+                                >
+                                  {quote.activation_note
+                                  || '—'}
+                                </p>
+                              </td>
+
+                              <td
+                                className="
+                                  whitespace-nowrap
+                                  px-4
+                                  py-4
+                                  text-xs
+                                  font-semibold
+                                  text-slate-500
+                                  dark:text-slate-400
+                                "
+                              >
+                                {formatDate(
+                                  quote.created_at,
+                                )}
+                              </td>
+
+                              <td
+                                className="
+                                  whitespace-nowrap
+                                  px-4
+                                  py-4
+                                  text-xs
+                                  font-semibold
+                                  text-slate-500
+                                  dark:text-slate-400
+                                "
+                              >
+                                {formatDate(
+                                  quote.superseded_at,
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
           </div>
         )}
 
@@ -1709,9 +2572,10 @@ const FinanceControls = () => {
         {tab === 'reports' && (
           <div className="space-y-6">
             {/* Report Filters */}
+
             <section
               className="
-                rounded-2xl
+                rounded-3xl
                 border
                 border-slate-100
                 bg-white
@@ -1732,49 +2596,59 @@ const FinanceControls = () => {
                 <div
                   className="
                     flex
-                    h-10
-                    w-10
+                    h-11
+                    w-11
                     items-center
                     justify-center
                     rounded-xl
                   "
                   style={{
-                    color: currentColor,
-                    backgroundColor: `${currentColor}15`,
+                    color:
+                      accentColor,
+
+                    backgroundColor:
+                      `${accentColor}14`,
                   }}
                 >
                   <FiBarChart2 />
                 </div>
 
-                <div>
+                <div className="text-start">
                   <h2
                     className="
-                      font-extrabold
+                      font-black
                       text-slate-900
                       dark:text-white
                     "
                   >
-                    {t(
-                      'financeControls.tabs.reports',
-                    )}
+                    {labels.reports}
                   </h2>
 
                   <p
                     className="
                       mt-0.5
                       text-xs
+                      font-semibold
                       text-slate-400
                     "
                   >
                     {t(
                       'financeControls.subtitle',
+                      {
+                        defaultValue:
+                          isArabic
+                            ? 'اختر الفترة المطلوبة لعرض التقرير.'
+                            : 'Choose the period to run the report.',
+                      },
                     )}
                   </p>
                 </div>
               </div>
 
               <form
-                onSubmit={submitReport}
+                onSubmit={
+                  submitReport
+                }
                 className="
                   grid
                   gap-4
@@ -1785,23 +2659,38 @@ const FinanceControls = () => {
                 <label
                   className="
                     text-sm
-                    font-bold
+                    font-black
                     text-slate-700
                     dark:text-slate-200
                   "
                 >
                   {t(
                     'financeControls.report.period',
+                    {
+                      defaultValue:
+                        isArabic
+                          ? 'الفترة'
+                          : 'Period',
+                    },
                   )}
 
                   <select
-                    className={`${inputClass} mt-2`}
-                    value={reportForm.period}
+                    className={`
+                      ${inputClass}
+                      mt-2
+                    `}
+                    value={
+                      reportForm.period
+                    }
                     onChange={(event) => (
-                      setReportForm({
-                        ...reportForm,
-                        period: event.target.value,
-                      })
+                      setReportForm(
+                        (previous) => ({
+                          ...previous,
+
+                          period:
+                            event.target.value,
+                        }),
+                      )
                     )}
                   >
                     {[
@@ -1816,35 +2705,55 @@ const FinanceControls = () => {
                       >
                         {t(
                           `financeControls.periods.${period}`,
+                          {
+                            defaultValue:
+                              period,
+                          },
                         )}
                       </option>
                     ))}
                   </select>
                 </label>
 
-                {reportForm.period === 'custom' ? (
+                {reportForm.period
+                === 'custom' ? (
                   <>
                     <label
                       className="
                         text-sm
-                        font-bold
+                        font-black
                         text-slate-700
                         dark:text-slate-200
                       "
                     >
                       {t(
                         'financeControls.report.startDate',
+                        {
+                          defaultValue:
+                            isArabic
+                              ? 'من تاريخ'
+                              : 'Start date',
+                        },
                       )}
 
                       <input
-                        className={`${inputClass} mt-2`}
+                        className={`
+                          ${inputClass}
+                          mt-2
+                        `}
                         type="date"
-                        value={reportForm.start_date}
+                        value={
+                          reportForm.start_date
+                        }
                         onChange={(event) => (
-                          setReportForm({
-                            ...reportForm,
-                            start_date: event.target.value,
-                          })
+                          setReportForm(
+                            (previous) => ({
+                              ...previous,
+
+                              start_date:
+                                event.target.value,
+                            }),
+                          )
                         )}
                         required
                       />
@@ -1853,24 +2762,39 @@ const FinanceControls = () => {
                     <label
                       className="
                         text-sm
-                        font-bold
+                        font-black
                         text-slate-700
                         dark:text-slate-200
                       "
                     >
                       {t(
                         'financeControls.report.endDate',
+                        {
+                          defaultValue:
+                            isArabic
+                              ? 'إلى تاريخ'
+                              : 'End date',
+                        },
                       )}
 
                       <input
-                        className={`${inputClass} mt-2`}
+                        className={`
+                          ${inputClass}
+                          mt-2
+                        `}
                         type="date"
-                        value={reportForm.end_date}
+                        value={
+                          reportForm.end_date
+                        }
                         onChange={(event) => (
-                          setReportForm({
-                            ...reportForm,
-                            end_date: event.target.value,
-                          })
+                          setReportForm(
+                            (previous) => ({
+                              ...previous,
+
+                              end_date:
+                                event.target.value,
+                            }),
+                          )
                         )}
                         required
                       />
@@ -1880,24 +2804,39 @@ const FinanceControls = () => {
                   <label
                     className="
                       text-sm
-                      font-bold
+                      font-black
                       text-slate-700
                       dark:text-slate-200
                     "
                   >
                     {t(
                       'financeControls.report.anchorDate',
+                      {
+                        defaultValue:
+                          isArabic
+                            ? 'التاريخ'
+                            : 'Date',
+                      },
                     )}
 
                     <input
-                      className={`${inputClass} mt-2`}
+                      className={`
+                        ${inputClass}
+                        mt-2
+                      `}
                       type="date"
-                      value={reportForm.date}
+                      value={
+                        reportForm.date
+                      }
                       onChange={(event) => (
-                        setReportForm({
-                          ...reportForm,
-                          date: event.target.value,
-                        })
+                        setReportForm(
+                          (previous) => ({
+                            ...previous,
+
+                            date:
+                              event.target.value,
+                          }),
+                        )
                       )}
                     />
                   </label>
@@ -1907,9 +2846,6 @@ const FinanceControls = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    style={{
-                      backgroundColor: currentColor,
-                    }}
                     className="
                       flex
                       w-full
@@ -1920,15 +2856,18 @@ const FinanceControls = () => {
                       px-4
                       py-2.5
                       text-sm
-                      font-bold
+                      font-black
                       text-white
                       shadow-sm
-                      transition-all
+                      transition
                       hover:opacity-90
-                      hover:shadow-md
                       disabled:cursor-not-allowed
                       disabled:opacity-50
                     "
+                    style={{
+                      backgroundColor:
+                        accentColor,
+                    }}
                   >
                     {loading && (
                       <FiRefreshCw
@@ -1939,9 +2878,21 @@ const FinanceControls = () => {
                     {loading
                       ? t(
                           'financeControls.report.loading',
+                          {
+                            defaultValue:
+                              isArabic
+                                ? 'جاري التحميل...'
+                                : 'Loading...',
+                          },
                         )
                       : t(
                           'financeControls.report.run',
+                          {
+                            defaultValue:
+                              isArabic
+                                ? 'عرض التقرير'
+                                : 'Run report',
+                          },
                         )}
                   </button>
                 </div>
@@ -1949,6 +2900,7 @@ const FinanceControls = () => {
             </section>
 
             {/* Report Loading */}
+
             {loading && (
               <section
                 className="
@@ -1956,7 +2908,7 @@ const FinanceControls = () => {
                   min-h-[300px]
                   items-center
                   justify-center
-                  rounded-2xl
+                  rounded-3xl
                   border
                   border-slate-100
                   bg-white
@@ -1965,33 +2917,20 @@ const FinanceControls = () => {
                   dark:bg-secondary-dark-bg
                 "
               >
-                <div
+                <FiRefreshCw
                   className="
-                    flex
-                    flex-col
-                    items-center
-                    gap-3
+                    animate-spin
+                    text-3xl
                     text-slate-400
                   "
-                >
-                  <FiRefreshCw
-                    className="
-                      animate-spin
-                      text-3xl
-                    "
-                  />
-
-                  <span className="text-sm">
-                    {t(
-                      'financeControls.report.loading',
-                    )}
-                  </span>
-                </div>
+                />
               </section>
             )}
 
             {/* Empty */}
-            {!loading && !report && (
+
+            {!loading
+              && !report && (
               <section
                 className="
                   flex
@@ -1999,7 +2938,7 @@ const FinanceControls = () => {
                   flex-col
                   items-center
                   justify-center
-                  rounded-2xl
+                  rounded-3xl
                   border
                   border-slate-100
                   bg-white
@@ -2010,43 +2949,39 @@ const FinanceControls = () => {
                   dark:bg-secondary-dark-bg
                 "
               >
-                <div
+                <FiBarChart2
                   className="
                     mb-3
-                    flex
-                    h-16
-                    w-16
-                    items-center
-                    justify-center
-                    rounded-2xl
-                    bg-slate-100
-                    text-2xl
-                    text-slate-400
-                    dark:bg-slate-800
+                    text-3xl
+                    text-slate-300
                   "
-                >
-                  <FiBarChart2 />
-                </div>
+                />
 
                 <p
                   className="
                     text-sm
-                    font-semibold
-                    text-slate-500
-                    dark:text-slate-400
+                    font-bold
+                    text-slate-400
                   "
                 >
                   {t(
                     'financeControls.report.empty',
+                    {
+                      defaultValue:
+                        isArabic
+                          ? 'لا توجد بيانات تقرير لعرضها.'
+                          : 'No report data to display.',
+                    },
                   )}
                 </p>
               </section>
             )}
 
             {/* Report */}
-            {!loading && report && (
+
+            {!loading
+              && report && (
               <div className="space-y-6">
-                {/* Stats */}
                 <div
                   className="
                     grid
@@ -2055,201 +2990,143 @@ const FinanceControls = () => {
                     xl:grid-cols-3
                   "
                 >
-                  {/* Operations */}
-                  <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-blue-100
-                      bg-blue-50
-                      p-5
-                      dark:border-blue-900/40
-                      dark:bg-blue-950/20
-                    "
-                  >
+                  {[
+                    {
+                      label: t(
+                        'financeControls.report.operations',
+                        {
+                          defaultValue:
+                            isArabic
+                              ? 'عدد العمليات'
+                              : 'Operations',
+                        },
+                      ),
+
+                      value:
+                        report.operation_count
+                        ?? 0,
+
+                      icon:
+                        <FiActivity />,
+                    },
+                    {
+                      label: t(
+                        'financeControls.report.period',
+                        {
+                          defaultValue:
+                            isArabic
+                              ? 'الفترة'
+                              : 'Period',
+                        },
+                      ),
+
+                      value:
+                        periodLabel(
+                          report.period,
+                        ),
+
+                      icon:
+                        <FiClock />,
+                    },
+                    {
+                      label: t(
+                        'financeControls.report.boundary',
+                        {
+                          defaultValue:
+                            isArabic
+                              ? 'نطاق التقرير'
+                              : 'Report range',
+                        },
+                      ),
+
+                      value:
+                        `${formatDate(
+                          report.boundary?.start_inclusive,
+                        )} → ${formatDate(
+                          report.boundary?.end_exclusive,
+                        )}`,
+
+                      icon:
+                        <FiBarChart2 />,
+                    },
+                  ].map((item) => (
                     <div
+                      key={item.label}
                       className="
-                        flex
-                        items-start
-                        justify-between
+                        rounded-2xl
+                        border
+                        border-slate-100
+                        bg-white
+                        p-5
+                        shadow-sm
+                        dark:border-slate-800
+                        dark:bg-secondary-dark-bg
                       "
                     >
-                      <div>
-                        <p
-                          className="
-                            text-xs
-                            font-bold
-                            text-blue-600
-                            dark:text-blue-300
-                          "
-                        >
-                          {t(
-                            'financeControls.report.operations',
-                          )}
-                        </p>
-
-                        <p
-                          className="
-                            mt-2
-                            text-3xl
-                            font-black
-                            text-blue-900
-                            dark:text-blue-100
-                          "
-                        >
-                          {report.operation_count ?? 0}
-                        </p>
-                      </div>
-
-                      <FiActivity
+                      <div
                         className="
-                          text-2xl
-                          text-blue-500
+                          flex
+                          items-start
+                          justify-between
+                          gap-3
                         "
-                      />
-                    </div>
-                  </div>
+                      >
+                        <div className="min-w-0 text-start">
+                          <p
+                            className="
+                              text-xs
+                              font-black
+                              text-slate-400
+                            "
+                          >
+                            {item.label}
+                          </p>
 
-                  {/* Period */}
-                  <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-emerald-100
-                      bg-emerald-50
-                      p-5
-                      dark:border-emerald-900/40
-                      dark:bg-emerald-950/20
-                    "
-                  >
-                    <div
-                      className="
-                        flex
-                        items-start
-                        justify-between
-                      "
-                    >
-                      <div>
-                        <p
-                          className="
-                            text-xs
-                            font-bold
-                            text-emerald-600
-                            dark:text-emerald-300
-                          "
-                        >
-                          {t(
-                            'financeControls.report.period',
-                          )}
-                        </p>
+                          <p
+                            className="
+                              mt-2
+                              break-words
+                              text-xl
+                              font-black
+                              text-slate-900
+                              dark:text-white
+                            "
+                          >
+                            {item.value}
+                          </p>
+                        </div>
 
-                        <p
+                        <div
                           className="
-                            mt-2
-                            text-xl
-                            font-black
-                            text-emerald-900
-                            dark:text-emerald-100
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
                           "
+                          style={{
+                            color:
+                              accentColor,
+
+                            backgroundColor:
+                              `${accentColor}14`,
+                          }}
                         >
-                          {periodLabel(
-                            report.period,
-                          )}
-                        </p>
+                          {item.icon}
+                        </div>
                       </div>
-
-                      <FiClock
-                        className="
-                          text-2xl
-                          text-emerald-500
-                        "
-                      />
                     </div>
-                  </div>
-
-                  {/* Boundary */}
-                  <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-violet-100
-                      bg-violet-50
-                      p-5
-                      dark:border-violet-900/40
-                      dark:bg-violet-950/20
-                    "
-                  >
-                    <div
-                      className="
-                        flex
-                        items-start
-                        justify-between
-                        gap-3
-                      "
-                    >
-                      <div>
-                        <p
-                          className="
-                            text-xs
-                            font-bold
-                            text-violet-600
-                            dark:text-violet-300
-                          "
-                        >
-                          {t(
-                            'financeControls.report.boundary',
-                          )}
-                        </p>
-
-                        <p
-                          className="
-                            mt-2
-                            text-xs
-                            font-bold
-                            text-violet-900
-                            dark:text-violet-100
-                          "
-                        >
-                          {formatDate(
-                            report.boundary?.start_inclusive,
-                          )}
-                        </p>
-
-                        <p
-                          className="
-                            mt-1
-                            text-xs
-                            text-violet-600
-                            dark:text-violet-300
-                          "
-                        >
-                          {t(
-                            'financeControls.report.to',
-                            {
-                              date: formatDate(
-                                report.boundary?.end_exclusive,
-                              ),
-                            },
-                          )}
-                        </p>
-                      </div>
-
-                      <FiBarChart2
-                        className="
-                          flex-shrink-0
-                          text-2xl
-                          text-violet-500
-                        "
-                      />
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 {/* Accounting Totals */}
+
                 <section
                   className="
                     overflow-hidden
-                    rounded-2xl
+                    rounded-3xl
                     border
                     border-slate-100
                     bg-white
@@ -2280,8 +3157,11 @@ const FinanceControls = () => {
                         rounded-xl
                       "
                       style={{
-                        color: currentColor,
-                        backgroundColor: `${currentColor}15`,
+                        color:
+                          accentColor,
+
+                        backgroundColor:
+                          `${accentColor}14`,
                       }}
                     >
                       <FiDollarSign />
@@ -2289,13 +3169,19 @@ const FinanceControls = () => {
 
                     <h2
                       className="
-                        font-extrabold
+                        font-black
                         text-slate-900
                         dark:text-white
                       "
                     >
                       {t(
                         'financeControls.report.accountingTotals',
+                        {
+                          defaultValue:
+                            isArabic
+                              ? 'الإجماليات المحاسبية'
+                              : 'Accounting totals',
+                        },
                       )}
                     </h2>
                   </div>
@@ -2323,13 +3209,19 @@ const FinanceControls = () => {
                               py-3.5
                               text-start
                               text-xs
-                              font-bold
+                              font-black
                               text-slate-500
                               dark:text-slate-400
                             "
                           >
                             {t(
                               'financeControls.report.metric',
+                              {
+                                defaultValue:
+                                  isArabic
+                                    ? 'البند'
+                                    : 'Metric',
+                              },
                             )}
                           </th>
 
@@ -2339,13 +3231,19 @@ const FinanceControls = () => {
                               py-3.5
                               text-start
                               text-xs
-                              font-bold
+                              font-black
                               text-slate-500
                               dark:text-slate-400
                             "
                           >
                             {t(
                               'financeControls.report.amounts',
+                              {
+                                defaultValue:
+                                  isArabic
+                                    ? 'القيم'
+                                    : 'Amounts',
+                              },
                             )}
                           </th>
                         </tr>
@@ -2360,51 +3258,60 @@ const FinanceControls = () => {
                       >
                         {Object.entries(
                           report.totals || {},
-                        ).map(([key, values]) => (
-                          <tr
-                            key={key}
-                            className="
-                              hover:bg-slate-50/70
-                              dark:hover:bg-slate-800/40
-                            "
-                          >
-                            <td
+                        ).map(
+                          ([key, values]) => (
+                            <tr
+                              key={key}
                               className="
-                                px-5
-                                py-4
-                                font-bold
-                                text-slate-900
-                                dark:text-white
+                                hover:bg-slate-50/70
+                                dark:hover:bg-slate-800/40
                               "
                             >
-                              {metricLabel(key)}
-                            </td>
+                              <td
+                                className="
+                                  px-5
+                                  py-4
+                                  font-black
+                                  text-slate-900
+                                  dark:text-white
+                                "
+                              >
+                                {metricLabel(
+                                  key,
+                                )}
+                              </td>
 
-                            <td
-                              className="
-                                px-5
-                                py-4
-                                text-slate-700
-                                dark:text-slate-200
-                              "
-                            >
-                              <CurrencyAmounts
-                                values={values}
-                                locale={locale}
-                              />
-                            </td>
-                          </tr>
-                        ))}
+                              <td
+                                className="
+                                  px-5
+                                  py-4
+                                  text-slate-700
+                                  dark:text-slate-200
+                                "
+                              >
+                                <CurrencyAmounts
+                                  values={
+                                    values
+                                  }
+                                  locale={
+                                    locale
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          ),
+                        )}
                       </tbody>
                     </table>
                   </div>
                 </section>
 
                 {/* Status Totals */}
+
                 <section
                   className="
                     overflow-hidden
-                    rounded-2xl
+                    rounded-3xl
                     border
                     border-slate-100
                     bg-white
@@ -2435,8 +3342,11 @@ const FinanceControls = () => {
                         rounded-xl
                       "
                       style={{
-                        color: currentColor,
-                        backgroundColor: `${currentColor}15`,
+                        color:
+                          accentColor,
+
+                        backgroundColor:
+                          `${accentColor}14`,
                       }}
                     >
                       <FiCheckCircle />
@@ -2444,13 +3354,19 @@ const FinanceControls = () => {
 
                     <h2
                       className="
-                        font-extrabold
+                        font-black
                         text-slate-900
                         dark:text-white
                       "
                     >
                       {t(
                         'financeControls.report.statusTotals',
+                        {
+                          defaultValue:
+                            isArabic
+                              ? 'الإجماليات حسب الحالة'
+                              : 'Totals by status',
+                        },
                       )}
                     </h2>
                   </div>
@@ -2466,36 +3382,44 @@ const FinanceControls = () => {
                   >
                     {Object.entries(
                       report.status_totals || {},
-                    ).map(([key, values]) => (
-                      <div
-                        key={key}
-                        className="
-                          rounded-xl
-                          border
-                          border-slate-100
-                          bg-slate-50
-                          p-4
-                          dark:border-slate-700
-                          dark:bg-slate-800/50
-                        "
-                      >
-                        <p
+                    ).map(
+                      ([key, values]) => (
+                        <div
+                          key={key}
                           className="
-                            mb-3
-                            font-bold
-                            text-slate-900
-                            dark:text-white
+                            rounded-2xl
+                            border
+                            border-slate-100
+                            bg-slate-50/70
+                            p-4
+                            dark:border-slate-700
+                            dark:bg-slate-900/40
                           "
                         >
-                          {statusLabel(key)}
-                        </p>
+                          <p
+                            className="
+                              mb-3
+                              font-black
+                              text-slate-900
+                              dark:text-white
+                            "
+                          >
+                            {statusLabel(
+                              key,
+                            )}
+                          </p>
 
-                        <CurrencyAmounts
-                          values={values}
-                          locale={locale}
-                        />
-                      </div>
-                    ))}
+                          <CurrencyAmounts
+                            values={
+                              values
+                            }
+                            locale={
+                              locale
+                            }
+                          />
+                        </div>
+                      ),
+                    )}
                   </div>
                 </section>
               </div>

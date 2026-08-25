@@ -1,23 +1,72 @@
 import React from 'react';
+
+import { FiGlobe } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
 
 const LanguageSwitcher = () => {
-  const { i18n } = useTranslation();
-  const currentLang = i18n.resolvedLanguage || i18n.language || 'en';
+  const {
+    i18n,
+  } = useTranslation();
+
+  const currentLang = (
+    i18n.resolvedLanguage
+    || i18n.language
+    || 'en'
+  );
+
+  const isArabic = (
+    currentLang === 'ar'
+  );
 
   const toggleLanguage = () => {
-    const nextLang = currentLang === 'ar' ? 'en' : 'ar';
-    i18n.changeLanguage(nextLang);
+    i18n.changeLanguage(
+      isArabic
+        ? 'en'
+        : 'ar',
+    );
   };
 
   return (
     <button
       type="button"
       onClick={toggleLanguage}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-secondary-dark-bg text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+      aria-label={
+        isArabic
+          ? 'Switch to English'
+          : 'التبديل إلى العربية'
+      }
+      title={
+        isArabic
+          ? 'Switch to English'
+          : 'التبديل إلى العربية'
+      }
+      className="
+        flex
+        h-10
+        items-center
+        gap-2
+        rounded-xl
+        bg-slate-50
+        px-3
+        text-xs
+        font-black
+        text-slate-600
+        transition
+        hover:bg-slate-100
+        hover:text-slate-900
+        dark:bg-slate-800
+        dark:text-slate-300
+        dark:hover:bg-slate-700
+        dark:hover:text-white
+      "
     >
-      <span>🌐</span>
-      <span>{currentLang === 'ar' ? 'English' : 'العربية'}</span>
+      <FiGlobe className="text-base" />
+
+      <span>
+        {isArabic
+          ? 'EN'
+          : 'AR'}
+      </span>
     </button>
   );
 };

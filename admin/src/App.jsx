@@ -1,14 +1,14 @@
 import React, {
-  useEffect,
   lazy,
   Suspense,
+  useEffect,
 } from 'react';
 
 import {
   BrowserRouter,
-  Routes,
-  Route,
   Navigate,
+  Route,
+  Routes,
   useLocation,
 } from 'react-router-dom';
 
@@ -24,7 +24,9 @@ import Home from './pages/Home';
 
 import './App.css';
 
-import { useStateContext } from './contexts/ContextProvider';
+import {
+  useStateContext,
+} from './contexts/ContextProvider';
 
 import {
   AuthProvider,
@@ -42,8 +44,16 @@ const Customers = lazy(() => (
   import('./pages/Users/Customers')
 ));
 
+const CustomerDetails = lazy(() => (
+  import('./pages/Users/CustomerDetails')
+));
+
 const Agents = lazy(() => (
   import('./pages/Users/Agents')
+));
+
+const AgentDetails = lazy(() => (
+  import('./pages/Users/AgentDetails')
 ));
 
 const Admin = lazy(() => (
@@ -98,8 +108,14 @@ const Requests = lazy(() => (
   import('./pages/Dashboard/RequestsHub')
 ));
 
+// هذه صفحة "طرق الدفع"
 const Payments = lazy(() => (
   import('./pages/Dashboard/Payments')
+));
+
+// هذه صفحة "جميع المدفوعات"
+const FullPayments = lazy(() => (
+  import('./components/FullPayments')
 ));
 
 const Transition = lazy(() => (
@@ -158,19 +174,19 @@ const PageLoader = () => (
   <div
     className="
       flex
+      min-h-[300px]
+      w-full
       items-center
       justify-center
       p-20
-      min-h-[300px]
-      w-full
     "
   >
     <div
       className="
-        animate-spin
-        rounded-full
         h-10
         w-10
+        animate-spin
+        rounded-full
         border-b-2
         border-indigo-600
       "
@@ -183,10 +199,15 @@ const PageLoader = () => (
 // ========================================
 
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const {
+    pathname,
+  } = useLocation();
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+    window.scrollTo(
+      0,
+      0,
+    );
   }, [pathname]);
 
   return null;
@@ -197,7 +218,9 @@ const ScrollToTop = () => {
 // ========================================
 
 const AppContent = () => {
-  const { t } = useTranslation('common');
+  const {
+    t,
+  } = useTranslation('common');
 
   const {
     setCurrentColor,
@@ -222,23 +245,36 @@ const AppContent = () => {
     logout,
   } = useAuth();
 
-  // نفس قياس الـ Navbar
-  const isDesktop = screenSize > 900;
+  const isDesktop = (
+    screenSize > 900
+  );
 
   // ========================================
   // Load Theme
   // ========================================
 
   useEffect(() => {
-    const currentThemeColor = localStorage.getItem('colorMode');
-    const currentThemeMode = localStorage.getItem('themeMode');
+    const currentThemeColor =
+      localStorage.getItem(
+        'colorMode',
+      );
+
+    const currentThemeMode =
+      localStorage.getItem(
+        'themeMode',
+      );
 
     if (
       currentThemeColor
       && currentThemeMode
     ) {
-      setCurrentColor(currentThemeColor);
-      setCurrentMode(currentThemeMode);
+      setCurrentColor(
+        currentThemeColor,
+      );
+
+      setCurrentMode(
+        currentThemeMode,
+      );
     }
   }, [
     setCurrentColor,
@@ -253,8 +289,8 @@ const AppContent = () => {
     return (
       <div
         className="
-          min-h-screen
           flex
+          min-h-screen
           items-center
           justify-center
           bg-gray-50
@@ -264,13 +300,13 @@ const AppContent = () => {
         <div className="text-center">
           <div
             className="
-              animate-spin
-              rounded-full
+              mx-auto
               h-16
               w-16
+              animate-spin
+              rounded-full
               border-b-2
               border-indigo-600
-              mx-auto
             "
           />
 
@@ -281,7 +317,9 @@ const AppContent = () => {
               dark:text-gray-300
             "
           >
-            {t('common.securingDashboard')}
+            {t(
+              'common.securingDashboard',
+            )}
           </p>
         </div>
       </div>
@@ -300,12 +338,14 @@ const AppContent = () => {
   // Not Admin
   // ========================================
 
-  if (user.role !== 'admin') {
+  if (
+    user.role !== 'admin'
+  ) {
     return (
       <div
         className="
-          min-h-screen
           flex
+          min-h-screen
           items-center
           justify-center
           bg-gray-50
@@ -315,19 +355,23 @@ const AppContent = () => {
         <div className="text-center">
           <div
             className="
-              w-16
-              h-16
-              bg-red-100
-              rounded-full
-              flex
-              items-center
-              justify-center
               mx-auto
               mb-4
+              flex
+              h-16
+              w-16
+              items-center
+              justify-center
+              rounded-full
+              bg-red-100
             "
           >
             <svg
-              className="w-8 h-8 text-red-600"
+              className="
+                h-8
+                w-8
+                text-red-600
+              "
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -336,47 +380,60 @@ const AppContent = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                d="
+                  M12 15v2m-6 4h12
+                  a2 2 0 002-2v-6
+                  a2 2 0 00-2-2H6
+                  a2 2 0 00-2 2v6
+                  a2 2 0 002 2zm10-10V7
+                  a4 4 0 00-8 0v4h8z
+                "
               />
             </svg>
           </div>
 
           <h2
             className="
+              mb-2
               text-2xl
               font-bold
               text-gray-900
               dark:text-white
-              mb-2
             "
           >
-            {t('common.accessRestricted')}
+            {t(
+              'common.accessRestricted',
+            )}
           </h2>
 
           <p
             className="
+              mb-4
               text-gray-600
               dark:text-gray-300
-              mb-4
             "
           >
-            {t('common.adminDashboardRequired')}
+            {t(
+              'common.adminDashboardRequired',
+            )}
           </p>
 
           <button
             type="button"
             onClick={logout}
             className="
+              rounded-lg
               bg-indigo-600
-              text-white
               px-6
               py-2
-              rounded-lg
-              hover:bg-indigo-700
+              text-white
               transition
+              hover:bg-indigo-700
             "
           >
-            {t('common.returnToLogin')}
+            {t(
+              'common.returnToLogin',
+            )}
           </button>
         </div>
       </div>
@@ -400,8 +457,8 @@ const AppContent = () => {
       <div
         className="
           relative
-          w-full
           min-h-screen
+          w-full
           overflow-x-hidden
           bg-main-bg
           dark:bg-main-dark-bg
@@ -415,37 +472,42 @@ const AppContent = () => {
           <div
             className="
               fixed
+              bottom-4
               right-4
+              z-[1200]
               rtl:left-4
               rtl:right-auto
-              bottom-4
-              z-[1200]
             "
           >
             <TooltipComponent
-              content={t('common.settings')}
+              content={t(
+                'common.settings',
+              )}
               position="Top"
             >
               <button
                 type="button"
-                onClick={() => setThemeSettings(true)}
+                onClick={() => (
+                  setThemeSettings(true)
+                )}
                 style={{
-                  backgroundColor: currentColor,
+                  backgroundColor:
+                    currentColor,
                 }}
                 className="
-                  w-12
-                  h-12
-                  rounded-full
                   flex
+                  h-12
+                  w-12
                   items-center
                   justify-center
+                  rounded-full
                   text-2xl
                   text-white
                   shadow-lg
-                  hover:shadow-xl
-                  hover:scale-105
                   transition-all
                   duration-200
+                  hover:scale-105
+                  hover:shadow-xl
                 "
               >
                 <FiSettings />
@@ -458,18 +520,21 @@ const AppContent = () => {
             MOBILE / TABLET OVERLAY
         ===================================== */}
 
-        {activeMenu && !isDesktop && (
+        {activeMenu
+          && !isDesktop && (
           <button
             type="button"
             aria-label="Close sidebar"
-            onClick={() => setActiveMenu(false)}
+            onClick={() => (
+              setActiveMenu(false)
+            )}
             className="
               fixed
               inset-0
               z-[1040]
+              cursor-default
               bg-black/30
               backdrop-blur-[1px]
-              cursor-default
             "
           />
         )}
@@ -481,31 +546,24 @@ const AppContent = () => {
         <aside
           className={`
             fixed
-            top-0
             bottom-0
-
             left-0
-            rtl:left-auto
-            rtl:right-0
-
+            top-0
+            z-[1100]
             w-72
             max-w-[88vw]
-
-            z-[1100]
-
-            bg-white
-            dark:bg-secondary-dark-bg
-
+            transform
             border-e
             border-gray-100
-            dark:border-gray-800
-
+            bg-white
             shadow-xl
-
-            transform
             transition-transform
             duration-300
             ease-in-out
+            dark:border-gray-800
+            dark:bg-secondary-dark-bg
+            rtl:left-auto
+            rtl:right-0
 
             ${
               activeMenu
@@ -519,26 +577,19 @@ const AppContent = () => {
 
         {/* =====================================
             MAIN CONTENT
-
-            Desktop + sidebar open:
-              width = باقي الشاشة
-
-            Desktop + sidebar closed:
-              width = 100%
-
-            Mobile:
-              width = 100%
         ===================================== */}
 
         <main
           style={{
             marginInlineStart:
-              isDesktop && activeMenu
+              isDesktop
+              && activeMenu
                 ? '18rem'
                 : '0',
 
             width:
-              isDesktop && activeMenu
+              isDesktop
+              && activeMenu
                 ? 'calc(100% - 18rem)'
                 : '100%',
 
@@ -548,15 +599,12 @@ const AppContent = () => {
           className="
             relative
             z-0
-
+            flex
             min-h-screen
             min-w-0
-
+            flex-col
             bg-main-bg
             dark:bg-main-dark-bg
-
-            flex
-            flex-col
           "
         >
           {/* =================================
@@ -567,20 +615,15 @@ const AppContent = () => {
             className="
               sticky
               top-0
-
               z-[900]
-
               w-full
               min-w-0
-
-              bg-white
-              dark:bg-secondary-dark-bg
-
               border-b
               border-gray-100
-              dark:border-gray-800
-
+              bg-white
               shadow-sm
+              dark:border-gray-800
+              dark:bg-secondary-dark-bg
             "
           >
             <Navbar />
@@ -592,9 +635,9 @@ const AppContent = () => {
 
           <div
             className="
-              flex-1
               w-full
               min-w-0
+              flex-1
               overflow-x-hidden
             "
           >
@@ -602,9 +645,12 @@ const AppContent = () => {
               <ThemeSettings />
             )}
 
-            <Suspense fallback={<PageLoader />}>
+            <Suspense
+              fallback={
+                <PageLoader />
+              }
+            >
               <Routes>
-
                 {/* ========================== */}
                 {/* Dashboard */}
                 {/* ========================== */}
@@ -659,11 +705,22 @@ const AppContent = () => {
                   )}
                 />
 
+                {/* طرق الدفع */}
                 <Route
                   path="/payments"
                   element={(
                     <ProtectedRoute>
                       <Payments />
+                    </ProtectedRoute>
+                  )}
+                />
+
+                {/* جميع المدفوعات */}
+                <Route
+                  path="/all-payments"
+                  element={(
+                    <ProtectedRoute>
+                      <FullPayments />
                     </ProtectedRoute>
                   )}
                 />
@@ -776,10 +833,28 @@ const AppContent = () => {
                 />
 
                 <Route
+                  path="/customers/:customerId"
+                  element={(
+                    <ProtectedRoute>
+                      <CustomerDetails />
+                    </ProtectedRoute>
+                  )}
+                />
+
+                <Route
                   path="/agents"
                   element={(
                     <ProtectedRoute>
                       <Agents />
+                    </ProtectedRoute>
+                  )}
+                />
+
+                <Route
+                  path="/agents/:agentId"
+                  element={(
+                    <ProtectedRoute>
+                      <AgentDetails />
                     </ProtectedRoute>
                   )}
                 />
@@ -882,14 +957,9 @@ const AppContent = () => {
                     />
                   )}
                 />
-
               </Routes>
             </Suspense>
           </div>
-
-          {/* =================================
-              FOOTER
-          ================================= */}
 
           <Footer />
         </main>

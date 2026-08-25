@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 
 import { AiOutlineMenu } from 'react-icons/ai';
-import { FaWallet, FaUserShield } from 'react-icons/fa';
+import { FaUserShield, FaWallet } from 'react-icons/fa';
 import { BsListCheck } from 'react-icons/bs';
 import {
-  RiNotification3Line,
   RiLogoutBoxRLine,
+  RiNotification3Line,
 } from 'react-icons/ri';
 import { MdKeyboardArrowDown } from 'react-icons/md';
 
@@ -14,27 +14,22 @@ import { useTranslation } from 'react-i18next';
 
 import {
   Currencies,
-  Payments,
-  Notification,
-  UserProfile,
   LastActions,
+  Notification,
+  Payments,
+  UserProfile,
 } from '.';
 
-import { useStateContext } from '../contexts/ContextProvider';
 import { useAuth } from '../contexts/AuthContext';
+import { useStateContext } from '../contexts/ContextProvider';
 import LanguageSwitcher from './LanguageSwitcher';
 
-// ======================================================
-// NAV ICON BUTTON
-// ======================================================
-
-const NavButton = ({
+const NavActionButton = ({
   title,
   customFunc,
   icon,
-  dotColor,
+  notificationDot,
   isActive,
-  ariaLabel,
   accentColor,
 }) => (
   <TooltipComponent
@@ -44,80 +39,56 @@ const NavButton = ({
     <button
       type="button"
       onClick={customFunc}
-      aria-label={ariaLabel || title}
+      aria-label={title}
       data-prevent-outside-close="true"
-      style={
-        isActive
-          ? {
-              color: accentColor,
-              borderColor: accentColor,
-            }
-          : undefined
-      }
       className={`
-        group
         relative
         flex
+        h-10
+        w-10
         items-center
         justify-center
-        w-10
-        h-10
         rounded-xl
-        border
+        text-lg
         transition-all
         duration-200
         focus:outline-none
         focus-visible:ring-2
         focus-visible:ring-offset-2
-
         ${
           isActive
-            ? `
-              bg-white
-              dark:bg-slate-800
-              shadow-sm
-            `
+            ? 'shadow-sm'
             : `
               text-slate-500
-              dark:text-slate-400
-              border-transparent
+              hover:bg-slate-100
               hover:text-slate-900
-              dark:hover:text-white
-              hover:bg-white
+              dark:text-slate-400
               dark:hover:bg-slate-800
-              hover:border-slate-200
-              dark:hover:border-slate-700
-              hover:shadow-sm
+              dark:hover:text-white
             `
         }
       `}
+      style={
+        isActive
+          ? {
+              backgroundColor: `${accentColor}14`,
+              color: accentColor,
+            }
+          : undefined
+      }
     >
-      <span
-        className="
-          text-xl
-          flex
-          items-center
-          justify-center
-          transition-transform
-          duration-200
-          group-hover:scale-105
-        "
-      >
-        {icon}
-      </span>
+      {icon}
 
-      {dotColor && (
+      {notificationDot && (
         <span
-          style={{
-            backgroundColor: dotColor,
-          }}
           className="
             absolute
-            top-1.5
-            end-1.5
-            w-2
+            end-2
+            top-2
             h-2
+            w-2
             rounded-full
+            bg-amber-400
             ring-2
             ring-white
             dark:ring-slate-900
@@ -127,10 +98,6 @@ const NavButton = ({
     </button>
   </TooltipComponent>
 );
-
-// ======================================================
-// NAVBAR
-// ======================================================
 
 const Navbar = () => {
   const {
@@ -150,23 +117,37 @@ const Navbar = () => {
     logout,
   } = useAuth();
 
-  const { t } = useTranslation();
+  const {
+    t,
+    i18n,
+  } = useTranslation();
 
-  // ====================================================
-  // SCREEN SIZE
-  // ====================================================
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const accentColor = currentColor || '#06b6d4';
 
   useEffect(() => {
     const handleResize = () => {
-      setScreenSize(window.innerWidth);
+      setScreenSize(
+        window.innerWidth,
+      );
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener(
+      'resize',
+      handleResize,
+    );
 
     handleResize();
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener(
+        'resize',
+        handleResize,
+      );
     };
   }, [setScreenSize]);
 
@@ -176,14 +157,15 @@ const Navbar = () => {
     } else {
       setActiveMenu(true);
     }
-  }, [screenSize, setActiveMenu]);
-
-  // ====================================================
-  // ACTIONS
-  // ====================================================
+  }, [
+    screenSize,
+    setActiveMenu,
+  ]);
 
   const handleActiveMenu = () => {
-    setActiveMenu(!activeMenu);
+    setActiveMenu(
+      !activeMenu,
+    );
   };
 
   const handleLogout = () => {
@@ -200,23 +182,29 @@ const Navbar = () => {
   };
 
   const handleProfileClick = () => {
-    handleClick('userProfile');
+    handleClick(
+      'userProfile',
+    );
   };
-
-  // ====================================================
-  // USER HELPERS
-  // ====================================================
 
   const getUserInitials = (name) => {
     if (!name) {
       return 'AD';
     }
 
-    return name
-      .split(' ')
-      .map((word) => word.charAt(0).toUpperCase())
-      .join('')
-      .substring(0, 2);
+    const parts = name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    if (parts.length === 1) {
+      return parts[0]
+        .slice(0, 2)
+        .toUpperCase();
+    }
+
+    return `${parts[0][0]}${parts[1][0]}`
+      .toUpperCase();
   };
 
   const getRoleDisplayName = (role) => {
@@ -243,10 +231,6 @@ const Navbar = () => {
         return role || '';
     }
   };
-
-  // ====================================================
-  // CLOSE DROPDOWNS
-  // ====================================================
 
   const closeCurrencies = () => {
     setIsClicked({
@@ -283,127 +267,181 @@ const Navbar = () => {
     });
   };
 
-  // ====================================================
-  // RENDER
-  // ====================================================
+  const renderActions = () => (
+    <>
+      <div className="relative">
+        <NavActionButton
+          title={t(
+            'common.currencies',
+            'Currencies',
+          )}
+          customFunc={() => (
+            handleClick('cart')
+          )}
+          icon={<FaWallet />}
+          isActive={isClicked.cart}
+          accentColor={accentColor}
+        />
+
+        {isClicked.cart && (
+          <Currencies
+            onClose={closeCurrencies}
+          />
+        )}
+      </div>
+
+      <div className="relative">
+        <NavActionButton
+          title={t(
+            'common.payments_log',
+            'Payments Log',
+          )}
+          customFunc={() => (
+            handleClick('chat')
+          )}
+          icon={<BsListCheck />}
+          isActive={isClicked.chat}
+          accentColor={accentColor}
+        />
+
+        {isClicked.chat && (
+          <Payments
+            onClose={closePayments}
+          />
+        )}
+      </div>
+
+      <div className="relative">
+        <NavActionButton
+          title={t(
+            'common.notifications',
+            'Notifications',
+          )}
+          customFunc={() => (
+            handleClick(
+              'notification',
+            )
+          )}
+          icon={<RiNotification3Line />}
+          notificationDot
+          isActive={isClicked.notification}
+          accentColor={accentColor}
+        />
+
+        {isClicked.notification && (
+          <Notification
+            onClose={closeNotifications}
+          />
+        )}
+      </div>
+
+      <div className="relative">
+        <NavActionButton
+          title={t(
+            'common.admin_actions',
+            'Admin Actions',
+          )}
+          customFunc={() => (
+            handleClick(
+              'adminActions',
+            )
+          )}
+          icon={<FaUserShield />}
+          isActive={isClicked.adminActions}
+          accentColor={accentColor}
+        />
+
+        {isClicked.adminActions && (
+          <LastActions
+            onClose={closeAdminActions}
+          />
+        )}
+      </div>
+    </>
+  );
 
   return (
     <header
+      dir={isArabic ? 'rtl' : 'ltr'}
       className="
-        w-full
-        min-h-[68px]
-        md:min-h-[74px]
-
-        bg-white/95
-        dark:bg-secondary-dark-bg
-
-        backdrop-blur-xl
-
-        border-b
-        border-slate-200/80
-        dark:border-slate-800
-
-        px-3
-        sm:px-4
-        md:px-5
-        lg:px-7
-
-        py-2
-
-        flex
-        flex-col
-        md:flex-row
-
-        items-stretch
-        md:items-center
-
-        justify-between
-
-        gap-2
-
         relative
         z-[999]
-
+        w-full
+        border-b
+        border-slate-200/70
+        bg-white/95
+        backdrop-blur-xl
         transition-colors
-        duration-200
+        dark:border-slate-800
+        dark:bg-secondary-dark-bg/95
       "
     >
-      {/* ==================================================
-          START AREA
-          Menu + Dashboard title
-      ================================================== */}
-
       <div
         className="
           flex
+          min-h-[72px]
           items-center
           justify-between
-          md:justify-start
-          w-full
-          md:w-auto
-          min-w-0
+          gap-4
+          px-4
+          sm:px-5
+          lg:px-6
         "
       >
-        <div className="flex items-center min-w-0">
-          {/* Menu Button */}
+        {/* Brand / Menu */}
+        <div
+          className="
+            flex
+            min-w-0
+            items-center
+            gap-3
+          "
+        >
           <button
             type="button"
             onClick={handleActiveMenu}
-            aria-label={t('common.menu', 'Menu')}
-            style={{
-              color: currentColor,
-            }}
+            aria-label={t(
+              'common.menu',
+              'Menu',
+            )}
             className="
               flex
+              h-11
+              w-11
+              shrink-0
               items-center
               justify-center
-
-              w-10
-              h-10
-
               rounded-xl
-
-              bg-slate-50
-              dark:bg-slate-800
-
-              border
-              border-slate-100
-              dark:border-slate-700
-
-              hover:bg-slate-100
-              dark:hover:bg-slate-700
-
-              transition-all
-              duration-200
-
+              text-xl
+              transition
+              hover:opacity-90
               focus:outline-none
               focus-visible:ring-2
               focus-visible:ring-offset-2
-
-              flex-shrink-0
             "
+            style={{
+              backgroundColor: `${accentColor}12`,
+              color: accentColor,
+            }}
           >
-            <AiOutlineMenu className="text-xl" />
+            <AiOutlineMenu />
           </button>
 
-          {/* Desktop Dashboard Title */}
           <div
             className="
-              hidden
-              md:block
-              ms-3
               min-w-0
+              text-start
             "
           >
             <h1
               className="
+                truncate
                 text-[15px]
-                lg:text-base
-                font-extrabold
+                font-black
+                leading-tight
                 text-slate-900
                 dark:text-white
-                leading-tight
-                truncate
+                sm:text-base
               "
             >
               {t(
@@ -412,242 +450,202 @@ const Navbar = () => {
               )}
             </h1>
 
-            <p
-              className="
-                text-[10px]
-                lg:text-[11px]
-                text-slate-400
-                dark:text-slate-500
-                mt-1
-                truncate
-              "
-            >
-              {t(
-                'common.welcome_back',
-                'Welcome back,',
-              )}{' '}
-              {user?.name || 'Admin'}
-            </p>
-          </div>
-
-          {/* Mobile Dashboard Title */}
-          <div
-            className="
-              md:hidden
-              ms-3
-              min-w-0
-            "
-          >
-            <p
-              className="
-                text-sm
-                font-extrabold
-                text-slate-900
-                dark:text-white
-                truncate
-                max-w-[170px]
-              "
-            >
-              {t(
-                'common.dashboard_title_short',
-                'Stark',
-              )}
-            </p>
-          </div>
-        </div>
-
-        {/* Mobile User Avatar */}
-        <div className="md:hidden">
-          <button
-            type="button"
-            onClick={handleProfileClick}
-            data-prevent-outside-close="true"
-            className="
-              relative
-              flex
-              items-center
-              justify-center
-              rounded-xl
-              p-1
-              hover:bg-slate-100
-              dark:hover:bg-slate-800
-              transition
-            "
-          >
             <div
-              data-prevent-outside-close="true"
-              style={{
-                backgroundColor: currentColor,
-              }}
               className="
-                w-9
-                h-9
-                rounded-xl
-                flex
+                mt-1
+                hidden
                 items-center
-                justify-center
-                text-white
-                font-bold
-                text-xs
-                shadow-sm
+                gap-2
+                lg:flex
               "
             >
-              {getUserInitials(user?.name)}
+              <span
+                className="
+                  h-1.5
+                  w-1.5
+                  rounded-full
+                "
+                style={{
+                  backgroundColor: accentColor,
+                }}
+              />
+
+              <span
+                className="
+                  truncate
+                  text-[11px]
+                  font-semibold
+                  text-slate-400
+                  dark:text-slate-500
+                "
+              >
+                {getRoleDisplayName(
+                  user?.role,
+                )}
+              </span>
             </div>
-
-            <span
-              data-prevent-outside-close="true"
-              className="
-                absolute
-                bottom-0.5
-                end-0.5
-                w-2.5
-                h-2.5
-                bg-emerald-500
-                rounded-full
-                ring-2
-                ring-white
-                dark:ring-slate-900
-              "
-            />
-          </button>
-
-          {isClicked.userProfile && (
-            <UserProfile
-              onClose={closeUserProfile}
-            />
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* ==================================================
-          CENTER ACTIONS - DESKTOP
-      ================================================== */}
-
-      <div
-        className="
-          hidden
-          md:flex
-          flex-1
-          justify-center
-          px-4
-        "
-      >
-        <div
+        {/* Desktop Quick Actions */}
+        <nav
+          aria-label={t(
+            'common.quick_actions',
+            'Quick actions',
+          )}
           className="
-            flex
+            hidden
             items-center
             gap-1
-
-            bg-slate-50/90
-            dark:bg-slate-900/60
-
-            border
-            border-slate-100
-            dark:border-slate-800
-
-            rounded-2xl
-
-            p-1.5
-
-            shadow-sm
+            md:flex
           "
         >
-          {/* Currencies */}
-          <div className="relative">
-            <NavButton
-              title={t(
-                'common.currencies',
-                'Currencies',
-              )}
-              customFunc={() => handleClick('cart')}
-              icon={<FaWallet />}
-              isActive={isClicked.cart}
-              accentColor={currentColor}
-            />
+          {renderActions()}
+        </nav>
 
-            {isClicked.cart && (
-              <Currencies
-                onClose={closeCurrencies}
-              />
-            )}
-          </div>
+        {/* Desktop Account Area */}
+        <div
+          className="
+            hidden
+            shrink-0
+            items-center
+            gap-2
+            md:flex
+          "
+        >
+          <LanguageSwitcher />
 
-          {/* Payments */}
-          <div className="relative">
-            <NavButton
-              title={t(
-                'common.payments_log',
-                'Payments Log',
-              )}
-              customFunc={() => handleClick('chat')}
-              icon={<BsListCheck />}
-              dotColor={currentColor}
-              isActive={isClicked.chat}
-              accentColor={currentColor}
-            />
-
-            {isClicked.chat && (
-              <Payments
-                onClose={closePayments}
-              />
-            )}
-          </div>
-
-          {/* Notifications */}
-          <div className="relative">
-            <NavButton
-              title={t(
-                'common.notifications',
-                'Notifications',
-              )}
-              customFunc={() => handleClick('notification')}
-              icon={<RiNotification3Line />}
-              dotColor="#F59E0B"
-              isActive={isClicked.notification}
-              accentColor={currentColor}
-            />
-
-            {isClicked.notification && (
-              <Notification
-                onClose={closeNotifications}
-              />
-            )}
-          </div>
-
-          {/* Admin Actions */}
-          <div className="relative">
-            <NavButton
-              title={t(
-                'common.admin_actions',
-                'Admin Actions',
-              )}
-              customFunc={() => handleClick('adminActions')}
-              icon={<FaUserShield />}
-              dotColor={currentColor}
-              isActive={isClicked.adminActions}
-              accentColor={currentColor}
-            />
-
-            {isClicked.adminActions && (
-              <LastActions
-                onClose={closeAdminActions}
-              />
-            )}
-          </div>
-
-          {/* Divider */}
           <div
             className="
+              mx-1
+              hidden
+              h-7
               w-px
-              h-6
               bg-slate-200
               dark:bg-slate-700
-              mx-1
+              lg:block
             "
           />
 
-          {/* Logout */}
+          <div className="relative">
+            <TooltipComponent
+              content={t(
+                'common.view_profile',
+                'View Profile',
+              )}
+              position="BottomCenter"
+            >
+              <button
+                type="button"
+                onClick={handleProfileClick}
+                data-prevent-outside-close="true"
+                className={`
+                  group
+                  flex
+                  items-center
+                  gap-2.5
+                  rounded-xl
+                  px-1.5
+                  py-1.5
+                  text-start
+                  transition
+                  hover:bg-slate-100
+                  dark:hover:bg-slate-800
+                  ${
+                    isClicked.userProfile
+                      ? 'bg-slate-100 dark:bg-slate-800'
+                      : ''
+                  }
+                `}
+              >
+                <div
+                  data-prevent-outside-close="true"
+                  className="
+                    flex
+                    h-9
+                    w-9
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-xl
+                    text-xs
+                    font-black
+                    text-white
+                    shadow-sm
+                  "
+                  style={{
+                    backgroundColor: accentColor,
+                  }}
+                >
+                  {getUserInitials(
+                    user?.name,
+                  )}
+                </div>
+
+                <div
+                  data-prevent-outside-close="true"
+                  className="
+                    hidden
+                    min-w-0
+                    max-w-[135px]
+                    xl:block
+                  "
+                >
+                  <p
+                    data-prevent-outside-close="true"
+                    className="
+                      truncate
+                      text-xs
+                      font-black
+                      text-slate-800
+                      dark:text-white
+                    "
+                  >
+                    {user?.name || 'Admin'}
+                  </p>
+
+                  <p
+                    data-prevent-outside-close="true"
+                    className="
+                      mt-0.5
+                      truncate
+                      text-[10px]
+                      font-semibold
+                      text-slate-400
+                      dark:text-slate-500
+                    "
+                  >
+                    {getRoleDisplayName(
+                      user?.role,
+                    )}
+                  </p>
+                </div>
+
+                <MdKeyboardArrowDown
+                  data-prevent-outside-close="true"
+                  className={`
+                    hidden
+                    text-lg
+                    text-slate-400
+                    transition-transform
+                    xl:block
+                    ${
+                      isClicked.userProfile
+                        ? 'rotate-180'
+                        : ''
+                    }
+                  `}
+                />
+              </button>
+            </TooltipComponent>
+
+            {isClicked.userProfile && (
+              <UserProfile
+                onClose={closeUserProfile}
+              />
+            )}
+          </div>
+
           <TooltipComponent
             content={t(
               'common.logout',
@@ -663,276 +661,58 @@ const Navbar = () => {
                 'Logout',
               )}
               className="
-                group
-                relative
                 flex
+                h-10
+                w-10
                 items-center
                 justify-center
-
-                w-10
-                h-10
-
                 rounded-xl
-
+                text-lg
                 text-slate-400
-                dark:text-slate-500
-
-                border
-                border-transparent
-
-                hover:text-red-500
+                transition
                 hover:bg-red-50
-                hover:border-red-100
-
+                hover:text-red-500
+                dark:text-slate-500
                 dark:hover:bg-red-950/30
-                dark:hover:border-red-900/40
-
-                transition-all
-                duration-200
-
-                focus:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-red-400
+                dark:hover:text-red-400
               "
             >
-              <RiLogoutBoxRLine
-                className="
-                  text-xl
-                  transition-transform
-                  group-hover:scale-105
-                "
-              />
+              <RiLogoutBoxRLine />
             </button>
           </TooltipComponent>
         </div>
-      </div>
 
-      {/* ==================================================
-          END AREA - DESKTOP
-          Language + Role + Profile
-      ================================================== */}
-
-      <div
-        className="
-          hidden
-          md:flex
-          items-center
-          gap-2
-          flex-shrink-0
-        "
-      >
-        {/* Language */}
-        <div className="flex items-center">
-          <LanguageSwitcher />
-        </div>
-
-        {/* Role Badge */}
+        {/* Mobile Profile */}
         <div
           className="
-            hidden
-            lg:flex
-            items-center
-            gap-2
-
-            px-3
-            h-9
-
-            rounded-xl
-
-            bg-slate-50
-            dark:bg-slate-800
-
-            border
-            border-slate-100
-            dark:border-slate-700
+            relative
+            md:hidden
           "
         >
-          <span
-            style={{
-              backgroundColor: currentColor,
-            }}
+          <button
+            type="button"
+            onClick={handleProfileClick}
+            data-prevent-outside-close="true"
             className="
-              w-2
-              h-2
-              rounded-full
-            "
-          />
-
-          <span
-            className="
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
+              rounded-xl
               text-xs
-              font-bold
-              text-slate-600
-              dark:text-slate-300
-              whitespace-nowrap
+              font-black
+              text-white
+              shadow-sm
             "
+            style={{
+              backgroundColor: accentColor,
+            }}
           >
-            {getRoleDisplayName(user?.role)}
-          </span>
-        </div>
-
-        {/* Divider */}
-        <div
-          className="
-            hidden
-            lg:block
-            w-px
-            h-7
-            bg-slate-200
-            dark:bg-slate-700
-            mx-1
-          "
-        />
-
-        {/* User Profile */}
-        <div className="relative">
-          <TooltipComponent
-            content={t(
-              'common.view_profile',
-              'View Profile',
+            {getUserInitials(
+              user?.name,
             )}
-            position="BottomCenter"
-          >
-            <button
-              type="button"
-              onClick={handleProfileClick}
-              data-prevent-outside-close="true"
-              className="
-                group
-                flex
-                items-center
-                gap-2.5
-
-                p-1.5
-                pe-2.5
-
-                rounded-xl
-
-                border
-                border-slate-100
-                dark:border-slate-700
-
-                bg-white
-                dark:bg-slate-900/40
-
-                hover:bg-slate-50
-                dark:hover:bg-slate-800
-
-                hover:border-slate-200
-                dark:hover:border-slate-600
-
-                transition-all
-                duration-200
-
-                text-start
-
-                focus:outline-none
-                focus-visible:ring-2
-                focus-visible:ring-offset-2
-              "
-            >
-              {/* Avatar */}
-              <div
-                data-prevent-outside-close="true"
-                className="
-                  relative
-                  flex-shrink-0
-                "
-              >
-                <div
-                  data-prevent-outside-close="true"
-                  style={{
-                    backgroundColor: currentColor,
-                  }}
-                  className="
-                    w-9
-                    h-9
-                    rounded-xl
-
-                    flex
-                    items-center
-                    justify-center
-
-                    text-white
-                    font-extrabold
-                    text-xs
-
-                    shadow-sm
-                  "
-                >
-                  {getUserInitials(user?.name)}
-                </div>
-
-                <span
-                  data-prevent-outside-close="true"
-                  className="
-                    absolute
-                    -bottom-0.5
-                    -end-0.5
-
-                    w-2.5
-                    h-2.5
-
-                    bg-emerald-500
-                    rounded-full
-
-                    ring-2
-                    ring-white
-                    dark:ring-slate-900
-                  "
-                />
-              </div>
-
-              {/* User Details */}
-              <div
-                data-prevent-outside-close="true"
-                className="
-                  hidden
-                  xl:block
-                  min-w-0
-                  max-w-[120px]
-                "
-              >
-                <p
-                  data-prevent-outside-close="true"
-                  className="
-                    text-xs
-                    font-extrabold
-                    text-slate-800
-                    dark:text-white
-                    truncate
-                  "
-                >
-                  {user?.name || 'Admin'}
-                </p>
-
-                <p
-                  data-prevent-outside-close="true"
-                  className="
-                    text-[10px]
-                    text-slate-400
-                    dark:text-slate-500
-                    mt-0.5
-                    truncate
-                  "
-                >
-                  {getRoleDisplayName(user?.role)}
-                </p>
-              </div>
-
-              <MdKeyboardArrowDown
-                data-prevent-outside-close="true"
-                className="
-                  hidden
-                  xl:block
-                  text-slate-400
-                  text-base
-                  transition-transform
-                  group-hover:translate-y-0.5
-                "
-              />
-            </button>
-          </TooltipComponent>
+          </button>
 
           {isClicked.userProfile && (
             <UserProfile
@@ -942,155 +722,33 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* ==================================================
-          MOBILE SECOND ROW
-      ================================================== */}
-
+      {/* Mobile Quick Actions */}
       {screenSize <= 768 && (
         <div
           className="
-            md:hidden
-
             flex
             items-center
             justify-between
-
             gap-3
-
-            mt-1
-            pt-2
-
             border-t
             border-slate-100
+            px-4
+            py-2
             dark:border-slate-800
-
-            w-full
+            md:hidden
           "
         >
-          {/* Language */}
-          <div
-            className="
-              flex-shrink-0
-              scale-90
-              origin-start
-            "
-          >
-            <LanguageSwitcher />
-          </div>
+          <LanguageSwitcher />
 
-          {/* Mobile Icons */}
           <div
             className="
               flex
               items-center
               gap-1
-
-              overflow-x-auto
-              whitespace-nowrap
-
-              py-0.5
-
-              max-w-full
-
-              no-scrollbar
             "
           >
-            {/* Currencies */}
-            <div className="relative inline-block">
-              <NavButton
-                title={t(
-                  'common.currencies',
-                  'Currencies',
-                )}
-                customFunc={() => handleClick('cart')}
-                icon={<FaWallet />}
-                isActive={isClicked.cart}
-                accentColor={currentColor}
-              />
+            {renderActions()}
 
-              {isClicked.cart && (
-                <Currencies
-                  onClose={closeCurrencies}
-                />
-              )}
-            </div>
-
-            {/* Payments */}
-            <div className="relative inline-block">
-              <NavButton
-                title={t(
-                  'common.payments_log',
-                  'Payments Log',
-                )}
-                customFunc={() => handleClick('chat')}
-                icon={<BsListCheck />}
-                dotColor={currentColor}
-                isActive={isClicked.chat}
-                accentColor={currentColor}
-              />
-
-              {isClicked.chat && (
-                <Payments
-                  onClose={closePayments}
-                />
-              )}
-            </div>
-
-            {/* Notifications */}
-            <div className="relative inline-block">
-              <NavButton
-                title={t(
-                  'common.notifications',
-                  'Notifications',
-                )}
-                customFunc={() => handleClick('notification')}
-                icon={<RiNotification3Line />}
-                dotColor="#F59E0B"
-                isActive={isClicked.notification}
-                accentColor={currentColor}
-              />
-
-              {isClicked.notification && (
-                <Notification
-                  onClose={closeNotifications}
-                />
-              )}
-            </div>
-
-            {/* Admin Actions */}
-            <div className="relative inline-block">
-              <NavButton
-                title={t(
-                  'common.admin_actions',
-                  'Admin Actions',
-                )}
-                customFunc={() => handleClick('adminActions')}
-                icon={<FaUserShield />}
-                dotColor={currentColor}
-                isActive={isClicked.adminActions}
-                accentColor={currentColor}
-              />
-
-              {isClicked.adminActions && (
-                <LastActions
-                  onClose={closeAdminActions}
-                />
-              )}
-            </div>
-
-            {/* Mobile Divider */}
-            <div
-              className="
-                w-px
-                h-5
-                bg-slate-200
-                dark:bg-slate-700
-                mx-1
-                flex-shrink-0
-              "
-            />
-
-            {/* Logout */}
             <button
               type="button"
               onClick={handleLogout}
@@ -1100,29 +758,21 @@ const Navbar = () => {
               )}
               className="
                 flex
+                h-10
+                w-10
                 items-center
                 justify-center
-
-                w-10
-                h-10
-
                 rounded-xl
-
+                text-lg
                 text-slate-400
-
-                hover:text-red-500
+                transition
                 hover:bg-red-50
-
+                hover:text-red-500
+                dark:hover:bg-red-950/30
                 dark:hover:text-red-400
-                dark:hover:bg-red-950/20
-
-                flex-shrink-0
-
-                transition-all
-                duration-200
               "
             >
-              <RiLogoutBoxRLine className="text-xl" />
+              <RiLogoutBoxRLine />
             </button>
           </div>
         </div>
