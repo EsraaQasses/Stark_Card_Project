@@ -1,28 +1,33 @@
 // src/screens/Profile.js
-import React, { useEffect, useState, useCallback } from "react";
+
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  Image,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-  I18nManager,
   ActivityIndicator,
   Alert,
-  ScrollView,
-  RefreshControl,
+  Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
 } from "react-native";
+
+import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import PageLayout from "../ui/PageLayout";           // ✅ الغلاف الموحّد (BottomNav + SideMenu)
+
+import PageLayout from "../ui/PageLayout";
 import CornerSpinner from "../ui/CornerSpinner";
-import { AppHeader } from "../shared/ui/layout";
-import { AppCard, AppSectionTitle } from "../shared/ui/primitives";
+
+import { AppHeader, } from "../shared/ui/layout";
+import { AppCard } from "../shared/ui/primitives";
+
 import {
   colors as themeColors,
   fontFamilies,
@@ -31,267 +36,931 @@ import {
   spacing,
   typography,
 } from "../shared/theme";
+
 import api from "../api/client";
 import { disconnectFromAgent } from "../api/agent";
+
 import { useAuth } from "../context/AuthProvider";
 import { getAccessToken } from "../shared/storage/authStorage";
+
+/* =========================================================
+   Colors
+========================================================= */
 
 const COLOR = {
   primary: themeColors.brand.primary,
   primaryDark: themeColors.brand.primaryDark,
+
   text: themeColors.text.primary,
+  muted: themeColors.text.muted,
+
   line: themeColors.border.default,
-  pill: themeColors.surface.cardSoft,
-  white: themeColors.surface.background,
+
+  white: "#FFFFFF",
+  page: "#F7F9FC",
+  soft: "#F4F7FB",
+  input: "#F8FAFC",
+
   danger: themeColors.status.danger,
   success: themeColors.status.success,
-  muted: themeColors.text.muted,
-  bgSoft: themeColors.surface.soft,
 };
-const BASE_W = 390, BASE_H = 844;
+
+/* =========================================================
+   Responsive
+========================================================= */
+
+const BASE_W = 390;
+const BASE_H = 844;
+
+/* =========================================================
+   Screen
+========================================================= */
 
 export default function Profile({ navigation }) {
   const { signOut } = useAuth();
+
   const insets = useSafeAreaInsets();
+
   const { t } = useTranslation();
+
   const { width: W, height: H } = useWindowDimensions();
-  const RTL = I18nManager.isRTL;
-  const sx = useCallback((n) => (W / BASE_W) * n, [W]);
-  const sy = useCallback((n) => (H / BASE_H) * n, [H]);
+
+  const sx = useCallback(
+    (n) => (W / BASE_W) * n,
+    [W]
+  );
+
+  const sy = useCallback(
+    (n) => (H / BASE_H) * n,
+    [H]
+  );
 
   const NAV_HEIGHT = sy(64);
-  const contentPadBottom = NAV_HEIGHT + insets.bottom + sy(12);
 
-  // UI state
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [editMode, setEditMode] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const contentPadBottom =
+    NAV_HEIGHT +
+    insets.bottom +
+    sy(28);
 
-  // server data
-  const [raw, setRaw] = useState(null);
+  /* =======================================================
+     UI state
+  ======================================================= */
 
-  // form state
-  const [first, setFirst] = useState("");
-  const [last, setLast] = useState("");
-  const [email, setEmail] = useState("");
-  const [userName, setUserName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [country, setCountry] = useState("");
-  const [optionalPhone, setOptionalPhone] = useState("");
-  const [dark, setDark] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
 
-  const GAP_SM = sy(8);
-  const GAP_XS = sy(6);
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [editMode, setEditMode] =
+    useState(false);
+
+  const [dirty, setDirty] =
+    useState(false);
+
+  /* =======================================================
+     Server data
+  ======================================================= */
+
+  const [raw, setRaw] =
+    useState(null);
+
+  /* =======================================================
+     Profile fields
+  ======================================================= */
+
+  const [first, setFirst] =
+    useState("");
+
+  const [last, setLast] =
+    useState("");
+
+  const [email, setEmail] =
+    useState("");
+
+  const [userName, setUserName] =
+    useState("");
+
+  const [phone, setPhone] =
+    useState("");
+
+  const [country, setCountry] =
+    useState("");
+
+  const [
+    optionalPhone,
+    setOptionalPhone,
+  ] = useState("");
+
+  /* =======================================================
+     Password fields
+  ======================================================= */
+
+  const [
+    currentPassword,
+    setCurrentPassword,
+  ] = useState("");
+
+  const [
+    newPassword,
+    setNewPassword,
+  ] = useState("");
+
+  const [
+    confirmPassword,
+    setConfirmPassword,
+  ] = useState("");
+
+  const [
+    changingPassword,
+    setChangingPassword,
+  ] = useState(false);
+
+  const [
+    deletingAccount,
+    setDeletingAccount,
+  ] = useState(false);
+
+  /* =======================================================
+     Sizes
+  ======================================================= */
+
+  const GAP = sy(12);
   const R = sx(18);
 
+  /* =======================================================
+     User assignment
+  ======================================================= */
+
   const assignFromUser = useCallback((u) => {
-    const full = u?.full_name || "";
-    const parts = full.trim().split(" ");
-    setFirst(parts[0] || "");
-    setLast(parts.length > 1 ? parts.slice(1).join(" ") : "");
-    setEmail(u?.email || "");
-    setUserName(u?.name || "");
-    setPhone(u?.phone || "");
-    setCountry(u?.country || "");
-    setOptionalPhone(u?.optional_phone || "");
+    const full =
+      u?.full_name || "";
+
+    const parts =
+      full.trim().split(" ");
+
+    setFirst(
+      parts[0] || ""
+    );
+
+    setLast(
+      parts.length > 1
+        ? parts
+            .slice(1)
+            .join(" ")
+        : ""
+    );
+
+    setEmail(
+      u?.email || ""
+    );
+
+    setUserName(
+      u?.name || ""
+    );
+
+    setPhone(
+      u?.phone || ""
+    );
+
+    setCountry(
+      u?.country || ""
+    );
+
+    setOptionalPhone(
+      u?.optional_phone || ""
+    );
   }, []);
 
-  const fetchProfile = useCallback(async () => {
-    try {
-      setError("");
-      const token = await getAccessToken();
-      if (!token) throw new Error("NO_TOKEN");
-      const res = await api.get("/users/me/", { headers: { Authorization: `Bearer ${token}` } });
-      const u = res.data || {};
-      setRaw(u);
-      assignFromUser(u);
-    } catch (e) {
-      if (e?.message === "NO_TOKEN" || e?.response?.status === 401) {
-        await signOut();
-        Alert.alert(t("common.system") || "System", t("menu.logoutBody") || "Please login again.");
-        navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-        return;
+  /* =======================================================
+     Load Profile
+  ======================================================= */
+
+  const fetchProfile =
+    useCallback(async () => {
+      try {
+        setError("");
+
+        const token =
+          await getAccessToken();
+
+        if (!token) {
+          throw new Error(
+            "NO_TOKEN"
+          );
+        }
+
+        const res =
+          await api.get(
+            "/users/me/",
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const user =
+          res.data || {};
+
+        setRaw(user);
+
+        assignFromUser(
+          user
+        );
+      } catch (e) {
+        if (
+          e?.message ===
+            "NO_TOKEN" ||
+          e?.response?.status ===
+            401
+        ) {
+          await signOut();
+
+          Alert.alert(
+            t(
+              "common.system",
+              "النظام"
+            ),
+            t(
+              "menu.logoutBody",
+              "يرجى تسجيل الدخول من جديد."
+            )
+          );
+
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: "Login",
+              },
+            ],
+          });
+
+          return;
+        }
+
+        setError(
+          e?.response?.data
+            ?.error ||
+            t(
+              "wallet.errors.load",
+              "تعذر تحميل بيانات الحساب."
+            )
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-      setError(e?.response?.data?.error || t("wallet.errors.load") || "Failed to load profile.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [assignFromUser, navigation, signOut, t]);
+    }, [
+      assignFromUser,
+      navigation,
+      signOut,
+      t,
+    ]);
 
   useEffect(() => {
     setLoading(true);
+
     fetchProfile();
   }, [fetchProfile]);
 
-  // track dirty state
-  const onField = (setter) => (v) => {
-    setter(v);
-    setDirty(true);
-  };
+  /* =======================================================
+     Field changes
+  ======================================================= */
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchProfile();
-    setDirty(false);
-  };
+  const onField =
+    (setter) =>
+    (value) => {
+      setter(value);
+      setDirty(true);
+    };
 
-  // validators
-  const isEmailValid = (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-  const isPhoneValid = (v) => !v || /^[0-9+\-()\s]{6,}$/.test(v);
+  /* =======================================================
+     Refresh
+  ======================================================= */
+
+  const onRefresh =
+    async () => {
+      setRefreshing(true);
+
+      await fetchProfile();
+
+      setDirty(false);
+    };
+
+  /* =======================================================
+     Edit mode
+  ======================================================= */
+
+  const toggleEditMode =
+    () => {
+      if (editMode) {
+        // عند الإلغاء نرجع البيانات الأصلية
+        if (raw) {
+          assignFromUser(
+            raw
+          );
+        }
+
+        setDirty(false);
+        setEditMode(false);
+
+        return;
+      }
+
+      setEditMode(true);
+    };
+
+  /* =======================================================
+     Validators
+  ======================================================= */
+
+  const isEmailValid = (v) =>
+    !v ||
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      v
+    );
+
+  const isPhoneValid = (v) =>
+    !v ||
+    /^[0-9+\-()\s]{6,}$/.test(
+      v
+    );
+
+  /* =======================================================
+     Save Profile
+  ======================================================= */
 
   const onSave = async () => {
-    if (!isEmailValid(email)) return Alert.alert(t("common.system"), t("profile.invalidEmail") || "Please enter a valid email address.");
-    if (!isPhoneValid(phone)) return Alert.alert(t("common.system"), t("profile.invalidPhone") || "Please enter a valid phone number.");
+    if (
+      !isEmailValid(email)
+    ) {
+      Alert.alert(
+        t(
+          "common.system",
+          "تنبيه"
+        ),
+        t(
+          "profile.invalidEmail",
+          "يرجى إدخال بريد إلكتروني صحيح."
+        )
+      );
+
+      return;
+    }
+
+    if (
+      !isPhoneValid(phone)
+    ) {
+      Alert.alert(
+        t(
+          "common.system",
+          "تنبيه"
+        ),
+        t(
+          "profile.invalidPhone",
+          "يرجى إدخال رقم هاتف صحيح."
+        )
+      );
+
+      return;
+    }
+
     try {
       setSaving(true);
       setError("");
+
       const payload = {
-        full_name: [first.trim(), last.trim()].filter(Boolean).join(" "),
-        name: userName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        country: country.trim(),
-        optional_phone: optionalPhone.trim(),
+        full_name: [
+          first.trim(),
+          last.trim(),
+        ]
+          .filter(Boolean)
+          .join(" "),
+
+        name:
+          userName.trim(),
+
+        email:
+          email.trim(),
+
+        phone:
+          phone.trim(),
+
+        country:
+          country.trim(),
+
+        optional_phone:
+          optionalPhone.trim(),
       };
-      const { data } = await api.patch("/users/me/", payload);
+
+      const { data } =
+        await api.patch(
+          "/users/me/",
+          payload
+        );
+
       setRaw(data);
-      assignFromUser(data);
+
+      assignFromUser(
+        data
+      );
+
       setDirty(false);
       setEditMode(false);
-      Alert.alert(t("common.ok", "OK"), t("profile.saved", "Profile updated."));
+
+      Alert.alert(
+        t(
+          "common.ok",
+          "تم"
+        ),
+        t(
+          "profile.saved",
+          "تم تحديث بيانات الحساب بنجاح."
+        )
+      );
     } catch (e) {
-      const responseData = e?.response?.data;
-      const message = responseData?.detail
-        || responseData?.error
-        || Object.values(responseData || {}).flat().join(", ")
-        || t("profile.saveFailed", "Failed to update profile.");
-      Alert.alert(t("common.error", "Error"), String(message));
+      const responseData =
+        e?.response?.data;
+
+      const message =
+        responseData?.detail ||
+        responseData?.error ||
+        Object.values(
+          responseData || {}
+        )
+          .flat()
+          .join(", ") ||
+        t(
+          "profile.saveFailed",
+          "تعذر تحديث بيانات الحساب."
+        );
+
+      Alert.alert(
+        t(
+          "common.error",
+          "خطأ"
+        ),
+        String(message)
+      );
     } finally {
       setSaving(false);
     }
   };
 
+  /* =======================================================
+     Disconnect Agent
+  ======================================================= */
 
-  const onDisconnectAgent = async () => {
-    Alert.alert(
-      t("agents.disconnectTitle", "Disconnect agent?"),
-      t("agents.disconnectBody", "This will remove your connected agent."),
-      [
-        { text: t("common.cancel", "Cancel"), style: "cancel" },
-        {
-          text: t("agents.disconnectCta", "Disconnect"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await disconnectFromAgent();
-              await fetchProfile();
-              Alert.alert(t("common.ok", "OK"), t("agents.disconnected", "Agent disconnected."));
-            } catch (e) {
-              const msg = e?.response?.data?.error || e?.message || "Failed to disconnect.";
-              Alert.alert(t("common.error", "Error"), String(msg));
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const onChangePassword = async () => {
-    if (!currentPassword || newPassword.length < 8 || newPassword !== confirmPassword) {
-      Alert.alert(t("common.error", "Error"), t("profile.passwordValidation", "Check the current password, use at least 8 characters, and confirm the new password."));
-      return;
-    }
-    try {
-      setChangingPassword(true);
-      await api.post("/users/password-change/", {
-        current_password: currentPassword,
-        new_password: newPassword,
-        confirm_password: confirmPassword,
-      });
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      Alert.alert(t("common.ok", "OK"), t("profile.passwordChanged", "Password changed. Please sign in again."), [
-        {
-          text: t("auth.login", "Sign in"),
-          onPress: async () => {
-            await signOut();
-            navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-          },
-        },
-      ]);
-    } catch (e) {
-      const data = e?.response?.data;
+  const onDisconnectAgent =
+    async () => {
       Alert.alert(
-        t("common.error", "Error"),
-        String(data?.message?.ar || data?.message?.en || data?.detail || data?.error || t("profile.passwordChangeFailed", "Failed to change password."))
-      );
-    } finally {
-      setChangingPassword(false);
-    }
-  };
+        t(
+          "agents.disconnectTitle",
+          "فصل الوكيل؟"
+        ),
 
-  const onDeleteAccount = async () => {
-    if (deletingAccount) return;
-    Alert.alert(
-      t("profile.deleteTitle", "Delete account?"),
-      t("profile.deleteBody", "This action is permanent and will remove your account."),
-      [
-        { text: t("common.cancel", "Cancel"), style: "cancel" },
-        {
-          text: t("profile.deleteCta", "Delete"),
-          style: "destructive",
-          onPress: async () => {
-            if (deletingAccount) return;
-            setDeletingAccount(true);
-            try {
-              const token = await getAccessToken();
-              await api.delete("/users/me/delete/", { headers: { Authorization: `Bearer ${token}` } });
-              await signOut();
-              navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-            } catch (e) {
-              const msg = e?.response?.data?.error || e?.message || "Failed to delete account.";
-              Alert.alert(t("common.error", "Error"), String(msg));
-            } finally {
-              setDeletingAccount(false);
-            }
+        t(
+          "agents.disconnectBody",
+          "سيتم إلغاء ربط حسابك بالوكيل الحالي."
+        ),
+
+        [
+          {
+            text: t(
+              "common.cancel",
+              "إلغاء"
+            ),
+
+            style: "cancel",
           },
-        },
-      ]
-    );
-  };
 
+          {
+            text: t(
+              "agents.disconnectCta",
+              "فصل الوكيل"
+            ),
 
-  const AgentCard = () => {
-    const agent = raw?.connected_agent;
-    if (!agent) return null;
-    const copy = async () => {
-      if (agent.agent_code) {
-        await Clipboard.setStringAsync(agent.agent_code);
-        Alert.alert(t("common.ok"), t("profile.copied"));
+            style:
+              "destructive",
+
+            onPress:
+              async () => {
+                try {
+                  await disconnectFromAgent();
+
+                  await fetchProfile();
+
+                  Alert.alert(
+                    t(
+                      "common.ok",
+                      "تم"
+                    ),
+                    t(
+                      "agents.disconnected",
+                      "تم فصل الوكيل بنجاح."
+                    )
+                  );
+                } catch (e) {
+                  const msg =
+                    e?.response
+                      ?.data
+                      ?.error ||
+                    e?.message ||
+                    "تعذر فصل الوكيل.";
+
+                  Alert.alert(
+                    t(
+                      "common.error",
+                      "خطأ"
+                    ),
+                    String(msg)
+                  );
+                }
+              },
+          },
+        ]
+      );
+    };
+
+  /* =======================================================
+     Change Password
+
+     قواعد كلمة المرور نفسها من الـBackend.
+     هنا فقط نتأكد أن الحقول ليست فارغة.
+  ======================================================= */
+
+  const onChangePassword =
+    async () => {
+      if (
+        !currentPassword ||
+        !newPassword ||
+        !confirmPassword
+      ) {
+        Alert.alert(
+          t(
+            "common.error",
+            "تنبيه"
+          ),
+          t(
+            "profile.passwordValidation",
+            "يرجى تعبئة جميع حقول كلمة المرور."
+          )
+        );
+
+        return;
+      }
+
+      try {
+        setChangingPassword(
+          true
+        );
+
+        await api.post(
+          "/users/password-change/",
+          {
+            current_password:
+              currentPassword,
+
+            new_password:
+              newPassword,
+
+            confirm_password:
+              confirmPassword,
+          }
+        );
+
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+
+        Alert.alert(
+          t(
+            "common.ok",
+            "تم"
+          ),
+          t(
+            "profile.passwordChanged",
+            "تم تغيير كلمة المرور. يرجى تسجيل الدخول من جديد."
+          ),
+          [
+            {
+              text: t(
+                "auth.login",
+                "تسجيل الدخول"
+              ),
+
+              onPress:
+                async () => {
+                  await signOut();
+
+                  navigation.reset(
+                    {
+                      index: 0,
+                      routes: [
+                        {
+                          name:
+                            "Login",
+                        },
+                      ],
+                    }
+                  );
+                },
+            },
+          ]
+        );
+      } catch (e) {
+        const data =
+          e?.response?.data;
+
+        const message =
+          data?.message?.ar ||
+          data?.message?.en ||
+          data?.detail ||
+          data?.error ||
+          t(
+            "profile.passwordChangeFailed",
+            "تعذر تغيير كلمة المرور."
+          );
+
+        Alert.alert(
+          t(
+            "common.error",
+            "خطأ"
+          ),
+          String(message)
+        );
+      } finally {
+        setChangingPassword(
+          false
+        );
       }
     };
+
+  /* =======================================================
+     Delete Account
+  ======================================================= */
+
+  const onDeleteAccount =
+    async () => {
+      if (
+        deletingAccount
+      ) {
+        return;
+      }
+
+      Alert.alert(
+        t(
+          "profile.deleteTitle",
+          "حذف الحساب؟"
+        ),
+
+        t(
+          "profile.deleteBody",
+          "هذا الإجراء نهائي وسيؤدي إلى حذف حسابك."
+        ),
+
+        [
+          {
+            text: t(
+              "common.cancel",
+              "إلغاء"
+            ),
+
+            style: "cancel",
+          },
+
+          {
+            text: t(
+              "profile.deleteCta",
+              "حذف الحساب"
+            ),
+
+            style:
+              "destructive",
+
+            onPress:
+              async () => {
+                if (
+                  deletingAccount
+                ) {
+                  return;
+                }
+
+                setDeletingAccount(
+                  true
+                );
+
+                try {
+                  const token =
+                    await getAccessToken();
+
+                  await api.delete(
+                    "/users/me/delete/",
+                    {
+                      headers: {
+                        Authorization:
+                          `Bearer ${token}`,
+                      },
+                    }
+                  );
+
+                  await signOut();
+
+                  navigation.reset(
+                    {
+                      index: 0,
+
+                      routes: [
+                        {
+                          name:
+                            "Login",
+                        },
+                      ],
+                    }
+                  );
+                } catch (e) {
+                  const msg =
+                    e?.response
+                      ?.data
+                      ?.error ||
+                    e?.message ||
+                    "تعذر حذف الحساب.";
+
+                  Alert.alert(
+                    t(
+                      "common.error",
+                      "خطأ"
+                    ),
+                    String(msg)
+                  );
+                } finally {
+                  setDeletingAccount(
+                    false
+                  );
+                }
+              },
+          },
+        ]
+      );
+    };
+
+  /* =======================================================
+     Profile header data
+  ======================================================= */
+
+  const displayName =
+    raw?.full_name ||
+    userName ||
+    t(
+      "menu.userName",
+      "المستخدم"
+    );
+
+  const displaySubtitle =
+    email ||
+    phone ||
+    userName ||
+    "";
+
+  /* =======================================================
+     Agent Card
+  ======================================================= */
+
+  const AgentCard = () => {
+    const agent =
+      raw?.connected_agent;
+
+    if (!agent) {
+      return null;
+    }
+
+    const copy =
+      async () => {
+        if (
+          agent.agent_code
+        ) {
+          await Clipboard.setStringAsync(
+            agent.agent_code
+          );
+
+          Alert.alert(
+            t(
+              "common.ok",
+              "تم"
+            ),
+            t(
+              "profile.copied",
+              "تم نسخ رمز الوكيل."
+            )
+          );
+        }
+      };
+
     return (
-      <AppCard soft style={[styles.infoCard, { borderRadius: R, padding: sx(14), marginBottom: sy(12) }]}>
-        <AppSectionTitle title={t("profile.connectedAgent")} />
-        <Text style={[styles.infoText, { marginTop: sy(6) }]}>
-          {agent.full_name || "—"}
-        </Text>
-        <View style={{ flexDirection: RTL ? "row-reverse" : "row", alignItems: "center", marginTop: sy(6) }}>
-          <Text style={styles.mutedText}>{t("profile.agentCode") || "Code"}: </Text>
-          <Text style={styles.strongText}>{agent.agent_code || "—"}</Text>
+      <AppCard
+        soft
+        style={[
+          styles.card,
+          {
+            borderRadius: R,
+            marginBottom: GAP,
+          },
+        ]}
+      >
+        <SectionTitle
+          icon="people-outline"
+          title={t(
+            "profile.connectedAgent",
+            "الوكيل المرتبط"
+          )}
+          sx={sx}
+        />
+
+        <InfoRow
+          label={t(
+            "profile.agentName",
+            "اسم الوكيل"
+          )}
+          value={
+            agent.full_name ||
+            agent.name ||
+            "—"
+          }
+        />
+
+        <View
+          style={
+            styles.divider
+          }
+        />
+
+        <View
+          style={
+            styles.agentCodeRow
+          }
+        >
+          <View
+            style={{
+              flex: 1,
+              alignItems:
+                "flex-end",
+            }}
+          >
+            <Text
+              style={
+                styles.smallLabel
+              }
+            >
+              {t(
+                "profile.agentCode",
+                "رمز الوكيل"
+              )}
+            </Text>
+
+            <Text
+              style={
+                styles.codeText
+              }
+            >
+              {agent.agent_code ||
+                "—"}
+            </Text>
+          </View>
+
           {!!agent.agent_code && (
-            <Pressable onPress={copy} style={[styles.smallAction, { marginStart: sx(12), paddingHorizontal: sx(10), paddingVertical: sy(6), borderRadius: sx(10) }]}>
-              <Text style={styles.smallActionText}>{t("profile.copy")}</Text>
+            <Pressable
+              onPress={copy}
+              style={
+                styles.copyButton
+              }
+            >
+              <Ionicons
+                name="copy-outline"
+                size={18}
+                color={
+                  COLOR.primary
+                }
+              />
+
+              <Text
+                style={
+                  styles.copyButtonText
+                }
+              >
+                {t(
+                  "profile.copy",
+                  "نسخ"
+                )}
+              </Text>
             </Pressable>
           )}
         </View>
@@ -299,343 +968,864 @@ export default function Profile({ navigation }) {
     );
   };
 
+  /* =======================================================
+     Wallet Card
+  ======================================================= */
+
   const WalletCard = () => {
-    const balances = raw?.balances || {};
-    const entries = Object.entries(balances);
-    if (!entries.length) return null;
+    const balances =
+      raw?.balances || {};
+
+    const entries =
+      Object.entries(
+        balances
+      );
+
+    if (!entries.length) {
+      return null;
+    }
+
     return (
-      <AppCard soft style={[styles.infoCard, { borderRadius: R, padding: sx(14), marginBottom: sy(12) }]}>
-        <AppSectionTitle title={t("profile.walletBalances")} />
-        <View style={{ flexDirection: RTL ? "row-reverse" : "row", gap: sx(10), flexWrap: "wrap", marginTop: sy(10) }}>
-          {entries.map(([cur, val]) => (
-            <View
-              key={cur}
-              style={{
-                paddingVertical: sy(8),
-                paddingHorizontal: sx(12),
-                backgroundColor: COLOR.white,
-                borderRadius: sx(radius.md),
-                borderWidth: 1,
-                borderColor: COLOR.line,
-              }}
-            >
-              <Text style={styles.strongText}>{cur}: {Number(val).toFixed(2)}</Text>
-            </View>
-          ))}
+      <AppCard
+        soft
+        style={[
+          styles.card,
+          {
+            borderRadius: R,
+            marginBottom: GAP,
+          },
+        ]}
+      >
+        <SectionTitle
+          icon="wallet-outline"
+          title={t(
+            "profile.walletBalances",
+            "رصيد المحفظة"
+          )}
+          sx={sx}
+        />
+
+        <View
+          style={{
+            gap: sy(8),
+          }}
+        >
+          {entries.map(
+            ([cur, val]) => (
+              <View
+                key={cur}
+                style={
+                  styles.balanceRow
+                }
+              >
+                <Text
+                  style={
+                    styles.balanceCurrency
+                  }
+                >
+                  {cur}
+                </Text>
+
+                <Text
+                  style={
+                    styles.balanceValue
+                  }
+                >
+                  {Number(
+                    val
+                  ).toFixed(2)}{" "}
+                  {cur}
+                </Text>
+              </View>
+            )
+          )}
         </View>
       </AppCard>
     );
   };
 
-  // ✅ Wallet Number (FRONTEND-ONLY): يلتقط من wallet_number إن وجد، وإلا من الهاتف
-  
-
-  const disabled = !editMode; // view-only mode lock
+  /* =======================================================
+     Render
+  ======================================================= */
 
   return (
-    <PageLayout navigation={navigation} active="menu" withSideMenu={true}>
-      {/* خلفية سبينر شكلية */}
-      <View pointerEvents="none" style={styles.spinnerBg}>
+    <PageLayout
+      navigation={
+        navigation
+      }
+      active="menu"
+      withSideMenu
+    >
+      {/* Decorative background */}
+
+      <View
+        pointerEvents="none"
+        style={
+          styles.spinnerBg
+        }
+      >
         <CornerSpinner
           size={sx(800)}
           image={require("../assets/home-corner.png")}
           speedMs={16000}
-          opacity={0.88}
+          opacity={0.55}
         />
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <AppHeader title={t("profile.title")} />
-
-        {/* avatar */}
-        <View style={{ alignItems: "center", marginTop: sy(20), marginBottom: sy(16) }}>
-          <View
-            style={{
-              width: sx(110),
-              height: sx(110),
-              borderRadius: sx(56),
-              borderWidth: sx(3),
-              borderColor: COLOR.primary,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: COLOR.bgSoft,
-            }}
-          >
-            <Image
-              source={require("../assets/icons/user.png")}
-              resizeMode="contain"
-              style={{ width: sx(64), height: sx(64), tintColor: COLOR.primary }}
-              accessibilityLabel="Avatar"
-            />
-          </View>
-
-          {/* Edit/View toggle */}
-          <Pressable
-            onPress={() => setEditMode((v) => !v)}
-            style={{
-              marginTop: sy(10),
-              paddingVertical: sy(8),
-              paddingHorizontal: sx(16),
-              borderRadius: sx(16),
-              backgroundColor: editMode ? "#FFF7ED" : COLOR.bgSoft,
-              borderWidth: 1,
-              borderColor: COLOR.line,
-            }}
-            accessibilityLabel="Toggle edit mode"
-          >
-            <Text style={[styles.modeText, { color: editMode ? "#B54708" : COLOR.primary }]}>
-              {editMode ? t("profile.editing") : t("profile.viewOnly")}
-            </Text>
-          </Pressable>
-        </View>
+      <KeyboardAvoidingView
+        behavior={
+          Platform.OS ===
+          "ios"
+            ? "padding"
+            : undefined
+        }
+        style={{
+          flex: 1,
+          backgroundColor:
+            COLOR.page,
+        }}
+      >
+        <AppHeader
+          title={t(
+            "profile.title",
+            "الملف الشخصي"
+          )}
+        />
 
         {loading ? (
-          <View style={{ alignItems: "center", justifyContent: "center", marginTop: sy(20), paddingBottom: contentPadBottom }}>
-            <ActivityIndicator size="large" color={COLOR.primary} />
-            <Text style={[styles.loadingText, { marginTop: sy(8) }]}>{t("common.loading")}</Text>
+          <View
+            style={[
+              styles.loadingContainer,
+              {
+                paddingBottom:
+                  contentPadBottom,
+              },
+            ]}
+          >
+            <ActivityIndicator
+              size="large"
+              color={
+                COLOR.primary
+              }
+            />
+
+            <Text
+              style={[
+                styles.loadingText,
+                {
+                  marginTop:
+                    sy(10),
+                },
+              ]}
+            >
+              {t(
+                "common.loading",
+                "جاري التحميل..."
+              )}
+            </Text>
           </View>
         ) : (
           <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: sx(20), paddingBottom: contentPadBottom }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            showsVerticalScrollIndicator={false}
+            style={{
+              flex: 1,
+            }}
+            contentContainerStyle={{
+              paddingHorizontal:
+                sx(16),
+
+              paddingTop:
+                sy(14),
+
+              paddingBottom:
+                contentPadBottom,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={
+                  refreshing
+                }
+                onRefresh={
+                  onRefresh
+                }
+                tintColor={
+                  COLOR.primary
+                }
+              />
+            }
+            showsVerticalScrollIndicator={
+              false
+            }
+            keyboardShouldPersistTaps="handled"
           >
-            {!!error && (
-              <AppCard soft style={[styles.errorCard, { marginBottom: sy(8) }]}>
-                <Text style={styles.errorText}>{error}</Text>
-              </AppCard>
-            )}
+            {/* ===============================================
+                Profile Summary
+            =============================================== */}
 
-            {/* Wallet + Agent */}
-            <WalletCard />
-            <AgentCard />
+            <View
+              style={[
+                styles.profileHero,
+                {
+                  borderRadius:
+                    sx(22),
 
-
-            {/* First + Last */}
-            <AppCard style={styles.formCard}>
+                  padding:
+                    sx(16),
+                },
+              ]}
+            >
               <View
-                style={{
-                  flexDirection: RTL ? "row-reverse" : "row",
-                  justifyContent: "space-between",
-                  marginBottom: GAP_SM,
-                }}
+                style={[
+                  styles.avatarContainer,
+                  {
+                    width:
+                      sx(72),
+
+                    height:
+                      sx(72),
+
+                    borderRadius:
+                      sx(36),
+                  },
+                ]}
               >
-                <Field
-                  label={t("profile.firstName")}
-                  value={first}
-                  onChangeText={onField(setFirst)}
-                  placeholder={t("profile.firstName")}
-                  sx={sx}
-                  sy={sy}
-                  pillStyle={{ borderRadius: R }}
-                  containerStyle={{ width: "48.5%" }}
-                  editable={!disabled}
-                />
-                <Field
-                  label={t("profile.lastName")}
-                  value={last}
-                  onChangeText={onField(setLast)}
-                  placeholder={t("profile.lastName")}
-                  sx={sx}
-                  sy={sy}
-                  pillStyle={{ borderRadius: R }}
-                  containerStyle={{ width: "48.5%" }}
-                  editable={!disabled}
+                <Image
+                  source={require("../assets/icons/user.png")}
+                  resizeMode="contain"
+                  style={{
+                    width:
+                      sx(38),
+
+                    height:
+                      sx(38),
+
+                    tintColor:
+                      COLOR.primary,
+                  }}
                 />
               </View>
 
-            <Field
-              label={t("profile.email")}
-              value={email}
-              onChangeText={onField(setEmail)}
-              placeholder="name@gmail.com"
-              keyboardType="email-address"
-              sx={sx}
-              sy={sy}
-              showPen
-              containerStyle={{ marginBottom: GAP_SM }}
-              pillStyle={{ borderRadius: R, borderColor: !isEmailValid(email) ? "#FFB3B3" : COLOR.line }}
-              editable={!disabled}
-            />
+              <View
+                style={
+                  styles.profileHeroInfo
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.profileName,
+                    {
+                      fontSize:
+                        sx(19),
+                    },
+                  ]}
+                >
+                  {displayName}
+                </Text>
 
-            <Field
-              label={t("profile.userName")}
-              value={userName}
-              onChangeText={() => {}}
-              placeholder={t("profile.userName")}
-              sx={sx}
-              sy={sy}
-              showPen={false}
-              containerStyle={{ marginBottom: GAP_SM, opacity: 0.7 }}
-              pillStyle={{ borderRadius: R }}
-              editable={false} // username not editable
-            />
+                {!!displaySubtitle && (
+                  <Text
+                    numberOfLines={
+                      1
+                    }
+                    style={[
+                      styles.profileSubtitle,
+                      {
+                        fontSize:
+                          sx(13),
+                      },
+                    ]}
+                  >
+                    {
+                      displaySubtitle
+                    }
+                  </Text>
+                )}
+              </View>
 
-            <Field
-              label={t("profile.phone")}
-              value={phone}
-              onChangeText={onField(setPhone)}
-              keyboardType="phone-pad"
-              sx={sx}
-              sy={sy}
-              showPen
-              containerStyle={{ marginBottom: GAP_XS }}
-              pillStyle={{ borderRadius: R, borderColor: !isPhoneValid(phone) ? "#FFB3B3" : COLOR.line }}
-              editable={!disabled}
-            />
+              <Pressable
+                onPress={
+                  toggleEditMode
+                }
+                style={[
+                  styles.editButton,
+                  editMode &&
+                    styles.editButtonCancel,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    editMode
+                      ? "close-outline"
+                      : "create-outline"
+                  }
+                  size={20}
+                  color={
+                    editMode
+                      ? "#B54708"
+                      : COLOR.primary
+                  }
+                />
+              </Pressable>
+            </View>
 
-            <Field
-              label={t("profile.country")}
-              value={country}
-              onChangeText={onField(setCountry)}
-              placeholder={t("profile.country")}
-              sx={sx}
-              sy={sy}
-              showPen
-              containerStyle={{ marginBottom: GAP_XS }}
-              pillStyle={{ borderRadius: R }}
-              editable={!disabled}
-            />
+            {/* ===============================================
+                Error
+            =============================================== */}
 
-            <Field
-              label={t("profile.optionalPhone")}
-              value={optionalPhone}
-              onChangeText={onField(setOptionalPhone)}
-              keyboardType="phone-pad"
-              sx={sx}
-              sy={sy}
-              showPen
-              containerStyle={{ marginBottom: GAP_XS }}
-              pillStyle={{ borderRadius: R }}
-              editable={!disabled}
-            />
+            {!!error && (
+              <View
+                style={
+                  styles.errorCard
+                }
+              >
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={20}
+                  color={
+                    COLOR.danger
+                  }
+                />
 
-            {/* Dark Mode (local only) */}
-            <View
-              style={{
-                marginTop: GAP_XS,
-                marginBottom: sy(12),
-                flexDirection: RTL ? "row-reverse" : "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
+                <Text
+                  style={
+                    styles.errorText
+                  }
+                >
+                  {error}
+                </Text>
+              </View>
+            )}
+
+            {/* ===============================================
+                Wallet + Agent
+            =============================================== */}
+
+            <WalletCard />
+
+            <AgentCard />
+
+            {/* ===============================================
+                Personal Information
+            =============================================== */}
+
+            <AppCard
+              style={[
+                styles.card,
+                {
+                  borderRadius:
+                    R,
+                },
+              ]}
             >
-              <Text style={[styles.settingLabel, { fontSize: sx(14) }]}>{t("profile.darkMode")}</Text>
-              <Toggle
-                active={dark}
-                onPress={() => setDark((v) => !v)}
+              <SectionTitle
+                icon="person-outline"
+                title={t(
+                  "profile.personalInfo",
+                  "المعلومات الشخصية"
+                )}
+                sx={sx}
+              />
+
+              <Field
+                label={t(
+                  "profile.firstName",
+                  "الاسم"
+                )}
+                value={first}
+                onChangeText={onField(
+                  setFirst
+                )}
+                placeholder={t(
+                  "profile.firstName",
+                  "الاسم"
+                )}
+                icon="person-outline"
                 sx={sx}
                 sy={sy}
-                onColor={COLOR.success}
-                offColor={COLOR.danger}
+                editable={
+                  editMode
+                }
               />
-            </View>
+
+              <Field
+                label={t(
+                  "profile.lastName",
+                  "الكنية"
+                )}
+                value={last}
+                onChangeText={onField(
+                  setLast
+                )}
+                placeholder={t(
+                  "profile.lastName",
+                  "الكنية"
+                )}
+                icon="person-outline"
+                sx={sx}
+                sy={sy}
+                editable={
+                  editMode
+                }
+              />
+
+              <Field
+                label={t(
+                  "profile.email",
+                  "البريد الإلكتروني"
+                )}
+                value={email}
+                onChangeText={onField(
+                  setEmail
+                )}
+                placeholder="name@gmail.com"
+                keyboardType="email-address"
+                icon="mail-outline"
+                sx={sx}
+                sy={sy}
+                editable={
+                  editMode
+                }
+                ltr
+                invalid={
+                  !isEmailValid(
+                    email
+                  )
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <Field
+                label={t(
+                  "profile.userName",
+                  "اسم المستخدم"
+                )}
+                value={userName}
+                onChangeText={() => {}}
+                placeholder={t(
+                  "profile.userName",
+                  "اسم المستخدم"
+                )}
+                icon="at-outline"
+                sx={sx}
+                sy={sy}
+                editable={false}
+                ltr
+              />
+
+              <Field
+                label={t(
+                  "profile.phone",
+                  "رقم الهاتف"
+                )}
+                value={phone}
+                onChangeText={onField(
+                  setPhone
+                )}
+                placeholder="+963..."
+                keyboardType="phone-pad"
+                icon="call-outline"
+                sx={sx}
+                sy={sy}
+                editable={
+                  editMode
+                }
+                ltr
+                invalid={
+                  !isPhoneValid(
+                    phone
+                  )
+                }
+              />
+
+              <Field
+                label={t(
+                  "profile.country",
+                  "الدولة"
+                )}
+                value={country}
+                onChangeText={onField(
+                  setCountry
+                )}
+                placeholder={t(
+                  "profile.country",
+                  "الدولة"
+                )}
+                icon="location-outline"
+                sx={sx}
+                sy={sy}
+                editable={
+                  editMode
+                }
+              />
+
+              <Field
+                label={t(
+                  "profile.optionalPhone",
+                  "رقم هاتف إضافي"
+                )}
+                value={
+                  optionalPhone
+                }
+                onChangeText={onField(
+                  setOptionalPhone
+                )}
+                placeholder="+963..."
+                keyboardType="phone-pad"
+                icon="phone-portrait-outline"
+                sx={sx}
+                sy={sy}
+                editable={
+                  editMode
+                }
+                ltr
+              />
+
+              {editMode && (
+                <View
+                  style={
+                    styles.editActions
+                  }
+                >
+                  <Pressable
+                    onPress={
+                      onSave
+                    }
+                    disabled={
+                      !dirty ||
+                      saving
+                    }
+                    style={[
+                      styles.primaryButton,
+                      {
+                        opacity:
+                          !dirty ||
+                          saving
+                            ? 0.5
+                            : 1,
+                      },
+                    ]}
+                  >
+                    {saving ? (
+                      <ActivityIndicator
+                        size="small"
+                        color="#FFFFFF"
+                      />
+                    ) : (
+                      <Ionicons
+                        name="checkmark-outline"
+                        size={21}
+                        color="#FFFFFF"
+                      />
+                    )}
+
+                    <Text
+                      style={
+                        styles.primaryButtonText
+                      }
+                    >
+                      {saving
+                        ? t(
+                            "profile.saving",
+                            "جاري الحفظ..."
+                          )
+                        : t(
+                            "profile.save",
+                            "حفظ التغييرات"
+                          )}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={
+                      toggleEditMode
+                    }
+                    disabled={
+                      saving
+                    }
+                    style={
+                      styles.secondaryButton
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.secondaryButtonText
+                      }
+                    >
+                      {t(
+                        "common.cancel",
+                        "إلغاء"
+                      )}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </AppCard>
 
-            <AppCard style={styles.formCard}>
-              <AppSectionTitle title={t("profile.changePassword", "Change password")} />
-              <Field
-                label={t("profile.currentPassword", "Current password")}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
+            {/* ===============================================
+                Password
+            =============================================== */}
+
+            <AppCard
+              style={[
+                styles.card,
+                {
+                  borderRadius:
+                    R,
+                },
+              ]}
+            >
+              <SectionTitle
+                icon="lock-closed-outline"
+                title={t(
+                  "profile.changePassword",
+                  "تغيير كلمة المرور"
+                )}
                 sx={sx}
-                sy={sy}
-                secureTextEntry
-                containerStyle={{ marginBottom: GAP_SM }}
-                pillStyle={{ borderRadius: R }}
               />
-              <Field
-                label={t("profile.newPassword", "New password")}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                sx={sx}
-                sy={sy}
-                secureTextEntry
-                containerStyle={{ marginBottom: GAP_SM }}
-                pillStyle={{ borderRadius: R }}
-              />
-              <Field
-                label={t("profile.confirmPassword", "Confirm password")}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                sx={sx}
-                sy={sy}
-                secureTextEntry
-                containerStyle={{ marginBottom: GAP_SM }}
-                pillStyle={{ borderRadius: R }}
-              />
-              <Pressable
-                onPress={onChangePassword}
-                disabled={changingPassword}
-                style={[styles.saveBtn, { height: sy(44), borderRadius: sx(18), opacity: changingPassword ? 0.5 : 1 }]}
+
+              <Text
+                style={
+                  styles.sectionDescription
+                }
               >
-                <Text style={styles.saveText}>
-                  {changingPassword ? t("profile.saving", "Saving...") : t("profile.changePassword", "Change password")}
+                {t(
+                  "profile.passwordDescription",
+                  "يمكنك تغيير كلمة المرور الخاصة بحسابك."
+                )}
+              </Text>
+
+              <Field
+                label={t(
+                  "profile.currentPassword",
+                  "كلمة المرور الحالية"
+                )}
+                value={
+                  currentPassword
+                }
+                onChangeText={
+                  setCurrentPassword
+                }
+                placeholder="••••••••"
+                icon="lock-closed-outline"
+                sx={sx}
+                sy={sy}
+                secureTextEntry
+                editable
+              />
+
+              <Field
+                label={t(
+                  "profile.newPassword",
+                  "كلمة المرور الجديدة"
+                )}
+                value={
+                  newPassword
+                }
+                onChangeText={
+                  setNewPassword
+                }
+                placeholder="••••••••"
+                icon="key-outline"
+                sx={sx}
+                sy={sy}
+                secureTextEntry
+                editable
+              />
+
+              <Field
+                label={t(
+                  "profile.confirmPassword",
+                  "تأكيد كلمة المرور"
+                )}
+                value={
+                  confirmPassword
+                }
+                onChangeText={
+                  setConfirmPassword
+                }
+                placeholder="••••••••"
+                icon="checkmark-circle-outline"
+                sx={sx}
+                sy={sy}
+                secureTextEntry
+                editable
+              />
+
+              <Pressable
+                onPress={
+                  onChangePassword
+                }
+                disabled={
+                  changingPassword
+                }
+                style={[
+                  styles.primaryButton,
+                  {
+                    marginTop:
+                      sy(8),
+
+                    opacity:
+                      changingPassword
+                        ? 0.6
+                        : 1,
+                  },
+                ]}
+              >
+                {changingPassword ? (
+                  <ActivityIndicator
+                    size="small"
+                    color="#FFFFFF"
+                  />
+                ) : (
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                )}
+
+                <Text
+                  style={
+                    styles.primaryButtonText
+                  }
+                >
+                  {changingPassword
+                    ? t(
+                        "profile.saving",
+                        "جاري الحفظ..."
+                      )
+                    : t(
+                        "profile.changePassword",
+                        "تغيير كلمة المرور"
+                      )}
                 </Text>
               </Pressable>
             </AppCard>
 
+            {/* ===============================================
+                Connected Agent Action
+            =============================================== */}
 
-            {/* Agent actions */}
             {!!raw?.connected_agent && (
               <Pressable
-                onPress={onDisconnectAgent}
-                style={{
-                  marginTop: sy(8),
-                  marginBottom: sy(6),
-                  alignSelf: "center",
-                  paddingHorizontal: sx(16),
-                  paddingVertical: sy(10),
-                  borderRadius: sx(radius.md),
-                  backgroundColor: "#FFF4E5",
-                  borderWidth: 1,
-                  borderColor: "#FFD8A8",
-                }}
+                onPress={
+                  onDisconnectAgent
+                }
+                style={
+                  styles.warningButton
+                }
               >
-                <Text style={[styles.actionText, { color: "#B54708" }]}>{t("agents.disconnectCta", "Disconnect agent")}</Text>
+                <Ionicons
+                  name="unlink-outline"
+                  size={20}
+                  color="#B54708"
+                />
+
+                <Text
+                  style={
+                    styles.warningButtonText
+                  }
+                >
+                  {t(
+                    "agents.disconnectCta",
+                    "فصل الوكيل"
+                  )}
+                </Text>
               </Pressable>
             )}
 
-            {/* Delete account */}
-            <Pressable
-              onPress={onDeleteAccount}
-              disabled={deletingAccount}
-              style={{
-                marginTop: sy(6),
-                marginBottom: sy(12),
-                alignSelf: "center",
-                paddingHorizontal: sx(16),
-                paddingVertical: sy(10),
-                borderRadius: sx(radius.md),
-                backgroundColor: "#FFF0F0",
-                borderWidth: 1,
-                borderColor: "#FFD6D6",
-                opacity: deletingAccount ? 0.6 : 1,
-              }}
-            >
-              <Text style={[styles.actionText, { color: COLOR.danger }]}>{deletingAccount ? t("common.loading", "Deleting…") : t("profile.delete", "Delete account")}</Text>
-            </Pressable>
+            {/* ===============================================
+                Danger Zone
+            =============================================== */}
 
-            {/* Save */}
-            <Pressable
-              onPress={onSave}
-              disabled={!editMode || !dirty || saving}
+            <View
               style={[
-                styles.saveBtn,
+                styles.dangerZone,
                 {
-                  height: sy(48),
-                  minWidth: sx(178),
-                  borderRadius: sx(18),
-                  opacity: (!editMode || !dirty || saving) ? 0.5 : 1,
+                  borderRadius:
+                    R,
                 },
               ]}
-              accessibilityLabel="Save profile"
             >
-              <Text style={[styles.saveText, { fontSize: sx(18) }]}>
-                {saving ? t("profile.saving") : t("profile.save")}
+              <View
+                style={
+                  styles.dangerHeader
+                }
+              >
+                <Ionicons
+                  name="warning-outline"
+                  size={21}
+                  color={
+                    COLOR.danger
+                  }
+                />
+
+                <Text
+                  style={
+                    styles.dangerTitle
+                  }
+                >
+                  {t(
+                    "profile.accountActions",
+                    "إدارة الحساب"
+                  )}
+                </Text>
+              </View>
+
+              <Text
+                style={
+                  styles.dangerDescription
+                }
+              >
+                {t(
+                  "profile.deleteDescription",
+                  "حذف الحساب إجراء نهائي ولا يمكن التراجع عنه."
+                )}
               </Text>
-            </Pressable>
+
+              <Pressable
+                onPress={
+                  onDeleteAccount
+                }
+                disabled={
+                  deletingAccount
+                }
+                style={[
+                  styles.deleteButton,
+                  {
+                    opacity:
+                      deletingAccount
+                        ? 0.6
+                        : 1,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={20}
+                  color={
+                    COLOR.danger
+                  }
+                />
+
+                <Text
+                  style={
+                    styles.deleteButtonText
+                  }
+                >
+                  {deletingAccount
+                    ? t(
+                        "common.loading",
+                        "جاري الحذف..."
+                      )
+                    : t(
+                        "profile.delete",
+                        "حذف الحساب"
+                      )}
+                </Text>
+              </Pressable>
+            </View>
           </ScrollView>
         )}
       </KeyboardAvoidingView>
@@ -643,197 +1833,1141 @@ export default function Profile({ navigation }) {
   );
 }
 
-/* ---------- subcomponents ---------- */
+/* =========================================================
+   Section Title
+========================================================= */
+
+function SectionTitle({
+  title,
+  icon,
+  sx,
+}) {
+  return (
+    <View
+      style={
+        styles.sectionTitleRow
+      }
+    >
+      <View
+        style={[
+          styles.sectionIcon,
+          {
+            width:
+              sx(36),
+
+            height:
+              sx(36),
+
+            borderRadius:
+              sx(11),
+          },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={sx(19)}
+          color={
+            COLOR.primary
+          }
+        />
+      </View>
+
+      <Text
+        style={[
+          styles.sectionTitle,
+          {
+            fontSize:
+              sx(17),
+          },
+        ]}
+      >
+        {title}
+      </Text>
+    </View>
+  );
+}
+
+/* =========================================================
+   Field
+========================================================= */
+
 function Field({
   label,
   value,
   onChangeText,
   placeholder,
+
   keyboardType = "default",
-  showPen = true,
-  containerStyle,
-  pillStyle,
+
+  icon = "create-outline",
+
   sx,
   sy,
+
   editable = true,
+
   secureTextEntry = false,
+
+  ltr = false,
+
+  invalid = false,
+
+  autoCapitalize = "sentences",
+  autoCorrect = true,
 }) {
-  const RTL = I18nManager.isRTL;
   return (
-    <View style={[{ width: "100%" }, containerStyle]}>
-      <Text style={[styles.fieldLabel, { fontSize: sx(12.5), marginBottom: sy(4) }]}>{label}</Text>
-      <View
+    <View
+      style={{
+        width: "100%",
+
+        marginBottom:
+          sy(12),
+      }}
+    >
+      <Text
         style={[
+          styles.fieldLabel,
           {
-            height: sy(46),
-            backgroundColor: COLOR.pill,
-            borderWidth: 1,
-            borderColor: COLOR.line,
-            flexDirection: RTL ? "row-reverse" : "row",
-            alignItems: "center",
-            paddingHorizontal: sx(14),
-            opacity: editable ? 1 : 0.7,
+            fontSize:
+              sx(13),
+
+            marginBottom:
+              sy(6),
           },
-          styles.fieldPill,
-          pillStyle,
         ]}
       >
+        {label}
+      </Text>
+
+      <View
+        style={[
+          styles.fieldPill,
+          {
+            height:
+              sy(50),
+
+            borderRadius:
+              sx(15),
+
+            paddingHorizontal:
+              sx(13),
+
+            borderColor:
+              invalid
+                ? "#FFB3B3"
+                : COLOR.line,
+
+            opacity:
+              editable
+                ? 1
+                : 0.72,
+          },
+        ]}
+      >
+        {/* Icon is on the right */}
+
+        <Ionicons
+          name={icon}
+          size={sx(19)}
+          color={
+            editable
+              ? COLOR.primary
+              : COLOR.muted
+          }
+        />
+
         <TextInput
           value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor="rgba(0,0,0,0.5)"
-          keyboardType={keyboardType}
-          secureTextEntry={secureTextEntry}
-          style={[styles.fieldInput, { fontSize: sx(16), textAlign: RTL ? "right" : "left" }]}
-          editable={editable}
+          onChangeText={
+            onChangeText
+          }
+          placeholder={
+            placeholder
+          }
+          placeholderTextColor="#95A2B5"
+          keyboardType={
+            keyboardType
+          }
+          secureTextEntry={
+            secureTextEntry
+          }
+          editable={
+            editable
+          }
+          autoCapitalize={
+            autoCapitalize
+          }
+          autoCorrect={
+            autoCorrect
+          }
+          style={[
+            styles.fieldInput,
+            {
+              fontSize:
+                sx(15),
+
+              marginRight:
+                sx(10),
+
+              /*
+               * مكان الحقل دائماً من اليمين.
+               *
+               * لكن email / phone تبقى LTR
+               * حتى ما تنقلب الأحرف والأرقام.
+               */
+              textAlign:
+                "right",
+
+              writingDirection:
+                ltr
+                  ? "ltr"
+                  : "rtl",
+            },
+          ]}
         />
-        {showPen && (
-          <Pressable
-            style={{ width: sx(24), height: sx(24), alignItems: "center", justifyContent: "center" }}
-            accessibilityLabel="Edit field"
-          >
-            <Text style={[styles.penText, { fontSize: sx(14) }]}>✎</Text>
-          </Pressable>
-        )}
       </View>
+
+      {invalid && (
+        <Text
+          style={[
+            styles.invalidText,
+            {
+              marginTop:
+                sy(4),
+            },
+          ]}
+        >
+          يرجى التحقق من القيمة المدخلة
+        </Text>
+      )}
     </View>
   );
 }
 
-function Toggle({ active, onPress, sx, sy, onColor, offColor }) {
+/* =========================================================
+   Info Row
+========================================================= */
+
+function InfoRow({
+  label,
+  value,
+}) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        width: sx(50),
-        height: sy(25),
-        borderRadius: sy(14),
-        padding: sy(3),
-        backgroundColor: active ? onColor : offColor,
-        justifyContent: "center",
-      }}
-      accessibilityLabel="Toggle setting"
+    <View
+      style={
+        styles.infoRow
+      }
     >
-      <View
-        style={{
-          width: sy(20),
-          height: sy(20),
-          borderRadius: sy(11),
-          backgroundColor: "#fff",
-          alignSelf: active ? "flex-end" : "flex-start",
-          shadowColor: "#000",
-          shadowOpacity: 0.15,
-          shadowRadius: 3,
-          shadowOffset: { width: 0, height: 1 },
-          elevation: 2,
-        }}
-      />
-    </Pressable>
+      <Text
+        style={
+          styles.infoLabel
+        }
+      >
+        {label}
+      </Text>
+
+      <Text
+        numberOfLines={1}
+        style={
+          styles.infoValue
+        }
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
 
-/* ---------- styles ---------- */
-const styles = StyleSheet.create({
-  saveBtn: {
-    alignSelf: "center",
-    backgroundColor: COLOR.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-    paddingHorizontal: 22,
-    ...shadows.soft,
-  },
-  actionText: {
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  errorCard: {
-    alignItems: "center",
-    padding: spacing.md,
-  },
-  errorText: {
-    color: COLOR.danger,
-    fontFamily: fontFamilies.bold,
-    fontSize: typography.caption.fontSize,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  fieldInput: {
-    color: COLOR.text,
-    flex: 1,
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  fieldLabel: {
-    color: COLOR.text,
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  fieldPill: {
-    ...shadows.soft,
-  },
-  formCard: {
-    marginBottom: spacing.md,
-    padding: spacing.md,
-  },
-  infoCard: {
-    borderColor: COLOR.line,
-  },
-  infoText: {
-    color: COLOR.text,
-    fontFamily: fontFamilies.regular,
-    fontSize: typography.body.fontSize,
-  },
-  loadingText: {
-    color: COLOR.muted,
-    fontFamily: fontFamilies.regular,
-    fontSize: typography.body.fontSize,
-  },
-  modeText: {
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  mutedText: {
-    color: COLOR.muted,
-    fontFamily: fontFamilies.regular,
-  },
-  penText: {
-    color: COLOR.primary,
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  saveText: {
-    color: COLOR.white,
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  settingLabel: {
-    color: COLOR.text,
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  smallAction: {
-    backgroundColor: COLOR.bgSoft,
-    borderColor: COLOR.line,
-    borderWidth: 1,
-  },
-  smallActionText: {
-    color: COLOR.primary,
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  strongText: {
-    color: COLOR.text,
-    fontFamily: fontFamilies.bold,
-    fontWeight: "700",
-  },
-  /* Decorative spinner bg */
-  spinnerBg: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 0,
-  },
-});
+/* =========================================================
+   Styles
+========================================================= */
+
+const styles =
+  StyleSheet.create({
+    /* =====================================================
+       Loading
+    ===================================================== */
+
+    loadingContainer: {
+      flex: 1,
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+    },
+
+    loadingText: {
+      color:
+        COLOR.muted,
+
+      fontFamily:
+        fontFamilies.regular,
+
+      fontSize:
+        typography.body.fontSize,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    /* =====================================================
+       Hero
+    ===================================================== */
+
+    profileHero: {
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      backgroundColor:
+        "#FFFFFF",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        COLOR.line,
+
+      marginBottom:
+        14,
+
+      ...shadows.soft,
+    },
+
+    avatarContainer: {
+      backgroundColor:
+        "#EEF4FF",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#D8E6FA",
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+    },
+
+    profileHeroInfo: {
+      flex:
+        1,
+
+      marginHorizontal:
+        13,
+
+      alignItems:
+        "flex-end",
+    },
+
+    profileName: {
+      width:
+        "100%",
+
+      color:
+        COLOR.text,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "800",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    profileSubtitle: {
+      width:
+        "100%",
+
+      color:
+        COLOR.muted,
+
+      fontFamily:
+        fontFamilies.regular,
+
+      marginTop:
+        4,
+
+      textAlign:
+        "right",
+    },
+
+    editButton: {
+      width:
+        42,
+
+      height:
+        42,
+
+      borderRadius:
+        13,
+
+      backgroundColor:
+        "#EEF4FF",
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#D8E6FA",
+    },
+
+    editButtonCancel: {
+      backgroundColor:
+        "#FFF7ED",
+
+      borderColor:
+        "#FED7AA",
+    },
+
+    /* =====================================================
+       Error
+    ===================================================== */
+
+    errorCard: {
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      gap:
+        8,
+
+      backgroundColor:
+        "#FFF3F3",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#FFD6D6",
+
+      padding:
+        12,
+
+      borderRadius:
+        14,
+
+      marginBottom:
+        12,
+    },
+
+    errorText: {
+      flex:
+        1,
+
+      color:
+        COLOR.danger,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "700",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    /* =====================================================
+       Cards
+    ===================================================== */
+
+    card: {
+      padding:
+        spacing.md,
+
+      marginBottom:
+        spacing.md,
+
+      backgroundColor:
+        "#FFFFFF",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        COLOR.line,
+
+      ...shadows.soft,
+    },
+
+    /* =====================================================
+       Section titles
+    ===================================================== */
+
+    sectionTitleRow: {
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      marginBottom:
+        16,
+    },
+
+    sectionIcon: {
+      backgroundColor:
+        "#EEF4FF",
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+
+      marginLeft:
+        10,
+    },
+
+    sectionTitle: {
+      flex:
+        1,
+
+      color:
+        COLOR.text,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "900",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    sectionDescription: {
+      color:
+        COLOR.muted,
+
+      fontFamily:
+        fontFamilies.regular,
+
+      fontSize:
+        13,
+
+      lineHeight:
+        20,
+
+      marginTop:
+        -6,
+
+      marginBottom:
+        14,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    /* =====================================================
+       Fields
+    ===================================================== */
+
+    fieldLabel: {
+      width:
+        "100%",
+
+      color:
+        COLOR.text,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "700",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    fieldPill: {
+      width:
+        "100%",
+
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      backgroundColor:
+        COLOR.input,
+
+      borderWidth:
+        1,
+
+      ...shadows.soft,
+    },
+
+    fieldInput: {
+      flex:
+        1,
+
+      height:
+        "100%",
+
+      color:
+        COLOR.text,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "600",
+
+      paddingVertical:
+        0,
+    },
+
+    invalidText: {
+      color:
+        COLOR.danger,
+
+      fontSize:
+        11,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    /* =====================================================
+       Buttons
+    ===================================================== */
+
+    editActions: {
+      marginTop:
+        4,
+
+      gap:
+        9,
+    },
+
+    primaryButton: {
+      minHeight:
+        48,
+
+      flexDirection:
+        "row-reverse",
+
+      gap:
+        8,
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+
+      backgroundColor:
+        COLOR.primary,
+
+      borderRadius:
+        15,
+
+      paddingHorizontal:
+        18,
+
+      ...shadows.soft,
+    },
+
+    primaryButtonText: {
+      color:
+        "#FFFFFF",
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "800",
+
+      fontSize:
+        15,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    secondaryButton: {
+      minHeight:
+        44,
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+
+      backgroundColor:
+        "#F3F6FA",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        COLOR.line,
+
+      borderRadius:
+        15,
+    },
+
+    secondaryButtonText: {
+      color:
+        COLOR.text,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "700",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    warningButton: {
+      minHeight:
+        48,
+
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+
+      gap:
+        8,
+
+      backgroundColor:
+        "#FFF7ED",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#FED7AA",
+
+      borderRadius:
+        16,
+
+      marginBottom:
+        14,
+
+      paddingHorizontal:
+        16,
+    },
+
+    warningButtonText: {
+      color:
+        "#B54708",
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "800",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    /* =====================================================
+       Agent
+    ===================================================== */
+
+    infoRow: {
+      flexDirection:
+        "row-reverse",
+
+      justifyContent:
+        "space-between",
+
+      alignItems:
+        "center",
+
+      gap:
+        10,
+    },
+
+    infoLabel: {
+      color:
+        COLOR.muted,
+
+      fontFamily:
+        fontFamilies.regular,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    infoValue: {
+      flex:
+        1,
+
+      color:
+        COLOR.text,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "800",
+
+      textAlign:
+        "left",
+    },
+
+    divider: {
+      height:
+        StyleSheet.hairlineWidth,
+
+      backgroundColor:
+        COLOR.line,
+
+      marginVertical:
+        12,
+    },
+
+    agentCodeRow: {
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      gap:
+        12,
+    },
+
+    smallLabel: {
+      color:
+        COLOR.muted,
+
+      fontSize:
+        12,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    codeText: {
+      color:
+        COLOR.text,
+
+      fontWeight:
+        "800",
+
+      marginTop:
+        3,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "ltr",
+    },
+
+    copyButton: {
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      gap:
+        5,
+
+      paddingHorizontal:
+        11,
+
+      paddingVertical:
+        8,
+
+      backgroundColor:
+        "#EEF4FF",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#D8E6FA",
+
+      borderRadius:
+        11,
+    },
+
+    copyButtonText: {
+      color:
+        COLOR.primary,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "700",
+
+      writingDirection:
+        "rtl",
+    },
+
+    /* =====================================================
+       Wallet
+    ===================================================== */
+
+    balanceRow: {
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "space-between",
+
+      backgroundColor:
+        COLOR.soft,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        COLOR.line,
+
+      borderRadius:
+        13,
+
+      paddingHorizontal:
+        13,
+
+      paddingVertical:
+        11,
+    },
+
+    balanceCurrency: {
+      color:
+        COLOR.text,
+
+      fontWeight:
+        "800",
+
+      writingDirection:
+        "ltr",
+    },
+
+    balanceValue: {
+      color:
+        COLOR.primary,
+
+      fontWeight:
+        "900",
+
+      writingDirection:
+        "ltr",
+
+      textAlign:
+        "left",
+    },
+
+    /* =====================================================
+       Danger Zone
+    ===================================================== */
+
+    dangerZone: {
+      backgroundColor:
+        "#FFF8F8",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#FFDADA",
+
+      padding:
+        16,
+
+      marginTop:
+        4,
+
+      marginBottom:
+        12,
+    },
+
+    dangerHeader: {
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      gap:
+        8,
+    },
+
+    dangerTitle: {
+      flex:
+        1,
+
+      color:
+        COLOR.danger,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontSize:
+        16,
+
+      fontWeight:
+        "900",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    dangerDescription: {
+      color:
+        COLOR.muted,
+
+      fontSize:
+        13,
+
+      lineHeight:
+        20,
+
+      marginTop:
+        8,
+
+      marginBottom:
+        12,
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    deleteButton: {
+      minHeight:
+        45,
+
+      flexDirection:
+        "row-reverse",
+
+      alignItems:
+        "center",
+
+      justifyContent:
+        "center",
+
+      gap:
+        7,
+
+      backgroundColor:
+        "#FFFFFF",
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#FFCCCC",
+
+      borderRadius:
+        14,
+    },
+
+    deleteButtonText: {
+      color:
+        COLOR.danger,
+
+      fontFamily:
+        fontFamilies.bold,
+
+      fontWeight:
+        "800",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    /* =====================================================
+       Spinner
+    ===================================================== */
+
+    spinnerBg: {
+      position:
+        "absolute",
+
+      top:
+        0,
+
+      left:
+        0,
+
+      right:
+        0,
+
+      height:
+        0,
+    },
+  });

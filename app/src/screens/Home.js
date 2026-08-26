@@ -698,10 +698,10 @@ export default function Home({ navigation }) {
               color: COLOR.text,
               flex: 1,
               fontFamily: fontFamilies.almaraiExtraBold,
-              fontSize: sx(20),
+              fontSize: sx(25),
               fontWeight: fontWeights.black,
               marginRight: sx(spacing.md),
-              textAlign: "left",
+              textAlign: "right",
               writingDirection: "ltr",
             }}
           >
@@ -865,7 +865,7 @@ export default function Home({ navigation }) {
         <View
           style={{
             marginTop: sx(10),
-            alignItems: "stretch",
+            alignItems: "center",
             justifyContent: "center",
           }}
         >
@@ -1146,14 +1146,13 @@ const styles = StyleSheet.create({
   adImagePlaceholderText: {
     fontWeight: "900",
     color: "#94A3B8",
-    letterSpacing: 2,
-  },
+    letterSpacing: 2,  },
   adBody: {
     flex: 25,
     paddingHorizontal: 10,
     paddingVertical: 6,
     justifyContent: "center",
-    alignItems: "stretch",
+    alignItems: "center",
     gap: 6,
   },
   adTitle: {

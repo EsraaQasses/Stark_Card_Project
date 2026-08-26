@@ -1,45 +1,139 @@
 // src/screens/Favorites.js
-import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, Alert, FlatList, RefreshControl, Pressable, StyleSheet, useWindowDimensions } from "react-native";
+
+import React, {
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  View,
+  Text,
+  Alert,
+  FlatList,
+  RefreshControl,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
+
 import { useFocusEffect } from "@react-navigation/native";
 
 import ProductCard from "../components/ProductCard";
-import { readGuestFavs, removeGuestFav } from "../utils/guestFavs";
-import { listFavorites, removeFavorite } from "../api/store";
+
+import {
+  readGuestFavs,
+  removeGuestFav,
+} from "../utils/guestFavs";
+
+import {
+  listFavorites,
+  removeFavorite,
+} from "../api/store";
+
 import { useCurrency } from "../context/CurrencyProvider";
 import { useAuth } from "../context/AuthProvider";
-import PageLayout from "../ui/PageLayout"; // âœ… Ø§Ù„ØºÙ„Ø§Ù Ø§Ù„Ù…ÙˆØ­Ø¯ (BottomNav + SideMenu)
+
+import PageLayout from "../ui/PageLayout";
 import CornerSpinner from "../ui/CornerSpinner";
+
 import { spacing } from "../shared/theme";
+
 import { AppHeader } from "../shared/ui/layout";
 import { AppEmptyState } from "../shared/ui/primitives";
 
-/* ==== helpers ==== */
+/* =========================================================
+   Screen
+========================================================= */
 
-export default function Favorites({ navigation }) {
+export default function Favorites({
+  navigation,
+}) {
   const { currency } = useCurrency();
+
   const { user } = useAuth();
-  const isAuthenticated = Boolean(user?.id || user?.raw?.id || user?.username || user?.email || user?.phone);
-  const { width: W } = useWindowDimensions();
-  const sx = (n) => (W / 390) * n;
-  const [items, setItems] = useState([]); // [{ product, saved_at }]
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [removingId, setRemovingId] = useState(null);
+
+  const isAuthenticated = Boolean(
+    user?.id ||
+      user?.raw?.id ||
+      user?.username ||
+      user?.email ||
+      user?.phone
+  );
+
+  const { width: W } =
+    useWindowDimensions();
+
+  const sx = (n) =>
+    (W / 390) * n;
+
+  const [items, setItems] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [
+    removingId,
+    setRemovingId,
+  ] = useState(null);
+
+  /* =======================================================
+     Load Favorites
+  ======================================================= */
 
   const load = useCallback(async () => {
     setLoading(true);
+
     setError("");
+
     try {
-      const list = isAuthenticated ? await listFavorites() : await readGuestFavs();
-      setItems(Array.isArray(list) ? list : []);
+      const list =
+        isAuthenticated
+          ? await listFavorites()
+          : await readGuestFavs();
+
+      setItems(
+        Array.isArray(list)
+          ? list
+          : []
+      );
     } catch (loadError) {
-      if (isAuthenticated) setItems([]);
-      setError(String(loadError?.response?.data?.detail || loadError?.response?.data?.error || loadError?.message || "تعذر تحميل المفضلة."));
+      if (isAuthenticated) {
+        setItems([]);
+      }
+
+      const rawMessage =
+        loadError?.response?.data?.detail ||
+        loadError?.response?.data?.error ||
+        loadError?.message ||
+        "";
+
+      /*
+       * إذا الخطأ عربي منعرضه.
+       * إذا إنكليزي أو تقني منعرض رسالة عربية عامة.
+       */
+      const hasArabic =
+        /[\u0600-\u06FF]/.test(
+          String(rawMessage)
+        );
+
+      setError(
+        hasArabic
+          ? String(rawMessage)
+          : "تعذر تحميل المفضلة. يرجى المحاولة مرة أخرى."
+      );
     } finally {
       setLoading(false);
     }
   }, [isAuthenticated]);
+
+  /* =======================================================
+     Reload on Focus
+  ======================================================= */
 
   useFocusEffect(
     useCallback(() => {
@@ -47,131 +141,548 @@ export default function Favorites({ navigation }) {
     }, [load])
   );
 
-  // ÙØªØ­ Ø§Ù„Ù…Ù†ØªØ¬: Payment ÙÙ‚Ø· (Ø¥Ù„ØºØ§Ø¡ Ù…Ø³Ø§Ø± Ø§Ù„ÙˆÙƒÙŠÙ„)
-  const openProduct = useCallback((prod) => {
-    navigation.navigate("Payment", { product: prod });
-  }, [navigation]);
+  /* =======================================================
+     Open Product
+  ======================================================= */
 
-  const removeOne = useCallback(async (prod) => {
-    if (removingId) return;
-    const productId = prod?.id;
-    setRemovingId(productId || "pending");
-    try {
-      if (isAuthenticated) {
-        if (!productId) throw new Error("معرّف المنتج غير متوفر.");
-        await removeFavorite(productId);
-      } else {
-        await removeGuestFav(prod);
-      }
-      await load();
-    } catch (removeError) {
-      Alert.alert("خطأ", String(removeError?.response?.data?.detail || removeError?.response?.data?.error || removeError?.message || "تعذر حذف المنتج من المفضلة."));
-    } finally {
-      setRemovingId(null);
-    }
-  }, [isAuthenticated, load, removingId]);
-
-  const confirmRemove = useCallback((prod) => {
-    Alert.alert("حذف من المفضلة", "متأكدة؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "نعم", onPress: () => removeOne(prod) },
-    ]);
-  }, [removeOne]);
-
-  const keyExtractor = useCallback(
-    (it, idx) => String(it?.product?.store_product_id ?? it?.product?.id ?? idx),
-    []
-  );
-
-  const renderItem = useCallback(({ item }) => {
-    const prod = item.product || {};
-    return (
-      <ProductCard
-        product={prod}
-        onPress={() => openProduct(prod)}
-        onRemove={() => confirmRemove(prod)}
-        showRemove
-        uiCurrency={currency}
-      />
+  const openProduct =
+    useCallback(
+      (prod) => {
+        navigation.navigate(
+          "Payment",
+          {
+            product: prod,
+          }
+        );
+      },
+      [navigation]
     );
-  }, [confirmRemove, currency, openProduct]);
 
-  const emptyComponent = useMemo(
-    () => (
-      <AppEmptyState
-        icon="heart-outline"
-        title="لم تحفظي أي منتجات بعد."
-        style={styles.emptyState}
-      />
-    ),
-    []
-  );
+  /* =======================================================
+     Remove Product
+  ======================================================= */
+
+  const removeOne =
+    useCallback(
+      async (prod) => {
+        if (removingId) {
+          return;
+        }
+
+        const productId =
+          prod?.id;
+
+        setRemovingId(
+          productId ||
+            "pending"
+        );
+
+        try {
+          if (
+            isAuthenticated
+          ) {
+            if (
+              !productId
+            ) {
+              throw new Error(
+                "معرّف المنتج غير متوفر."
+              );
+            }
+
+            await removeFavorite(
+              productId
+            );
+          } else {
+            await removeGuestFav(
+              prod
+            );
+          }
+
+          await load();
+        } catch (
+          removeError
+        ) {
+          const rawMessage =
+            removeError?.response?.data
+              ?.detail ||
+            removeError?.response?.data
+              ?.error ||
+            removeError?.message ||
+            "";
+
+          const hasArabic =
+            /[\u0600-\u06FF]/.test(
+              String(
+                rawMessage
+              )
+            );
+
+          Alert.alert(
+            "خطأ",
+
+            hasArabic
+              ? String(
+                  rawMessage
+                )
+              : "تعذر حذف المنتج من المفضلة."
+          );
+        } finally {
+          setRemovingId(
+            null
+          );
+        }
+      },
+      [
+        isAuthenticated,
+        load,
+        removingId,
+      ]
+    );
+
+  /* =======================================================
+     Confirm Remove
+  ======================================================= */
+
+  const confirmRemove =
+    useCallback(
+      (prod) => {
+        Alert.alert(
+          "حذف من المفضلة",
+          "هل تريد حذف هذا المنتج من المفضلة؟",
+          [
+            {
+              text: "إلغاء",
+              style: "cancel",
+            },
+
+            {
+              text: "نعم",
+              style:
+                "destructive",
+
+              onPress: () =>
+                removeOne(
+                  prod
+                ),
+            },
+          ]
+        );
+      },
+      [removeOne]
+    );
+
+  /* =======================================================
+     Key
+  ======================================================= */
+
+  const keyExtractor =
+    useCallback(
+      (
+        item,
+        index
+      ) =>
+        String(
+          item?.product
+            ?.store_product_id ??
+            item?.product?.id ??
+            index
+        ),
+      []
+    );
+
+  /* =======================================================
+     Product Card
+  ======================================================= */
+
+  const renderItem =
+    useCallback(
+      ({ item }) => {
+        const prod =
+          item?.product ||
+          {};
+
+        return (
+          /*
+           * wrapper RTL حتى اتجاه العنصر كله
+           * يبدأ من اليمين.
+           */
+          <View
+            style={
+              styles.productWrap
+            }
+          >
+            <ProductCard
+              product={
+                prod
+              }
+              onPress={() =>
+                openProduct(
+                  prod
+                )
+              }
+              onRemove={() =>
+                confirmRemove(
+                  prod
+                )
+              }
+              showRemove
+              uiCurrency={
+                currency
+              }
+            />
+          </View>
+        );
+      },
+      [
+        confirmRemove,
+        currency,
+        openProduct,
+      ]
+    );
+
+  /* =======================================================
+     Empty
+  ======================================================= */
+
+  const emptyComponent =
+    useMemo(
+      () => (
+        <View
+          style={
+            styles.emptyWrap
+          }
+        >
+          <AppEmptyState
+            icon="heart-outline"
+            title="لم تحفظ أي منتجات بعد."
+            style={
+              styles.emptyState
+            }
+          />
+        </View>
+      ),
+      []
+    );
+
+  /* =======================================================
+     Render
+  ======================================================= */
 
   return (
-    <PageLayout navigation={navigation} active="menu" withSideMenu={true}>
-      {/* Ø®Ù„ÙÙŠØ© Ø³Ø¨ÙŠÙ†Ø± Ø´ÙƒÙ„ÙŠØ© */}
-      <View pointerEvents="none" style={styles.spinnerBg}>
-        <CornerSpinner
-          size={sx(800)}
-          image={require("../assets/home-corner.png")}
-          speedMs={16000}
-          opacity={0.88}
+    <PageLayout
+      navigation={
+        navigation
+      }
+      active="menu"
+      withSideMenu={
+        true
+      }
+    >
+      {/* =================================================
+          RTL screen wrapper
+      ================================================= */}
+
+      <View
+        style={
+          styles.screen
+        }
+      >
+        {/* Background */}
+
+        <View
+          pointerEvents="none"
+          style={
+            styles.spinnerBg
+          }
+        >
+          <CornerSpinner
+            size={
+              sx(800)
+            }
+            image={require("../assets/home-corner.png")}
+            speedMs={
+              16000
+            }
+            opacity={
+              0.88
+            }
+          />
+        </View>
+
+        {/* =================================================
+            Header
+        ================================================= */}
+
+        <AppHeader
+          title="المفضلة"
+          subtitle="المنتجات التي حفظتها سابقاً"
+        />
+
+        {/* =================================================
+            Error
+        ================================================= */}
+
+        {!!error && (
+          <View
+            style={
+              styles.errorBox
+            }
+          >
+            <Text
+              style={
+                styles.errorText
+              }
+            >
+              {error}
+            </Text>
+
+            <Pressable
+              disabled={
+                loading
+              }
+              onPress={
+                load
+              }
+              style={[
+                styles.retryBtn,
+
+                loading && {
+                  opacity:
+                    0.6,
+                },
+              ]}
+            >
+              <Text
+                style={
+                  styles.retryText
+                }
+              >
+                إعادة المحاولة
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* =================================================
+            List
+        ================================================= */}
+
+        <FlatList
+          style={
+            styles.list
+          }
+          data={
+            items
+          }
+          keyExtractor={
+            keyExtractor
+          }
+          renderItem={
+            renderItem
+          }
+          contentContainerStyle={
+            styles.listContent
+          }
+          ListEmptyComponent={
+            error
+              ? null
+              : emptyComponent
+          }
+          showsVerticalScrollIndicator={
+            false
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={
+                loading
+              }
+              onRefresh={
+                load
+              }
+            />
+          }
         />
       </View>
-
-      <AppHeader
-        title={"\u0627\u0644\u0645\u0641\u0636\u0644\u0629"}
-        subtitle={"\u0627\u0644\u0645\u0646\u062a\u062c\u0627\u062a \u0627\u0644\u062a\u064a \u062d\u0641\u0638\u062a\u0647\u0627 \u0633\u0627\u0628\u0642\u0627"}
-      />
-
-      {!!error && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable disabled={loading} onPress={load} style={styles.retryBtn}>
-            <Text style={styles.retryText}>إعادة المحاولة</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* ===== List ===== */}
-      <FlatList
-        data={items}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={error ? null : emptyComponent}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-      />
     </PageLayout>
   );
 }
 
-const styles = StyleSheet.create({
-  spinnerBg: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 0,
-  },
-  listContent: {
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.md + spacing.xxs,
-  },
-  emptyState: {
-    marginTop: spacing.xxl + spacing.sm,
-    marginHorizontal: spacing.sm,
-  },
-  errorBox: {
-    marginHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    backgroundColor: "#fef2f2",
-    borderRadius: 12,
-    padding: spacing.md,
-  },
-  errorText: { color: "#991b1b", textAlign: "center", fontWeight: "700" },
-  retryBtn: { alignSelf: "center", marginTop: spacing.sm, borderRadius: 9, backgroundColor: "#0B63D8", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  retryText: { color: "#fff", fontWeight: "800" },
-});
+/* =========================================================
+   Styles
+========================================================= */
+
+const styles =
+  StyleSheet.create({
+    /* =====================================================
+       Screen RTL
+    ===================================================== */
+
+    screen: {
+      flex: 1,
+
+      /*
+       * إجبار اتجاه الصفحة من اليمين لليسار
+       * بدون I18nManager وبدون تغيير التطبيق كله.
+       */
+      direction: "ltr",
+    },
+
+    /* =====================================================
+       Background
+    ===================================================== */
+
+    spinnerBg: {
+      position:
+        "absolute",
+
+      top: 0,
+      left: 0,
+      right: 0,
+
+      height: 0,
+    },
+
+    /* =====================================================
+       List
+    ===================================================== */
+
+    list: {
+      flex: 1,
+
+      direction: "rtl",
+    },
+
+    listContent: {
+      paddingTop:
+        spacing.md,
+
+      paddingBottom:
+        spacing.xl,
+
+      paddingHorizontal:
+        spacing.md +
+        spacing.xxs,
+
+      /*
+       * كل العناصر تتمدد بعرض القائمة
+       * وتبدأ من اليمين.
+       */
+      alignItems:
+        "stretch",
+    },
+
+    productWrap: {
+      width: "100%",
+
+      direction: "rtl",
+
+      alignItems:
+        "stretch",
+    },
+
+    /* =====================================================
+       Empty State
+    ===================================================== */
+
+    emptyWrap: {
+      direction: "rtl",
+
+      alignItems:
+        "stretch",
+    },
+
+    emptyState: {
+      marginTop:
+        spacing.xxl +
+        spacing.sm,
+
+      marginHorizontal:
+        spacing.sm,
+    },
+
+    /* =====================================================
+       Error
+    ===================================================== */
+
+    errorBox: {
+      marginHorizontal:
+        spacing.md,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        "#FECACA",
+
+      backgroundColor:
+        "#FEF2F2",
+
+      borderRadius:
+        12,
+
+      padding:
+        spacing.md,
+
+      alignItems:
+        "stretch",
+
+      direction:
+        "rtl",
+    },
+
+    errorText: {
+      width: "100%",
+
+      color:
+        "#991B1B",
+
+      fontWeight:
+        "700",
+
+      lineHeight:
+        20,
+
+      /*
+       * النص العربي فعلياً يبدأ من اليمين
+       */
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+
+    retryBtn: {
+      alignSelf:
+        "flex-end",
+
+      marginTop:
+        spacing.sm,
+
+      borderRadius:
+        9,
+
+      backgroundColor:
+        "#0B63D8",
+
+      paddingHorizontal:
+        spacing.md,
+
+      paddingVertical:
+        spacing.sm,
+    },
+
+    retryText: {
+      color:
+        "#FFFFFF",
+
+      fontWeight:
+        "800",
+
+      textAlign:
+        "right",
+
+      writingDirection:
+        "rtl",
+    },
+  });

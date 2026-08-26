@@ -1,56 +1,152 @@
-import { useEffect, useMemo } from "react";
-import { Alert } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+// app/(app)/shipping-method-info.tsx
+
+import { useMemo } from "react";
+import { useLocalSearchParams } from "expo-router";
+
 import ShippingMethodInfo from "../../src/screens/payments/ShippingMethodInfo";
 import { useNavigationShim } from "../../src/utils/navigation";
 
-// helpers لتطبيع string | string[]
-const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+/* =========================================================
+   Helpers
+========================================================= */
 
-const toBool = (v: string | string[] | undefined) => {
-  const s = String(first(v) ?? "").toLowerCase();
-  return s === "true" || s === "1" || s === "yes";
+const first = (
+  value: string | string[] | undefined | null
+) => {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value ?? undefined;
 };
+
+const toBool = (
+  value:
+    | string
+    | string[]
+    | boolean
+    | undefined
+    | null
+) => {
+  if (value === true) {
+    return true;
+  }
+
+  const normalized = String(
+    first(value as any) ?? ""
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    normalized === "true" ||
+    normalized === "1" ||
+    normalized === "yes"
+  );
+};
+
+/* =========================================================
+   Screen
+========================================================= */
 
 export default function ShippingMethodInfoScreen() {
   const navigation = useNavigationShim();
-  const router = useRouter();
   const params = useLocalSearchParams();
 
   const normalizedParams = useMemo(() => {
-    const methodId = first(params.methodId as any); // string | undefined
-    const adminKey = first(params.adminKey as any);
-    const forceAgent = toBool(params.forceAgent as any);
-    const forceAdminShipping = toBool(params.forceAdminShipping as any);
+    const method =
+      first(params.method as any) ??
+      undefined;
 
-    // مهم: خلّي methodId string (شاشتك بتعمل Number(methodIdParam) جواتها)
+    const methodId =
+      first(params.methodId as any) ??
+      first(params.id as any) ??
+      undefined;
+
+    const adminKey =
+      first(params.adminKey as any) ??
+      undefined;
+
+    const methodKey =
+      first(params.methodKey as any) ??
+      undefined;
+
+    const methodName =
+      first(params.methodName as any) ??
+      undefined;
+
+    const methodTitle =
+      first(params.methodTitle as any) ??
+      undefined;
+
+    const requiresReceipt =
+      first(params.requiresReceipt as any) ??
+      undefined;
+
+    const forceAgent = toBool(
+      params.forceAgent as any
+    );
+
+    const forceAdminShipping = toBool(
+      params.forceAdminShipping as any
+    );
+
     return {
-      ...params,
+      method,
       methodId,
+
       adminKey,
+
+      methodKey,
+      methodName,
+      methodTitle,
+
+      requiresReceipt,
+
       forceAgent,
       forceAdminShipping,
-    } as any;
-  }, [params]);
+    };
+  }, [
+    params.method,
+    params.methodId,
+    params.id,
 
-  // ✅ guard: إذا مو admin وما في methodId، رجّعي Back
-  useEffect(() => {
-    const isAdmin = normalizedParams?.forceAdminShipping === true;
-    const hasId =
-      normalizedParams?.methodId !== undefined &&
-      normalizedParams?.methodId !== null &&
-      String(normalizedParams?.methodId).length > 0;
+    params.adminKey,
 
-    if (!isAdmin && !hasId) {
-      Alert.alert("خطأ", "بيانات الشحن ناقصة");
-      router.back();
-    }
-  }, [normalizedParams, router]);
+    params.methodKey,
+    params.methodName,
+    params.methodTitle,
+
+    params.requiresReceipt,
+
+    params.forceAgent,
+    params.forceAdminShipping,
+  ]);
+
+  /*
+   * مهم:
+   * ما عاد في guard هون يشترط methodId.
+   *
+   * شحن الوكيل:
+   * forceAgent = true
+   *
+   * شحن الإدارة:
+   * forceAdminShipping = true
+   *
+   * الطرق العادية:
+   * methodId
+   *
+   * والشاشة نفسها بتقرر شو المطلوب.
+   */
 
   return (
     <ShippingMethodInfo
       navigation={navigation as any}
-      route={{ params: normalizedParams } as any}
+      route={
+        {
+          params: normalizedParams,
+        } as any
+      }
     />
   );
 }

@@ -1,6 +1,6 @@
 // src/screens/SignUp/ForgetPassword.js
-import React, { useState } from "react";
-import { Alert, View, Image, Text, TextInput, StyleSheet, Keyboard } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Image, Text, TextInput, StyleSheet, Keyboard, TouchableOpacity } from "react-native";
 import Screen from "../../ui/Screen";
 import Button from "../../ui/Button";
 import theme from "../../ui/Theme";
@@ -8,7 +8,6 @@ import { sx, sy, sp } from "../../ui/scale";
 import {
   requestPasswordReset,
   resendPasswordResetCode,
-  resetPassword,
   verifyPasswordResetCode,
 } from "../../api/auth";
 
@@ -19,15 +18,36 @@ export default function ForgetPassword({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [errBanner, setErrBanner] = useState([]);
   const [infoBanner, setInfoBanner] = useState([]);
-  const [requestId, setRequestId] = useState(null);
-  const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // Flow steps management
+  const [requestId, setRequestId] = useState(null); // holds the request_id when OTP is requested
+  const [code, setCode] = useState(""); // holds the 6-digit OTP code input
+  const [cooldown, setCooldown] = useState(0); // resend cooldown timer
 
   const emailTrim = email.trim().toLowerCase();
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim);
   const canSend = validEmail;
 
+  // Handle countdown cooldown timer
+  useEffect(() => {
+    let timer = null;
+    if (cooldown > 0) {
+      timer = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [cooldown]);
+
+  // Phase 1: Request Password Reset OTP
   const onSend = async () => {
     if (!canSend || loading) return;
     Keyboard.dismiss();
@@ -40,68 +60,108 @@ export default function ForgetPassword({ navigation }) {
       if (response?.request_id) {
         setRequestId(response.request_id);
       }
-      setInfoBanner(["إذا كان البريد مسجلاً، فسيصلك رمز إعادة التعيين."]);
+      
+      // Start cooldown timer based on backend response (resend_after) or default to 60s
+      const resendAfter = response?.resend_after ?? 60;
+      setCooldown(resendAfter);
+
+      setInfoBanner([
+        response?.message?.ar || 
+        response?.message?.en || 
+        "إذا كان هناك حساب مرتبط بهذا البريد الإلكتروني، فقد تم إرسال رمز التحقق."
+      ]);
     } catch (err) {
       const resp = err?.response;
       const data = resp?.data;
       const msg =
-        data?.detail ||
-        data?.error ||
         data?.message?.ar ||
         data?.message?.en ||
-        (typeof data === "string" ? data : null) ||
-        "تعذر إرسال رابط إعادة التعيين. حاول مرة أخرى.";
+        data?.detail ||
+        data?.error ||
+        "تعذر إرسال رمز التحقق. حاول مرة أخرى.";
       setErrBanner([String(msg)]);
     } finally {
       setLoading(false);
     }
   };
 
-  const onReset = async () => {
-    if (!requestId || !/^[0-9]{6}$/.test(code.trim())) {
-      setErrBanner(["أدخل رمز التحقق المكوّن من 6 أرقام."]);
-      return;
-    }
-    if (newPassword.length < 8 || newPassword !== confirmPassword) {
-      setErrBanner(["تأكد من تطابق كلمتي المرور وأنها لا تقل عن 8 أحرف."]);
-      return;
-    }
+  // Phase 2: Verify OTP and navigate to Reset Password with token
+  const onVerify = async () => {
+    if (!requestId || code.trim().length !== 6 || loading) return;
+    Keyboard.dismiss();
+    setErrBanner([]);
+    setInfoBanner([]);
 
     try {
       setLoading(true);
-      setErrBanner([]);
-      const verification = await verifyPasswordResetCode({
+      const response = await verifyPasswordResetCode({
         request_id: requestId,
         code: code.trim(),
       });
-      await resetPassword({
-        reset_token: verification.reset_token,
-        new_password: newPassword,
-        confirm_password: confirmPassword,
-      });
-      Alert.alert("تم", "تم تغيير كلمة المرور بنجاح.", [
-        { text: "تسجيل الدخول", onPress: () => navigation.replace("Login") },
-      ]);
+
+      const token = response?.reset_token;
+      if (!token) {
+        throw new Error("لم يتم استلام رمز إعادة التعيين من الخادم.");
+      }
+
+      // Reset local screen states
+      setCode("");
+      
+      // Navigate to ResetPassword and pass the reset_token
+      navigation.replace("ResetPassword", { token });
     } catch (err) {
-      const data = err?.response?.data;
-      setErrBanner([
-        data?.message?.ar || data?.message?.en || data?.detail || data?.error || "تعذر تغيير كلمة المرور.",
-      ]);
+      const resp = err?.response;
+      const data = resp?.data;
+      const msg =
+        data?.message?.ar ||
+        data?.message?.en ||
+        data?.detail ||
+        data?.error ||
+        "رمز التحقق غير صالح أو منتهي الصلاحية.";
+      setErrBanner([String(msg)]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Resend OTP Code
   const onResend = async () => {
-    if (!requestId || loading) return;
+    if (!requestId || cooldown > 0 || loading) return;
+    Keyboard.dismiss();
+    setErrBanner([]);
+    setInfoBanner([]);
+
     try {
       setLoading(true);
       const response = await resendPasswordResetCode(requestId);
-      if (response?.request_id) setRequestId(response.request_id);
-      setInfoBanner(["تم إرسال رمز جديد إذا كان الطلب صالحاً."]);
+      if (response?.request_id) {
+        setRequestId(response.request_id);
+      }
+
+      const resendAfter = response?.resend_after ?? 60;
+      setCooldown(resendAfter);
+
+      setInfoBanner([
+        response?.message?.ar || 
+        response?.message?.en || 
+        "تم إعادة إرسال رمز التحقق بنجاح."
+      ]);
     } catch (err) {
-      const data = err?.response?.data;
-      setErrBanner([data?.message?.ar || data?.message?.en || "تعذر إعادة إرسال الرمز الآن."]);
+      const resp = err?.response;
+      const data = resp?.data;
+      
+      if (resp?.status === 429) {
+        const cooldownRemaining = data?.details?.resend_after ?? 60;
+        setCooldown(cooldownRemaining);
+      }
+      
+      const msg =
+        data?.message?.ar ||
+        data?.message?.en ||
+        data?.detail ||
+        data?.error ||
+        "تعذر إعادة إرسال الرمز حالياً.";
+      setErrBanner([String(msg)]);
     } finally {
       setLoading(false);
     }
@@ -133,78 +193,87 @@ export default function ForgetPassword({ navigation }) {
       )}
 
       <View style={styles.form}>
-        <Text style={styles.title}>???? ???? ??????</Text>
-
-        <Text style={styles.label}>?????? ??????????</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="???? ???? ?????"
-          placeholderTextColor="rgba(0,0,0,0.5)"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          textAlign="right"
-          returnKeyType="send"
-          onSubmitEditing={() => canSend && onSend()}
-        />
-
-        {requestId && (
+        {!requestId ? (
           <>
-            <Text style={styles.label}>Verification code</Text>
+            <Text style={styles.title}>استعادة كلمة المرور</Text>
+
+            <Text style={styles.label}>البريد الإلكتروني</Text>
             <TextInput
               style={styles.input}
+              placeholder="أدخل بريدك الإلكتروني"
+              placeholderTextColor="rgba(0,0,0,0.5)"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textAlign="right"
+              returnKeyType="send"
+              onSubmitEditing={() => canSend && onSend()}
+            />
+
+            <Button
+              variant="auth"
+              title={loading ? "جاري الإرسال..." : "إرسال رمز التحقق"}
+              width={sx(200)}
+              height={sy(52)}
+              onPress={onSend}
+              disabled={loading || !canSend}
+              style={{ marginTop: sy(22), alignSelf: "center", opacity: !loading && canSend ? 1 : 0.6 }}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.title}>تحقق من الرمز</Text>
+
+            <Text style={styles.label}>أدخل الرمز المكون من 6 أرقام</Text>
+            <TextInput
+              style={[styles.input, styles.otpInput]}
               value={code}
-              onChangeText={setCode}
+              onChangeText={(val) => setCode(val.replace(/[^0-9]/g, "").slice(0, 6))}
               keyboardType="number-pad"
               maxLength={6}
               placeholder="000000"
-              textAlign="right"
+              placeholderTextColor="rgba(0,0,0,0.3)"
+              textAlign="center"
+              autoFocus
             />
-            <Text style={styles.label}>New password</Text>
-            <TextInput
-              style={styles.input}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry
-              textAlign="right"
+
+            <TouchableOpacity
+              onPress={cooldown === 0 ? onResend : undefined}
+              disabled={cooldown > 0 || loading}
+              style={{ marginTop: sy(14), alignSelf: "center" }}
+            >
+              <Text style={[styles.resendText, cooldown > 0 && styles.disabledResendText]}>
+                {cooldown > 0 ? `إعادة إرسال الرمز خلال ${cooldown} ثانية` : "إعادة إرسال رمز التحقق"}
+              </Text>
+            </TouchableOpacity>
+
+            <Button
+              variant="auth"
+              title={loading ? "جاري التحقق..." : "تحقق من الرمز"}
+              width={sx(200)}
+              height={sy(52)}
+              onPress={onVerify}
+              disabled={loading || code.trim().length !== 6}
+              style={{ marginTop: sy(22), alignSelf: "center", opacity: !loading && code.trim().length === 6 ? 1 : 0.6 }}
             />
-            <Text style={styles.label}>Confirm password</Text>
-            <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              textAlign="right"
-            />
-            <Text style={styles.link} onPress={onResend}>Resend code</Text>
           </>
         )}
-
-        <Button
-          variant="auth"
-          title={loading ? "Please wait..." : requestId ? "Change password" : "Send code"}
-          width={sx(143)}
-          height={sy(55)}
-          onPress={requestId ? onReset : onSend}
-          disabled={loading || (!requestId && !canSend)}
-          style={{ marginTop: sy(16), alignSelf: "center", opacity: !loading && (requestId || canSend) ? 1 : 0.6 }}
-        />
       </View>
 
       <View style={styles.bottomBlock}>
         <View style={styles.bottomRow}>
           <View style={styles.line} />
-          <Text style={styles.muted}>?????? ???? ???????</Text>
+          <Text style={styles.muted}>تذكرت كلمة المرور؟</Text>
           <View style={styles.line} />
         </View>
         <Text style={styles.link} onPress={() => navigation.replace("Login")}>
-          ????? ??????
+          تسجيل الدخول
         </Text>
       </View>
 
-      <Text style={styles.footer}>?2025 STARK-CARD</Text>
+      <Text style={styles.footer}>©2025 STARK-CARD</Text>
     </Screen>
   );
 }
@@ -248,19 +317,36 @@ const styles = StyleSheet.create({
   label: {
     color: themeColors.textPrimary,
     opacity: 0.9,
-    marginBottom: sy(6),
+    marginBottom: sy(8),
     fontWeight: "600",
     fontSize: sp(14),
     textAlign: "right",
   },
   input: {
-    height: sy(44),
-    borderRadius: sy(25),
-    paddingHorizontal: sx(14),
+    height: sy(46),
+    borderRadius: sy(23),
+    paddingHorizontal: sx(16),
     color: "#000",
     borderWidth: 1,
     borderColor: "rgba(34, 9, 255, 0.35)",
     backgroundColor: "rgba(255, 255, 255, 0.8)",
+    fontSize: sp(14),
+  },
+  otpInput: {
+    letterSpacing: sx(6),
+    textAlign: "center",
+    fontWeight: "800",
+    fontSize: sp(18),
+  },
+  resendText: {
+    color: themeColors.textPrimary,
+    fontWeight: "700",
+    fontSize: sp(13),
+    textDecorationLine: "underline",
+  },
+  disabledResendText: {
+    textDecorationLine: "none",
+    opacity: 0.7,
   },
 
   bottomBlock: { alignItems: "center", marginBottom: sy(6) },

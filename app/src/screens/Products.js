@@ -269,9 +269,8 @@ export default function Products({ route, navigation }) {
                 style={{
                   color: "#7C8DA6",
                   fontSize: sp(12),
-                  textAlign: textAlignStart(),
-                  writingDirection: writingDirection(),
-                }}
+                  textAlign: "center",
+                  }}
               >
                 {pdesc(p, lang)}
               </Text>

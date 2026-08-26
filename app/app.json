@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.esraaqa.StarkCard",
+      "bundleIdentifier": "com.esraaqa.starkcard",
       "icon": "./assets/images/favicon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -27,7 +27,7 @@
         "backgroundImage": "./assets/images/icon.png"
       },
       "softwareKeyboardLayoutMode": "pan",
-      "package": "com.esraaqa.StarkCard"
+      "package": "com.esraaqa.starkcard"
     },
     "web": {
       "output": "static",
@@ -46,7 +46,8 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
