@@ -12,11 +12,15 @@ import {
 } from '@syncfusion/ej2-react-grids';
 import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
+import useSyncfusionGridLocale from '../../hooks/useSyncfusionGridLocale';
 
 const ShippingRequests = () => {
   const { t, i18n } = useTranslation(['requests', 'common']);
   const isArabic = i18n.resolvedLanguage === 'ar';
-
+  useSyncfusionGridLocale(
+    i18n.resolvedLanguage
+    || i18n.language,
+  );
   const [shippingData, setShippingData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

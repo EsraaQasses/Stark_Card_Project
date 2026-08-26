@@ -13,14 +13,12 @@ import {
 } from 'react-router-dom';
 
 import { FiSettings } from 'react-icons/fi';
-import { TooltipComponent } from '@syncfusion/ej2-react-popups';
 import { useTranslation } from 'react-i18next';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Sidebar from './components/Sidebar';
 import ThemeSettings from './components/ThemeSettings';
-import Home from './pages/Home';
 
 import './App.css';
 
@@ -39,6 +37,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 // ========================================
 // Users
 // ========================================
+const Home = lazy(() => (
+  import('./pages/Home')
+));
 
 const Customers = lazy(() => (
   import('./pages/Users/Customers')
@@ -479,40 +480,34 @@ const AppContent = () => {
               rtl:right-auto
             "
           >
-            <TooltipComponent
-              content={t(
-                'common.settings',
+
+            <button
+              type="button"
+              onClick={() => (
+                setThemeSettings(true)
               )}
-              position="Top"
+              style={{
+                backgroundColor:
+                  currentColor,
+              }}
+              className="
+                flex
+                h-12
+                w-12
+                items-center
+                justify-center
+                rounded-full
+                text-2xl
+                text-white
+                shadow-lg
+                transition-all
+                duration-200
+                hover:scale-105
+                hover:shadow-xl
+              "
             >
-              <button
-                type="button"
-                onClick={() => (
-                  setThemeSettings(true)
-                )}
-                style={{
-                  backgroundColor:
-                    currentColor,
-                }}
-                className="
-                  flex
-                  h-12
-                  w-12
-                  items-center
-                  justify-center
-                  rounded-full
-                  text-2xl
-                  text-white
-                  shadow-lg
-                  transition-all
-                  duration-200
-                  hover:scale-105
-                  hover:shadow-xl
-                "
-              >
-                <FiSettings />
-              </button>
-            </TooltipComponent>
+              <FiSettings />
+            </button>
           </div>
         )}
 

@@ -1,30 +1,156 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
-  GridComponent,
-  ColumnsDirective,
-  ColumnDirective,
-  Page,
-  Inject,
-  Toolbar,
-  Sort,
-  Filter,
-  Group,
-} from '@syncfusion/ej2-react-grids';
-import { Header } from '../../components';
+  FiAlertCircle,
+  FiCheck,
+  FiClock,
+  FiDownload,
+  FiEye,
+  FiFilter,
+  FiRefreshCw,
+  FiSearch,
+  FiUser,
+  FiX,
+} from 'react-icons/fi';
+import { useTranslation } from 'react-i18next';
+
 import { useAuth } from '../../contexts/AuthContext';
+import { useStateContext } from '../../contexts/ContextProvider';
 import axiosInstance from '../../utils/axiosConfig';
 import { localizeRuntimeValue } from '../../utils/runtimeLocalization';
 
+const normalizeList = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value?.results)) {
+    return value.results;
+  }
+
+  if (Array.isArray(value?.data)) {
+    return value.data;
+  }
+
+  return [];
+};
+
+const getApiError = (error, fallback) => (
+  error?.response?.data?.detail
+  || error?.response?.data?.error
+  || error?.response?.data?.message
+  || error?.message
+  || fallback
+);
+
+const pickPersonName = (person) => {
+  if (!person || typeof person !== 'object') {
+    return '';
+  }
+
+  return (
+    person.name
+    || person.full_name
+    || person.username
+    || person.email
+    || person.display_name
+    || person.first_name
+    || ''
+  );
+};
+
+const pickPersonId = (person) => {
+  if (!person || typeof person !== 'object') {
+    return null;
+  }
+
+  return (
+    person.id
+    ?? person.user_id
+    ?? person.agent_id
+    ?? person.admin_id
+    ?? null
+  );
+};
+
 const Transactions = () => {
   const { t, i18n } = useTranslation(['transactions', 'common']);
-  const isArabic = i18n.resolvedLanguage === 'ar';
+  const { user, isAuthenticated } = useAuth();
+  const { currentColor } = useStateContext();
+
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const accentColor = currentColor || '#06b6d4';
+
+  const labels = useMemo(() => ({
+    eyebrow: isArabic ? 'الإدارة المالية' : 'Finance Management',
+    title: isArabic ? 'التحويلات المالية' : 'Financial Transactions',
+    subtitle: isArabic
+      ? 'سجل موحد لكل الحركات المالية مع إظهار منفذ العملية بوضوح.'
+      : 'A unified transaction log with a clear actor for each operation.',
+    refresh: isArabic ? 'تحديث البيانات' : 'Refresh data',
+    export: isArabic ? 'تصدير CSV' : 'Export CSV',
+    total: isArabic ? 'إجمالي التحويلات' : 'Total transactions',
+    approved: isArabic ? 'المقبولة' : 'Approved',
+    pending: isArabic ? 'المعلقة' : 'Pending',
+    usdVolume: isArabic ? 'حجم الدولار' : 'USD volume',
+    sypVolume: isArabic ? 'حجم الليرة' : 'SYP volume',
+    search: isArabic
+      ? 'ابحث بالمعرف أو منفذ العملية أو الملاحظة...'
+      : 'Search by ID, actor, or note...',
+    allCurrencies: isArabic ? 'كل العملات' : 'All currencies',
+    allStatuses: isArabic ? 'كل الحالات' : 'All statuses',
+    allTypes: isArabic ? 'كل الأنواع' : 'All types',
+    clear: isArabic ? 'مسح الفلاتر' : 'Clear filters',
+    id: isArabic ? 'معرف العملية' : 'Transaction ID',
+    date: isArabic ? 'التاريخ والوقت' : 'Date & time',
+    type: isArabic ? 'النوع' : 'Type',
+    actor: isArabic ? 'منفذ العملية' : 'Performed by',
+    source: isArabic ? 'المصدر' : 'Source',
+    target: isArabic ? 'الوجهة' : 'Destination',
+    amount: isArabic ? 'المبلغ' : 'Amount',
+    currency: isArabic ? 'العملة' : 'Currency',
+    status: isArabic ? 'الحالة' : 'Status',
+    actions: isArabic ? 'الإجراءات' : 'Actions',
+    details: isArabic ? 'التفاصيل' : 'Details',
+    approve: isArabic ? 'موافقة' : 'Approve',
+    reject: isArabic ? 'رفض' : 'Reject',
+    noActor: isArabic
+      ? 'غير مرجع من الـ API'
+      : 'Not provided by API',
+    customer: isArabic ? 'عميل' : 'Customer',
+    agent: isArabic ? 'وكيل' : 'Agent',
+    admin: isArabic ? 'أدمن' : 'Admin',
+    walletOwner: isArabic ? 'صاحب المحفظة' : 'Wallet owner',
+    system: isArabic ? 'النظام' : 'System',
+    noResults: isArabic
+      ? 'لا توجد عمليات مطابقة للفلاتر الحالية.'
+      : 'No transactions match the current filters.',
+    loadFailed: isArabic ? 'تعذر تحميل التحويلات.' : 'Failed to load transactions.',
+    actionFailed: isArabic ? 'تعذر تنفيذ العملية.' : 'Failed to complete the action.',
+    approveConfirm: isArabic ? 'هل تريد الموافقة على العملية؟' : 'Approve this transaction?',
+    rejectPrompt: isArabic ? 'اكتب سبب الرفض:' : 'Enter rejection reason:',
+    modalTitle: isArabic ? 'تفاصيل العملية المالية' : 'Transaction details',
+    basic: isArabic ? 'البيانات الأساسية' : 'Basic information',
+    financial: isArabic ? 'البيانات المالية' : 'Financial information',
+    parties: isArabic ? 'الأطراف ومنفذ العملية' : 'Parties & actor',
+    notes: isArabic ? 'الملاحظات' : 'Notes',
+    close: isArabic ? 'إغلاق' : 'Close',
+  }), [isArabic]);
 
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const { user, isAuthenticated } = useAuth();
-
+  const [error, setError] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
   const [filters, setFilters] = useState({
     currency: 'All',
     status: 'All',
@@ -32,318 +158,365 @@ const Transactions = () => {
     startDate: '',
     endDate: '',
   });
-  const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [actionLoading, setActionLoading] = useState(null);
 
-  const toolbarOptions = ['Search', 'Print', 'ExcelExport'];
-  const transactionValue = (prefix, value, fallbackKey) => localizeRuntimeValue({
-    t,
-    i18n,
-    value,
-    namespace: 'transactions',
-    prefix,
-    fallback: () => t(fallbackKey),
-  });
+  const transactionValue = useCallback((prefix, value, fallbackKey) => (
+    localizeRuntimeValue({
+      t,
+      i18n,
+      value,
+      namespace: 'transactions',
+      prefix,
+      fallback: () => t(fallbackKey),
+    })
+  ), [i18n, t]);
 
-  const getWalletCurrency = (wallet) => {
-    if (typeof wallet === 'object' && wallet !== null) {
-      return wallet.currency || 'USD';
-    }
-    return 'USD';
-  };
-
-  const getTransactionDirection = (txn) => {
-    if (txn.transaction_type === 'deposit') return 'Inflow';
-    if (txn.transaction_type === 'transfer') return 'Outflow';
-    if (txn.transaction_type === 'purchase') return 'Outflow';
-    return 'Outflow';
-  };
-
-  const getSourceEntity = (txn) => {
-    if (txn.user && typeof txn.user === 'object') {
-      return t('table.sourceEntity.user', { name: txn.user.name || txn.user.full_name || t('table.unknown') });
-    }
-    if (txn.agent && typeof txn.agent === 'object') {
-      return t('table.sourceEntity.agent', { name: txn.agent.name || txn.agent.full_name || t('table.unknown') });
-    }
-    return t('table.sourceEntity.system');
-  };
-
-  const getTargetEntity = (txn) => {
-    if (txn.recipient_wallet && typeof txn.recipient_wallet === 'object') {
-      const recipientUser = txn.recipient_wallet.user;
-      if (recipientUser && typeof recipientUser === 'object') {
-        return t('table.targetEntity.user', { name: recipientUser.name || recipientUser.full_name || t('table.unknown') });
-      }
-      return t('table.targetEntity.recipientWallet');
-    }
-    if (txn.transaction_type === 'purchase') return t('table.targetEntity.storePurchase');
-    if (txn.transaction_type === 'deposit') return t('table.targetEntity.walletDeposit');
-    return t('table.targetEntity.system');
-  };
-
-  const fetchTransactions = async () => {
-    try {
+  const fetchTransactions = useCallback(async ({ background = false } = {}) => {
+    if (!background) {
       setLoading(true);
-      setError(null);
+    }
 
+    setError('');
+
+    try {
       const response = await axiosInstance.get('transactions/transactions/');
-      setTransactions(response.data);
-    } catch (err) {
-      const errorMessage = err.response?.data?.detail
-        || err.response?.data?.error
-        || t('alerts.loadFailed');
-      setError(errorMessage);
-      console.error('Error fetching transactions:', err);
+      setTransactions(normalizeList(response.data));
+    } catch (fetchError) {
+      setTransactions([]);
+      setError(getApiError(fetchError, labels.loadFailed));
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleViewDetails = (transaction) => {
-    setSelectedTransaction(transaction);
-    setShowDetailsModal(true);
-  };
+  }, [labels.loadFailed]);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchTransactions();
     }
-  }, [isAuthenticated]);
+  }, [fetchTransactions, isAuthenticated]);
 
-  const transformedTransactions = useMemo(() => transactions.map((txn) => ({
-    id: txn.id,
-    TransactionID: `TXN-${txn.id.toString().padStart(6, '0')}`,
-    Timestamp: txn.created_at,
-    TransactionType: txn.transaction_type,
-    Status: txn.status,
-    Amount: parseFloat(txn.amount),
-    Currency: getWalletCurrency(txn.wallet),
-    Direction: getTransactionDirection(txn),
-    user: txn.user,
-    agent: txn.agent,
-    admin: txn.admin,
-    wallet: txn.wallet,
-    recipient_wallet: txn.recipient_wallet,
-    note: txn.note,
-    created_at: txn.created_at,
-    updated_at: txn.updated_at,
+  const getWalletCurrency = useCallback((wallet) => {
+    if (wallet && typeof wallet === 'object') {
+      return wallet.currency || wallet.currency_code || 'USD';
+    }
 
-    SourceEntityID: getSourceEntity(txn),
-    TargetEntityID: getTargetEntity(txn),
-    FeeAmount: 0,
-  })), [transactions, t]);
+    return 'USD';
+  }, []);
 
-  const filteredData = useMemo(() => transformedTransactions.filter((txn) => {
-    if (filters.currency !== 'All' && txn.Currency !== filters.currency) return false;
-    if (filters.status !== 'All' && txn.Status !== filters.status) return false;
-    if (filters.type !== 'All' && txn.TransactionType !== filters.type) return false;
+  const resolveActor = useCallback((transaction) => {
+    const wallet = transaction.wallet && typeof transaction.wallet === 'object'
+      ? transaction.wallet
+      : null;
 
-    if (filters.startDate && new Date(txn.Timestamp) < new Date(filters.startDate)) return false;
-    if (filters.endDate && new Date(txn.Timestamp) > new Date(`${filters.endDate}T23:59:59`)) return false;
+    const candidates = [
+      {
+        person: transaction.performed_by,
+        role: transaction.performed_by?.role || '',
+        source: 'performed_by',
+      },
+      {
+        person: transaction.created_by,
+        role: transaction.created_by?.role || '',
+        source: 'created_by',
+      },
+      {
+        person: transaction.initiated_by,
+        role: transaction.initiated_by?.role || '',
+        source: 'initiated_by',
+      },
+      {
+        person: transaction.actor,
+        role: transaction.actor?.role || '',
+        source: 'actor',
+      },
+      {
+        person: transaction.user,
+        role: labels.customer,
+        source: 'user',
+      },
+      {
+        person: transaction.agent,
+        role: labels.agent,
+        source: 'agent',
+      },
+      {
+        person: transaction.admin,
+        role: labels.admin,
+        source: 'admin',
+      },
+      {
+        person: wallet?.user,
+        role: labels.customer,
+        source: 'wallet.user',
+      },
+      {
+        person: wallet?.agent,
+        role: labels.agent,
+        source: 'wallet.agent',
+      },
+      {
+        person: wallet?.admin,
+        role: labels.admin,
+        source: 'wallet.admin',
+      },
+      {
+        person: wallet?.owner,
+        role: wallet?.owner?.role || labels.walletOwner,
+        source: 'wallet.owner',
+      },
+      {
+        person: wallet?.customer,
+        role: labels.customer,
+        source: 'wallet.customer',
+      },
+    ];
 
-    return true;
-  }), [transformedTransactions, filters]);
+    const matched = candidates.find((candidate) => (
+      candidate.person
+      && typeof candidate.person === 'object'
+      && (
+        pickPersonName(candidate.person)
+        || pickPersonId(candidate.person) !== null
+      )
+    ));
 
-  const stats = useMemo(() => {
-    const totalTransactions = filteredData.length;
-    const completedTransactions = filteredData.filter((t) => t.Status === 'approved').length;
-    const pendingTransactions = filteredData.filter((t) => t.Status === 'pending').length;
-    const rejectedTransactions = filteredData.filter((t) => t.Status === 'rejected').length;
+    if (matched) {
+      return {
+        name: pickPersonName(matched.person) || `#${pickPersonId(matched.person)}`,
+        id: pickPersonId(matched.person),
+        role: matched.role || matched.person.role || '',
+        source: matched.source,
+        isFallback: false,
+      };
+    }
 
-    const inflowUSD = filteredData
-      .filter((t) => t.Direction === 'Inflow' && t.Status === 'approved' && t.Currency === 'USD')
-      .reduce((sum, t) => sum + t.Amount, 0);
+    const flatName = (
+      transaction.performed_by_name
+      || transaction.created_by_name
+      || transaction.actor_name
+      || transaction.user_name
+      || transaction.username
+      || transaction.agent_name
+      || transaction.admin_name
+      || wallet?.user_name
+      || wallet?.owner_name
+      || ''
+    );
 
-    const outflowUSD = filteredData
-      .filter((t) => t.Direction === 'Outflow' && t.Status === 'approved' && t.Currency === 'USD')
-      .reduce((sum, t) => sum + t.Amount, 0);
+    const flatId = (
+      transaction.performed_by_id
+      ?? transaction.created_by_id
+      ?? transaction.actor_id
+      ?? transaction.user_id
+      ?? transaction.agent_id
+      ?? transaction.admin_id
+      ?? wallet?.user_id
+      ?? wallet?.owner_id
+      ?? null
+    );
 
-    const inflowSYP = filteredData
-      .filter((t) => t.Direction === 'Inflow' && t.Status === 'approved' && t.Currency === 'SYP')
-      .reduce((sum, t) => sum + t.Amount, 0);
-
-    const outflowSYP = filteredData
-      .filter((t) => t.Direction === 'Outflow' && t.Status === 'approved' && t.Currency === 'SYP')
-      .reduce((sum, t) => sum + t.Amount, 0);
+    if (flatName || flatId !== null) {
+      return {
+        name: flatName || `#${flatId}`,
+        id: flatId,
+        role: (
+          transaction.performed_by_role
+          || transaction.actor_role
+          || transaction.role
+          || ''
+        ),
+        source: 'flat-fields',
+        isFallback: false,
+      };
+    }
 
     return {
-      totalTransactions,
-      completedTransactions,
-      pendingTransactions,
-      rejectedTransactions,
-      inflowUSD,
-      outflowUSD,
-      inflowSYP,
-      outflowSYP,
+      name: labels.noActor,
+      id: null,
+      role: '',
+      source: 'missing',
+      isFallback: true,
+    };
+  }, [
+    labels.admin,
+    labels.agent,
+    labels.customer,
+    labels.noActor,
+    labels.walletOwner,
+  ]);
+
+  const getSource = useCallback((transaction, actor) => {
+    if (transaction.source && typeof transaction.source === 'object') {
+      return pickPersonName(transaction.source)
+        || transaction.source.name
+        || `#${pickPersonId(transaction.source)}`;
+    }
+
+    if (transaction.source_name) {
+      return transaction.source_name;
+    }
+
+    if (transaction.transaction_type === 'purchase') {
+      return actor.isFallback ? labels.noActor : actor.name;
+    }
+
+    if (
+      transaction.user
+      || transaction.agent
+      || transaction.admin
+      || transaction.wallet
+    ) {
+      return actor.isFallback ? labels.noActor : actor.name;
+    }
+
+    return labels.system;
+  }, [labels.noActor, labels.system]);
+
+  const getTarget = useCallback((transaction) => {
+    const recipientWallet = (
+      transaction.recipient_wallet
+      && typeof transaction.recipient_wallet === 'object'
+    )
+      ? transaction.recipient_wallet
+      : null;
+
+    const recipient = (
+      recipientWallet?.user
+      || recipientWallet?.agent
+      || recipientWallet?.owner
+      || null
+    );
+
+    if (recipient && typeof recipient === 'object') {
+      return pickPersonName(recipient)
+        || `#${pickPersonId(recipient)}`;
+    }
+
+    if (transaction.recipient_name) {
+      return transaction.recipient_name;
+    }
+
+    if (transaction.transaction_type === 'purchase') {
+      return isArabic ? 'شراء من المتجر' : 'Store purchase';
+    }
+
+    if (transaction.transaction_type === 'deposit') {
+      return isArabic ? 'إيداع محفظة' : 'Wallet deposit';
+    }
+
+    if (transaction.transaction_type === 'transfer') {
+      return isArabic ? 'محفظة مستلمة' : 'Recipient wallet';
+    }
+
+    return labels.system;
+  }, [isArabic, labels.system]);
+
+  const transformed = useMemo(() => transactions.map((item) => {
+    const actor = resolveActor(item);
+
+    return {
+      ...item,
+      transactionId: `TXN-${String(item.id).padStart(6, '0')}`,
+      timestamp: item.created_at,
+      type: item.transaction_type,
+      statusValue: item.status,
+      amountValue: Number(item.amount || 0),
+      currencyValue: getWalletCurrency(item.wallet),
+      actor,
+      sourceValue: getSource(item, actor),
+      targetValue: getTarget(item),
+    };
+  }), [
+    getSource,
+    getTarget,
+    getWalletCurrency,
+    resolveActor,
+    transactions,
+  ]);
+
+  const filteredData = useMemo(() => {
+    const needle = searchText.trim().toLowerCase();
+
+    return transformed.filter((item) => {
+      if (
+        filters.currency !== 'All'
+        && item.currencyValue !== filters.currency
+      ) {
+        return false;
+      }
+
+      if (
+        filters.status !== 'All'
+        && item.statusValue !== filters.status
+      ) {
+        return false;
+      }
+
+      if (
+        filters.type !== 'All'
+        && item.type !== filters.type
+      ) {
+        return false;
+      }
+
+      if (
+        filters.startDate
+        && new Date(item.timestamp) < new Date(filters.startDate)
+      ) {
+        return false;
+      }
+
+      if (
+        filters.endDate
+        && new Date(item.timestamp) > new Date(`${filters.endDate}T23:59:59`)
+      ) {
+        return false;
+      }
+
+      if (!needle) {
+        return true;
+      }
+
+      return [
+        item.transactionId,
+        item.actor?.name,
+        item.actor?.role,
+        item.sourceValue,
+        item.targetValue,
+        item.note,
+        item.type,
+        item.statusValue,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle));
+    });
+  }, [filters, searchText, transformed]);
+
+  const stats = useMemo(() => {
+    const approvedItems = filteredData.filter(
+      (item) => item.statusValue === 'approved',
+    );
+
+    const usdVolume = approvedItems
+      .filter((item) => item.currencyValue === 'USD')
+      .reduce((sum, item) => sum + item.amountValue, 0);
+
+    const sypVolume = approvedItems
+      .filter((item) => item.currencyValue === 'SYP')
+      .reduce((sum, item) => sum + item.amountValue, 0);
+
+    return {
+      total: filteredData.length,
+      approved: approvedItems.length,
+      pending: filteredData.filter(
+        (item) => item.statusValue === 'pending',
+      ).length,
+      usdVolume,
+      sypVolume,
     };
   }, [filteredData]);
 
-  const statusTemplate = (props) => {
-    const statusConfig = {
-      approved: { color: 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800', icon: '✅', text: t('status.approved') },
-      pending: { color: 'bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800', icon: '⏳', text: t('status.pending') },
-      rejected: { color: 'bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800', icon: '❌', text: t('status.rejected') },
-    };
-
-    const config = statusConfig[props.Status] || statusConfig.pending;
-
-    return (
-      <div className="flex items-center justify-center gap-2">
-        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${config.color}`}>
-          {config.icon} {config.text}
-        </span>
-      </div>
-    );
-  };
-
-  const amountTemplate = (props) => {
-    const isUSD = props.Currency === 'USD';
-    const isInflow = props.Direction === 'Inflow';
-    const amountColor = isInflow ? 'text-green-600' : 'text-red-600';
-    const symbol = isUSD ? '$' : '';
-    const formattedAmount = isUSD ? props.Amount.toFixed(2) : props.Amount.toLocaleString(i18n.resolvedLanguage);
-    const currencySuffix = isUSD ? '' : ` ${t(`currency.${props.Currency?.toLowerCase()}`, { defaultValue: props.Currency })}`;
-
-    return (
-      <div className={isArabic ? 'text-left' : 'text-right'}>
-        <div className={`font-semibold ${amountColor}`}>
-          {isInflow ? '+' : '-'}{symbol}{formattedAmount}{currencySuffix}
-        </div>
-        <div className="text-xs text-gray-500 capitalize">
-          {transactionValue('type', props.TransactionType, 'type.other')}
-        </div>
-      </div>
-    );
-  };
-
-  const entityTemplate = (props, field) => {
-    const entity = props[field];
-
-    let icon = '👤';
-    const text = entity || t('table.unknown');
-
-    if (field === 'SourceEntityID') {
-      icon = props.agent ? '🤵' : '👤';
-    } else if (field === 'TargetEntityID') {
-      icon = props.TransactionType === 'purchase' ? '🛒' : '👤';
-    }
-
-    return (
-      <div className="flex items-center gap-2 text-start">
-        <span className="text-sm shrink-0">{icon}</span>
-        <div>
-          <div className="text-sm font-medium truncate max-w-[150px] text-gray-900 dark:text-gray-100" title={text}>
-            {text}
-          </div>
-          {props.user?.name && (
-            <div className="text-xs text-gray-500 dark:text-gray-400">ID: {props.user.id}</div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const sourceTemplate = (props) => entityTemplate(props, 'SourceEntityID');
-  const targetTemplate = (props) => entityTemplate(props, 'TargetEntityID');
-
-  const typeTemplate = (props) => {
-    const typeIcons = {
-      deposit: '💰',
-      transfer: '🔄',
-      purchase: '🛒',
-    };
-
-    return (
-      <div className="flex items-center gap-2 text-start">
-        <span className="text-sm shrink-0">{typeIcons[props.TransactionType] || '📊'}</span>
-        <span className="text-sm font-medium capitalize text-gray-900 dark:text-gray-100">{transactionValue('type', props.TransactionType, 'type.other')}</span>
-      </div>
-    );
-  };
-
-  const handleApproveTransaction = async (transactionId) => {
-    if (!window.confirm(t('alerts.approveConfirm'))) return;
-
-    try {
-      setActionLoading(transactionId);
-      await axiosInstance.post(`transactions/approve/${transactionId}/`, {
-        action: 'approve',
-      });
-
-      await fetchTransactions();
-    } catch (err) {
-      const errorMessage = err.response?.data?.detail
-        || err.response?.data?.error
-        || t('alerts.approveFailed');
-      alert(t('alerts.errorPrefix', { message: errorMessage }));
-      console.error('Error approving transaction:', err);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRejectTransaction = async (transactionId) => {
-    const reason = prompt(t('alerts.rejectPrompt'));
-    if (!reason) return;
-
-    try {
-      setActionLoading(transactionId);
-      await axiosInstance.post(`transactions/approve/${transactionId}/`, {
-        action: 'reject',
-        reason,
-      });
-
-      await fetchTransactions();
-    } catch (err) {
-      const errorMessage = err.response?.data?.detail
-        || err.response?.data?.error
-        || t('alerts.rejectFailed');
-      alert(t('alerts.errorPrefix', { message: errorMessage }));
-      console.error('Error rejecting transaction:', err);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const actionsTemplate = (props) => (
-    <div className="flex gap-2 justify-center">
-      <button
-        type="button"
-        className="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-        onClick={() => handleViewDetails(props)}
-        title={t('table.tooltips.details')}
-        disabled={actionLoading}
-      >
-        👁️ {t('table.buttons.details')}
-      </button>
-      {props.Status === 'pending' && user?.role === 'admin' && (
-        <>
-          <button
-            type="button"
-            className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-            onClick={() => handleApproveTransaction(props.id)}
-            title={t('table.tooltips.approve')}
-            disabled={actionLoading === props.id}
-          >
-            {actionLoading === props.id ? '⏳' : '✅'} {t('table.buttons.approve')}
-          </button>
-          <button
-            type="button"
-            className="px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-            onClick={() => handleRejectTransaction(props.id)}
-            title={t('table.tooltips.reject')}
-            disabled={actionLoading === props.id}
-          >
-            {actionLoading === props.id ? '⏳' : '❌'} {t('table.buttons.reject')}
-          </button>
-        </>
-      )}
-    </div>
-  );
-
   const clearFilters = () => {
+    setSearchText('');
     setFilters({
       currency: 'All',
       status: 'All',
@@ -353,351 +526,744 @@ const Transactions = () => {
     });
   };
 
+  const formatAmount = (item) => {
+    if (item.currencyValue === 'USD') {
+      return `$${item.amountValue.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    }
+
+    return `${item.amountValue.toLocaleString(
+      isArabic ? 'ar-SY' : 'en-US',
+    )} SYP`;
+  };
+
   const handleExport = () => {
     const headers = [
-      t('table.headers.id'),
-      t('table.headers.dateTime'),
-      t('table.headers.type'),
-      t('table.headers.amount'),
-      t('table.headers.currency'),
-      t('table.headers.status'),
-      t('table.headers.source')
+      labels.id,
+      labels.date,
+      labels.type,
+      labels.actor,
+      labels.source,
+      labels.target,
+      labels.amount,
+      labels.currency,
+      labels.status,
     ];
-    const csvData = filteredData.map((txn) => [
-      txn.TransactionID,
-      new Date(txn.Timestamp).toLocaleString(i18n.resolvedLanguage),
-      t(`type.${txn.TransactionType?.toLowerCase()}`),
-      txn.Amount,
-      txn.Currency,
-      t(`status.${txn.Status}`),
-      txn.SourceEntityID,
+
+    const escapeCell = (value) => (
+      `"${String(value ?? '').replace(/"/g, '""')}"`
+    );
+
+    const rows = filteredData.map((item) => [
+      item.transactionId,
+      item.timestamp,
+      item.type,
+      item.actor?.name,
+      item.sourceValue,
+      item.targetValue,
+      item.amountValue,
+      item.currencyValue,
+      item.statusValue,
     ]);
 
     const csvContent = [
-      headers.join(','),
-      ...csvData.map((row) => row.join(',')),
+      headers.map(escapeCell).join(','),
+      ...rows.map((row) => row.map(escapeCell).join(',')),
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(
+      [csvContent],
+      { type: 'text/csv;charset=utf-8;' },
+    );
+
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`;
+    anchor.click();
+
     window.URL.revokeObjectURL(url);
   };
 
-  if (loading) {
-    return (
-      <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-        <Header category={t('category')} title={t('title')} />
-        <div className="flex justify-center items-center h-64">
-          <div className="text-xl text-gray-700 dark:text-gray-300">{t('common:common.loading')}</div>
+  const handleApprove = async (transactionId) => {
+    if (!window.confirm(labels.approveConfirm)) {
+      return;
+    }
+
+    setActionLoading(transactionId);
+
+    try {
+      await axiosInstance.post(
+        `transactions/approve/${transactionId}/`,
+        { action: 'approve' },
+      );
+
+      await fetchTransactions({ background: true });
+    } catch (actionError) {
+      window.alert(getApiError(actionError, labels.actionFailed));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (transactionId) => {
+    const reason = window.prompt(labels.rejectPrompt);
+
+    if (!reason) {
+      return;
+    }
+
+    setActionLoading(transactionId);
+
+    try {
+      await axiosInstance.post(
+        `transactions/approve/${transactionId}/`,
+        {
+          action: 'reject',
+          reason,
+        },
+      );
+
+      await fetchTransactions({ background: true });
+    } catch (actionError) {
+      window.alert(getApiError(actionError, labels.actionFailed));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const statusClass = (status) => {
+    if (status === 'rejected') {
+      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300';
+    }
+
+    if (status === 'pending') {
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300';
+    }
+
+    return 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
+  };
+
+  const StatCard = ({
+    label,
+    value,
+    icon,
+    helper,
+  }) => (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-start">
+          <p className="text-xs font-extrabold text-slate-400">
+            {label}
+          </p>
+          <p className="mt-2 text-xl font-black text-slate-950 dark:text-white">
+            {value}
+          </p>
+          {helper && (
+            <p className="mt-1 text-xs font-semibold text-slate-400">
+              {helper}
+            </p>
+          )}
+        </div>
+
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: `${accentColor}14`,
+            color: accentColor,
+          }}
+        >
+          {icon}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (error) {
+  if (loading && !transactions.length) {
     return (
-      <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-        <Header category={t('category')} title={t('title')} />
-        <div className="flex flex-col justify-center items-center h-64">
-          <div className="text-red-500 text-xl mb-4">{t('common:common.error')}: {error}</div>
-          <button
-            type="button"
-            onClick={fetchTransactions}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-          >
-            {t('common:common.tryAgain')}
-          </button>
-        </div>
+      <div className="flex min-h-[520px] items-center justify-center">
+        <FiRefreshCw className="animate-spin text-3xl text-slate-400" />
       </div>
     );
   }
 
   return (
-    <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-      <Header
-        category={t('category')}
-        title={t('title')}
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6 text-start">
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <p className="text-blue-800 dark:text-blue-200 font-semibold text-sm">{t('stats.total')}</p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalTransactions}</p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-            {t('stats.totalDesc', { count: stats.completedTransactions })}
-          </p>
-        </div>
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <p className="text-green-800 dark:text-green-200 font-semibold text-sm">{t('stats.inflowUSD')}</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-            ${stats.inflowUSD.toLocaleString(i18n.resolvedLanguage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">{t('stats.approvedDesc')}</p>
-        </div>
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-800 dark:text-red-200 font-semibold text-sm">{t('stats.outflowUSD')}</p>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-            ${stats.outflowUSD.toLocaleString(i18n.resolvedLanguage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">{t('stats.approvedDesc')}</p>
-        </div>
-        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <p className="text-purple-800 dark:text-purple-200 font-semibold text-sm">{t('stats.inflowSYP')}</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {stats.inflowSYP.toLocaleString(i18n.resolvedLanguage)} {t('currency.syp')}
-          </p>
-          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">{t('stats.approvedDesc')}</p>
-        </div>
-        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-          <p className="text-orange-800 dark:text-orange-200 font-semibold text-sm">{t('stats.outflowSYP')}</p>
-          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            {stats.outflowSYP.toLocaleString(i18n.resolvedLanguage)} {t('currency.syp')}
-          </p>
-          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{t('stats.approvedDesc')}</p>
-        </div>
-        <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-          <p className="text-indigo-800 dark:text-indigo-200 font-semibold text-sm">{t('stats.pending')}</p>
-          <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.pendingTransactions}</p>
-          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">{t('stats.pendingDesc')}</p>
-        </div>
-      </div>
-
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6 text-start">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200">{t('filterSection.title')}</h3>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleExport}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium flex items-center gap-2"
-            >
-              📊 {t('filterSection.buttons.export')}
-            </button>
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition text-sm font-medium flex items-center gap-2"
-            >
-              🗑️ {t('filterSection.buttons.clear')}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mt-3">
-          {filters.currency !== 'All' && (
-            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
-              {t('filterSection.badges.currency', { currency: t(`currency.${filters.currency?.toLowerCase()}`) })}
-            </span>
-          )}
-          {filters.status !== 'All' && (
-            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs rounded-full">
-              {t('filterSection.badges.status', { status: t(`status.${filters.status}`) })}
-            </span>
-          )}
-          {filters.type !== 'All' && (
-            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs rounded-full">
-              {t('filterSection.badges.type', { type: t(`type.${filters.type?.toLowerCase()}`) })}
-            </span>
-          )}
-          {filters.startDate && (
-            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 text-xs rounded-full">
-              {t('filterSection.badges.from', { date: filters.startDate })}
-            </span>
-          )}
-          {filters.endDate && (
-            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 text-xs rounded-full">
-              {t('filterSection.badges.to', { date: filters.endDate })}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <GridComponent
-        dataSource={filteredData}
-        allowPaging
-        allowSorting
-        allowFiltering
-        allowGrouping
-        toolbar={toolbarOptions}
-        pageSettings={{ pageSize: 15 }}
-        height={500}
-        enableHover
-        enableRtl={isArabic}
-        locale={isArabic ? 'ar' : 'en-US'}
+    <>
+      <div
+        dir={isArabic ? 'rtl' : 'ltr'}
+        className="mt-20 px-3 py-4 sm:px-5 md:mt-4 md:px-8 md:py-6"
       >
-        <ColumnsDirective>
-          <ColumnDirective
-            field="TransactionID"
-            headerText={t('table.headers.id')}
-            width="120"
-            textAlign="Center"
-          />
-          <ColumnDirective
-            field="Timestamp"
-            headerText={t('table.headers.dateTime')}
-            width="180"
-            format={{ type: 'dateTime', format: 'dd/MM/yyyy HH:mm' }}
-            textAlign={isArabic ? 'Right' : 'Left'}
-          />
-          <ColumnDirective
-            headerText={t('table.headers.type')}
-            width="160"
-            template={typeTemplate}
-            textAlign={isArabic ? 'Right' : 'Left'}
-          />
-          <ColumnDirective
-            headerText={t('table.headers.source')}
-            width="180"
-            template={sourceTemplate}
-            textAlign={isArabic ? 'Right' : 'Left'}
-          />
-          <ColumnDirective
-            headerText={t('table.headers.destination')}
-            width="180"
-            template={targetTemplate}
-            textAlign={isArabic ? 'Right' : 'Left'}
-          />
-          <ColumnDirective
-            headerText={t('table.headers.amount')}
-            width="140"
-            template={amountTemplate}
-            textAlign={isArabic ? 'Left' : 'Right'}
-          />
-          <ColumnDirective
-            field="Currency"
-            headerText={t('table.headers.currency')}
-            width="100"
-            textAlign="Center"
-          />
-          <ColumnDirective
-            headerText={t('table.headers.status')}
-            width="140"
-            textAlign="Center"
-            template={statusTemplate}
-          />
-          <ColumnDirective
-            headerText={t('table.headers.actions')}
-            width="200"
-            textAlign="Center"
-            template={actionsTemplate}
-          />
-        </ColumnsDirective>
-        <Inject services={[Page, Toolbar, Sort, Filter, Group]} />
-      </GridComponent>
+        <div className="mx-auto w-full max-w-7xl space-y-5">
+          <section className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-7">
+            <div
+              className="pointer-events-none absolute -end-24 -top-24 h-60 w-60 rounded-full opacity-[0.08]"
+              style={{ backgroundColor: accentColor }}
+            />
 
-      {showDetailsModal && selectedTransaction && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-          <div className="bg-white dark:bg-[#42464D] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto text-start border dark:border-gray-700">
-            <div className="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-3">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('modal.title')}</h2>
+            <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-center gap-4">
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl text-2xl text-white"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <FiRefreshCw />
+                </div>
+
+                <div className="text-start">
+                  <p
+                    className="text-xs font-black uppercase tracking-[0.16em]"
+                    style={{ color: accentColor }}
+                  >
+                    {labels.eyebrow}
+                  </p>
+                  <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white md:text-3xl">
+                    {labels.title}
+                  </h1>
+                  <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    {labels.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => fetchTransactions({ background: true })}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                >
+                  <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+                  {labels.refresh}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white transition hover:opacity-90"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <FiDownload />
+                  {labels.export}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {error && (
+            <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+              <FiAlertCircle />
+              <span className="flex-1 text-start">
+                {error}
+              </span>
+            </div>
+          )}
+
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard
+              label={labels.total}
+              value={stats.total}
+              helper={isArabic ? 'حسب الفلاتر الحالية' : 'Current filters'}
+              icon={<FiFilter />}
+            />
+            <StatCard
+              label={labels.approved}
+              value={stats.approved}
+              icon={<FiCheck />}
+            />
+            <StatCard
+              label={labels.pending}
+              value={stats.pending}
+              icon={<FiClock />}
+            />
+            <StatCard
+              label={labels.usdVolume}
+              value={`$${stats.usdVolume.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
+              icon={<span className="font-black">$</span>}
+            />
+            <StatCard
+              label={labels.sypVolume}
+              value={stats.sypVolume.toLocaleString(
+                isArabic ? 'ar-SY' : 'en-US',
+              )}
+              helper="SYP"
+              icon={<span className="text-xs font-black">SYP</span>}
+            />
+          </section>
+
+          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="text-start">
+                  <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                    {isArabic ? 'تصفية التحويلات' : 'Filter transactions'}
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-400">
+                    {isArabic
+                      ? 'الاسم الظاهر في الجدول مأخوذ من منفذ العملية أو صاحب المحفظة الموجود في استجابة الـ API.'
+                      : 'The actor shown below is resolved from the API actor or wallet owner.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+                >
+                  {labels.clear}
+                </button>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+                <div className="relative xl:col-span-2">
+                  <FiSearch className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder={labels.search}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white ps-10 pe-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  />
+                </div>
+
+                <select
+                  value={filters.currency}
+                  onChange={(event) => setFilters((previous) => ({
+                    ...previous,
+                    currency: event.target.value,
+                  }))}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <option value="All">{labels.allCurrencies}</option>
+                  <option value="USD">USD</option>
+                  <option value="SYP">SYP</option>
+                </select>
+
+                <select
+                  value={filters.status}
+                  onChange={(event) => setFilters((previous) => ({
+                    ...previous,
+                    status: event.target.value,
+                  }))}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <option value="All">{labels.allStatuses}</option>
+                  <option value="approved">
+                    {transactionValue('status', 'approved', 'status.unknown')}
+                  </option>
+                  <option value="pending">
+                    {transactionValue('status', 'pending', 'status.unknown')}
+                  </option>
+                  <option value="rejected">
+                    {transactionValue('status', 'rejected', 'status.unknown')}
+                  </option>
+                </select>
+
+                <select
+                  value={filters.type}
+                  onChange={(event) => setFilters((previous) => ({
+                    ...previous,
+                    type: event.target.value,
+                  }))}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <option value="All">{labels.allTypes}</option>
+                  <option value="deposit">
+                    {transactionValue('type', 'deposit', 'type.other')}
+                  </option>
+                  <option value="transfer">
+                    {transactionValue('type', 'transfer', 'type.other')}
+                  </option>
+                  <option value="purchase">
+                    {transactionValue('type', 'purchase', 'type.other')}
+                  </option>
+                </select>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(event) => setFilters((previous) => ({
+                      ...previous,
+                      startDate: event.target.value,
+                    }))}
+                    className="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  />
+                  <input
+                    type="date"
+                    value={filters.endDate}
+                    onChange={(event) => setFilters((previous) => ({
+                      ...previous,
+                      endDate: event.target.value,
+                    }))}
+                    className="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {!filteredData.length ? (
+            <section className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm font-black text-slate-400 dark:border-slate-700 dark:bg-secondary-dark-bg">
+              {labels.noResults}
+            </section>
+          ) : (
+            <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
+              <div className="overflow-x-auto">
+                <table className="min-w-[1320px] w-full">
+                  <thead className="bg-slate-50/80 dark:bg-slate-900/60">
+                    <tr className="border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.id}</th>
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.date}</th>
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.type}</th>
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.actor}</th>
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.source}</th>
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.target}</th>
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.amount}</th>
+                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.status}</th>
+                      <th className="px-4 py-3 text-center text-xs font-black text-slate-400">{labels.actions}</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredData.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
+                      >
+                        <td className="px-4 py-4 text-sm font-black text-slate-900 dark:text-white">
+                          {item.transactionId}
+                        </td>
+
+                        <td className="px-4 py-4 text-sm font-bold text-slate-500 dark:text-slate-400">
+                          {new Date(item.timestamp).toLocaleString(
+                            i18n.resolvedLanguage,
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4 text-sm font-black text-slate-700 dark:text-slate-200">
+                          {transactionValue('type', item.type, 'type.other')}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                              style={{
+                                backgroundColor: `${accentColor}14`,
+                                color: accentColor,
+                              }}
+                            >
+                              <FiUser />
+                            </div>
+
+                            <div className="min-w-0 text-start">
+                              <p
+                                className={`max-w-[190px] truncate text-sm font-black ${
+                                  item.actor.isFallback
+                                    ? 'text-amber-600 dark:text-amber-300'
+                                    : 'text-slate-900 dark:text-white'
+                                }`}
+                                title={item.actor.name}
+                              >
+                                {item.actor.name}
+                              </p>
+
+                              {!item.actor.isFallback && (
+                                <p className="mt-0.5 text-xs font-semibold text-slate-400">
+                                  {[
+                                    item.actor.role,
+                                    item.actor.id !== null
+                                      ? `#${item.actor.id}`
+                                      : '',
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' • ')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">
+                          {item.sourceValue}
+                        </td>
+
+                        <td className="px-4 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">
+                          {item.targetValue}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-black text-slate-950 dark:text-white">
+                            {formatAmount(item)}
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold text-slate-400">
+                            {item.currencyValue}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(item.statusValue)}`}
+                          >
+                            {transactionValue(
+                              'status',
+                              item.statusValue,
+                              'status.unknown',
+                            )}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTransaction(item)}
+                              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                              title={labels.details}
+                            >
+                              <FiEye />
+                            </button>
+
+                            {item.statusValue === 'pending' && user?.role === 'admin' && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={actionLoading === item.id}
+                                  onClick={() => handleApprove(item.id)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl text-white transition hover:opacity-90 disabled:opacity-50"
+                                  style={{ backgroundColor: accentColor }}
+                                  title={labels.approve}
+                                >
+                                  {actionLoading === item.id
+                                    ? <FiRefreshCw className="animate-spin" />
+                                    : <FiCheck />}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={actionLoading === item.id}
+                                  onClick={() => handleReject(item.id)}
+                                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300"
+                                  title={labels.reject}
+                                >
+                                  <FiX />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      {selectedTransaction && (
+        <div
+          dir={isArabic ? 'rtl' : 'ltr'}
+          className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+        >
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5 dark:border-slate-800 md:p-6">
+              <div className="text-start">
+                <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                  {labels.modalTitle}
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-slate-400">
+                  {selectedTransaction.transactionId}
+                </p>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setShowDetailsModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-lg font-bold"
+                onClick={() => setSelectedTransaction(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                ✕
+                <FiX />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('modal.sections.basic')}</h3>
-                <div className="space-y-2 text-sm text-gray-950 dark:text-gray-150">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.id')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{selectedTransaction.TransactionID}</span>
+            <div className="space-y-4 p-5 md:p-6">
+              <section className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <h3 className="font-black text-slate-900 dark:text-white">
+                  {labels.actor}
+                </h3>
+
+                <div className="mt-3 flex items-center gap-3">
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${accentColor}14`,
+                      color: accentColor,
+                    }}
+                  >
+                    <FiUser />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.type')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {transactionValue('type', selectedTransaction.TransactionType, 'type.other')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.status')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {transactionValue('status', selectedTransaction.Status, 'status.unknown')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.dateTime')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {new Date(selectedTransaction.Timestamp).toLocaleString(i18n.resolvedLanguage)}
-                    </span>
+
+                  <div className="text-start">
+                    <p className="font-black text-slate-900 dark:text-white">
+                      {selectedTransaction.actor.name}
+                    </p>
+
+                    {!selectedTransaction.actor.isFallback && (
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        {[
+                          selectedTransaction.actor.role,
+                          selectedTransaction.actor.id !== null
+                            ? `ID: ${selectedTransaction.actor.id}`
+                            : '',
+                          `source: ${selectedTransaction.actor.source}`,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')}
+                      </p>
+                    )}
                   </div>
                 </div>
+              </section>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <section className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                  <h3 className="font-black text-slate-900 dark:text-white">
+                    {labels.basic}
+                  </h3>
+
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="font-bold text-slate-400">
+                        {labels.id}
+                      </span>
+                      <span className="font-black text-slate-800 dark:text-slate-100">
+                        {selectedTransaction.transactionId}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                      <span className="font-bold text-slate-400">
+                        {labels.type}
+                      </span>
+                      <span className="font-black text-slate-800 dark:text-slate-100">
+                        {transactionValue(
+                          'type',
+                          selectedTransaction.type,
+                          'type.other',
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                      <span className="font-bold text-slate-400">
+                        {labels.status}
+                      </span>
+                      <span className="font-black text-slate-800 dark:text-slate-100">
+                        {transactionValue(
+                          'status',
+                          selectedTransaction.statusValue,
+                          'status.unknown',
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                      <span className="font-bold text-slate-400">
+                        {labels.date}
+                      </span>
+                      <span className="text-end font-black text-slate-800 dark:text-slate-100">
+                        {new Date(
+                          selectedTransaction.timestamp,
+                        ).toLocaleString(i18n.resolvedLanguage)}
+                      </span>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                  <h3 className="font-black text-slate-900 dark:text-white">
+                    {labels.financial}
+                  </h3>
+
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="font-bold text-slate-400">
+                        {labels.amount}
+                      </span>
+                      <span className="font-black text-slate-900 dark:text-white">
+                        {formatAmount(selectedTransaction)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                      <span className="font-bold text-slate-400">
+                        {labels.currency}
+                      </span>
+                      <span className="font-black text-slate-800 dark:text-slate-100">
+                        {selectedTransaction.currencyValue}
+                      </span>
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('modal.sections.financial')}</h3>
-                <div className="space-y-2 text-sm text-gray-950 dark:text-gray-150">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.amount')}</span>
-                    <span className={`font-bold ${
-                      selectedTransaction.Direction === 'Inflow' ? 'text-green-600' : 'text-red-600'
-                    }`}
-                    >
-                      {selectedTransaction.Direction === 'Inflow' ? '+' : '-'}
-                      {selectedTransaction.Currency === 'USD' ? '$' : ''}
-                      {selectedTransaction.Amount.toLocaleString(i18n.resolvedLanguage, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      {selectedTransaction.Currency === 'USD' ? '' : ` ${t(`currency.${selectedTransaction.Currency?.toLowerCase()}`)}`}
-                    </span>
+              <section className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <h3 className="font-black text-slate-900 dark:text-white">
+                  {labels.parties}
+                </h3>
+
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <div className="text-start">
+                    <p className="text-xs font-black text-slate-400">
+                      {labels.source}
+                    </p>
+                    <p className="mt-1 font-black text-slate-800 dark:text-slate-100">
+                      {selectedTransaction.sourceValue}
+                    </p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.currency')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{t(`currency.${selectedTransaction.Currency?.toLowerCase()}`, { defaultValue: selectedTransaction.Currency })}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">{t('modal.labels.direction')}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {t(`direction.${selectedTransaction.Direction?.toLowerCase()}`, { defaultValue: selectedTransaction.Direction })}
-                    </span>
+
+                  <div className="text-start">
+                    <p className="text-xs font-black text-slate-400">
+                      {labels.target}
+                    </p>
+                    <p className="mt-1 font-black text-slate-800 dark:text-slate-100">
+                      {selectedTransaction.targetValue}
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
+              </section>
 
-            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-sm text-gray-950 dark:text-gray-150">
-              <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('modal.sections.parties')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">{t('modal.sections.source')}</h4>
-                  <p className="text-sm text-gray-900 dark:text-white">{selectedTransaction.SourceEntityID}</p>
-                  {selectedTransaction.user && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('modal.labels.userId')} {selectedTransaction.user.id}</p>
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">{t('modal.sections.destination')}</h4>
-                  <p className="text-sm text-gray-900 dark:text-white">{selectedTransaction.TargetEntityID}</p>
-                </div>
-              </div>
-            </div>
+              {selectedTransaction.note && (
+                <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                  <h3 className="font-black text-amber-800 dark:text-amber-300">
+                    {labels.notes}
+                  </h3>
+                  <p className="mt-2 whitespace-pre-wrap text-sm font-bold text-amber-700 dark:text-amber-200">
+                    {selectedTransaction.note}
+                  </p>
+                </section>
+              )}
 
-            {selectedTransaction.note && (
-              <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-lg mt-4 border border-yellow-200 dark:border-yellow-900">
-                <h3 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">{t('modal.sections.notes')}</h3>
-                <p className="text-sm text-yellow-700 dark:text-yellow-300">{selectedTransaction.note}</p>
+              <div className="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTransaction(null)}
+                  className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+                >
+                  {labels.close}
+                </button>
               </div>
-            )}
-
-            <div className="flex justify-end gap-3 mt-6 border-t dark:border-gray-700 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowDetailsModal(false)}
-                className="px-6 py-2.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
-              >
-                {t('modal.buttons.close')}
-              </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

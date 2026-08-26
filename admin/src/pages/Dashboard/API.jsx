@@ -1,222 +1,423 @@
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
-  AccumulationChartComponent,
-  AccumulationDataLabel,
-  AccumulationLegend,
-  AccumulationSeriesCollectionDirective,
-  AccumulationSeriesDirective,
-  AccumulationTooltip,
-  Inject as ChartInject,
-  PieSeries,
-} from '@syncfusion/ej2-react-charts';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+  FiActivity,
+  FiAlertCircle,
+  FiBarChart2,
+  FiCheck,
+  FiClock,
+  FiDatabase,
+  FiExternalLink,
+  FiKey,
+  FiLink,
+  FiPackage,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiServer,
+  FiSettings,
+  FiX,
+  FiZap,
+} from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import ProviderDistribution from '../../components/ProviderDistribution';
 
-import { Header } from '../../components';
-import { useAuth } from '../../contexts/AuthContext';
 import axiosInstance from '../../utils/axiosConfig';
+import { useStateContext } from '../../contexts/ContextProvider';
 
-const ApiTable = ({ data, onTestConnection, onSyncProducts, onViewTransactions, testingConnection, syncingProducts }) => {
-  const { t, i18n } = useTranslation(['api', 'common']);
-  const isArabic = i18n.resolvedLanguage === 'ar';
-  const [showApiKey, setShowApiKey] = useState({});
-
-  const toggleApiKeyVisibility = (apiId) => {
-    setShowApiKey(prev => ({
-      ...prev,
-      [apiId]: !prev[apiId],
-    }));
-  };
-
-  const StatusBadge = ({ isActive }) => {
-    const statusConfig = {
-      true: { color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300', icon: '🟢', text: t('table.status.active') },
-      false: { color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300', icon: '🔴', text: t('table.status.inactive') }
-    };
-
-    const config = statusConfig[isActive.toString()] || statusConfig.false;
-
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${config.color} flex items-center gap-1 justify-center`}>
-        {config.icon} {config.text}
-      </span>
-    );
-  };
-
-  const ProviderBadge = ({ provider }) => {
-    const providerConfig = {
-      daily: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', icon: '🌐', text: t('provider.daily') },
-      alfaour: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', icon: '💳', text: t('provider.alfaour') },
-      alaaeddin: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300', icon: '🛒', text: t('provider.alaaeddin') }
-    };
-
-    const config = providerConfig[provider] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300', icon: '🔧', text: provider };
-
-    return (
-      <span className={`px-2 py-1 rounded text-xs font-medium ${config.color}`}>
-        {config.icon} {config.text}
-      </span>
-    );
-  };
-
-  const ApiKeyDisplay = ({ api }) => {
-    const hasApiKey = api.encrypted_api_key && api.is_connected;
-    const isVisible = showApiKey[api.id];
-
-    return (
-      <div className="text-center">
-        <div className="flex items-center justify-center gap-2">
-          <span className="font-mono text-sm dark:text-white">
-            {hasApiKey ? (isVisible ? '••••••••' : '••••••••') : t('table.status.notSet')}
-          </span>
-          {hasApiKey && (
-            <button
-              onClick={() => toggleApiKeyVisibility(api.id)}
-              className="text-blue-500 hover:text-blue-700 text-xs p-1"
-              title={isVisible ? t('table.tooltips.hideKey') : t('table.tooltips.showKey')}
-              type="button"
-              aria-label={isVisible ? t('table.tooltips.hideKey') : t('table.tooltips.showKey')}
-            >
-              {isVisible ? '👁️' : '👁️‍🗨️'}
-            </button>
-          )}
-        </div>
-        <div className={`text-xs mt-1 ${api.is_connected ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-          {api.is_connected ? t('table.status.connected') : t('table.status.notConnected')}
-        </div>
-      </div>
-    );
-  };
-
-  if (data.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-        {t('table.noApis')}
-      </div>
-    );
+const normalizeList = (value) => {
+  if (Array.isArray(value)) {
+    return value;
   }
 
-  const thClass = `px-4 py-3 ${isArabic ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`;
+  if (Array.isArray(value?.results)) {
+    return value.results;
+  }
+
+  if (Array.isArray(value?.data)) {
+    return value.data;
+  }
+
+  return [];
+};
+
+const getApiError = (error, fallback) => {
+  const data = error?.response?.data;
+
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-700">
-        <thead>
-          <tr className="bg-gray-50 dark:bg-gray-800">
-            <th className={thClass}>{t('table.headers.id')}</th>
-            <th className={thClass}>{t('table.headers.name')}</th>
-            <th className={thClass}>{t('table.headers.provider')}</th>
-            <th className={thClass}>{t('table.headers.baseUrl')}</th>
-            <th className={thClass}>{t('table.headers.description')}</th>
-            <th className={thClass}>{t('table.headers.priority')}</th>
-            <th className={thClass}>{t('table.headers.dailyLimit')}</th>
-            <th className={thClass}>{t('table.headers.status')}</th>
-            <th className={thClass}>{t('table.headers.apiKey')}</th>
-            <th className={thClass}>{t('table.headers.actions')}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-          {data.map((api) => (
-            <tr key={api.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-200">{api.id}</td>
-              <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{api.name}</td>
-              <td className="px-4 py-3 text-sm">
-                <ProviderBadge provider={api.provider} />
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-200">
-                <div className="max-w-xs truncate text-start" title={api.base_url}>
-                  {api.base_url}
-                </div>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-200">
-                <div className="max-w-xs truncate text-start" title={api.description}>
-                  {api.description || '-'}
-                </div>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-200 text-center">{api.priority}</td>
-              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-200 text-center">
-                {api.max_daily_limit || t('common:limit.noLimit', 'No limit')}
-              </td>
-              <td className="px-4 py-3 text-sm">
-                <StatusBadge isActive={api.is_active} />
-              </td>
-              <td className="px-4 py-3 text-sm">
-                <ApiKeyDisplay api={api} />
-              </td>
-              <td className="px-4 py-3 text-sm">
-                <div className="flex flex-col gap-2">
-                  <button
-                    className={`px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-xs font-medium flex items-center justify-center gap-1 ${
-                      testingConnection === api.id ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    onClick={() => onTestConnection(api.id, api.name)}
-                    disabled={testingConnection === api.id}
-                    type="button"
-                  >
-                    {testingConnection === api.id ? '⏳' : '🔌'}
-                    {testingConnection === api.id ? t('table.buttons.testing') : t('table.buttons.test')}
-                  </button>
-                  <button
-                    className={`px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition text-xs font-medium flex items-center justify-center gap-1 ${
-                      syncingProducts === api.id ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    onClick={() => onSyncProducts(api.id, api.name)}
-                    disabled={syncingProducts === api.id}
-                    type="button"
-                  >
-                    {syncingProducts === api.id ? '⏳' : '🔄'}
-                    {syncingProducts === api.id ? t('table.buttons.syncing') : t('table.buttons.sync')}
-                  </button>
-                  <button
-                    className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 transition text-xs font-medium flex items-center justify-center gap-1"
-                    onClick={() => onViewTransactions(api.id, api.name)}
-                    type="button"
-                  >
-                    📊 {t('table.buttons.logs')}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    data?.error
+    || data?.detail
+    || data?.message
+    || error?.message
+    || fallback
+  );
+};
+
+const getProviderName = (provider, isArabic) => {
+  const map = {
+    daily: isArabic ? 'ديلي' : 'Daily',
+    alfaour: isArabic ? 'الفاغور' : 'Alfaour',
+    alaaeddin: isArabic ? 'علاء الدين' : 'Alaaeddin',
+  };
+
+  return map[provider] || provider || (isArabic ? 'غير محدد' : 'Unknown');
+};
+
+const formatLimit = (value, isArabic) => {
+  if (value === null || value === undefined || value === '') {
+    return isArabic ? 'بلا حد' : 'No limit';
+  }
+
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return String(value);
+  }
+
+  return numeric.toLocaleString(isArabic ? 'ar-SY' : 'en-US', {
+    maximumFractionDigits: 2,
+  });
+};
+
+const StatCard = ({
+  icon,
+  label,
+  value,
+  helper,
+  accentColor,
+}) => (
+  <div
+    className="
+      rounded-2xl border border-slate-100 bg-white p-4 shadow-sm
+      transition duration-200 hover:-translate-y-0.5 hover:shadow-md
+      dark:border-slate-800 dark:bg-secondary-dark-bg
+    "
+  >
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 text-start">
+        <p className="text-xs font-extrabold text-slate-400">
+          {label}
+        </p>
+        <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
+          {value}
+        </p>
+        {helper && (
+          <p className="mt-1 truncate text-xs font-semibold text-slate-400">
+            {helper}
+          </p>
+        )}
+      </div>
+
+      <div
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-lg"
+        style={{
+          backgroundColor: `${accentColor}14`,
+          color: accentColor,
+        }}
+      >
+        {icon}
+      </div>
+    </div>
+  </div>
+);
+
+const StatusBadge = ({ active, isArabic }) => (
+  <span
+    className={`
+      inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black
+      ${
+        active
+          ? 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700'
+          : 'bg-red-50 text-red-700 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-900/40'
+      }
+    `}
+  >
+    <span
+      className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-current' : 'bg-red-500'}`}
+    />
+    {active
+      ? (isArabic ? 'نشط' : 'Active')
+      : (isArabic ? 'غير نشط' : 'Inactive')}
+  </span>
+);
+
+const ConnectionBadge = ({ connected, isArabic, accentColor }) => (
+  <span
+    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black ring-1"
+    style={connected
+      ? {
+        backgroundColor: `${accentColor}10`,
+        color: accentColor,
+        boxShadow: `inset 0 0 0 1px ${accentColor}22`,
+      }
+      : undefined}
+  >
+    <span
+      className="h-1.5 w-1.5 rounded-full"
+      style={{
+        backgroundColor: connected ? accentColor : '#94a3b8',
+      }}
+    />
+    {connected
+      ? (isArabic ? 'متصل' : 'Connected')
+      : (isArabic ? 'غير متصل' : 'Disconnected')}
+  </span>
+);
+
+const InfoRow = ({ icon, label, value, dir }) => (
+  <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-900/40">
+    <div className="mb-2 flex items-center gap-2 text-xs font-extrabold text-slate-400">
+      <span>{icon}</span>
+      <span>{label}</span>
+    </div>
+    <p
+      dir={dir}
+      className="break-words text-sm font-black text-slate-800 dark:text-slate-100"
+    >
+      {value || '—'}
+    </p>
+  </div>
+);
+
+const ApiCard = ({
+  api,
+  isArabic,
+  accentColor,
+  testing,
+  syncing,
+  onTest,
+  onSync,
+  onLogs,
+}) => {
+  const providerName = getProviderName(api.provider, isArabic);
+
+  return (
+    <article
+      className="
+        overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm
+        transition duration-200 hover:-translate-y-0.5 hover:shadow-md
+        dark:border-slate-800 dark:bg-secondary-dark-bg
+      "
+    >
+      <div className="border-b border-slate-100 p-5 dark:border-slate-800">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl"
+              style={{
+                backgroundColor: `${accentColor}14`,
+                color: accentColor,
+              }}
+            >
+              <FiServer />
+            </div>
+
+            <div className="min-w-0 text-start">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="truncate text-lg font-black text-slate-950 dark:text-white">
+                  {api.name || (isArabic ? 'واجهة بدون اسم' : 'Unnamed API')}
+                </h3>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                  #{api.id}
+                </span>
+              </div>
+
+              <p className="mt-1 text-xs font-bold text-slate-400">
+                {providerName}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge active={Boolean(api.is_active)} isArabic={isArabic} />
+            <ConnectionBadge
+              connected={Boolean(api.is_connected)}
+              isArabic={isArabic}
+              accentColor={accentColor}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <InfoRow
+            icon={<FiLink />}
+            label={isArabic ? 'الرابط الأساسي' : 'Base URL'}
+            value={api.base_url}
+            dir="ltr"
+          />
+          <InfoRow
+            icon={<FiZap />}
+            label={isArabic ? 'الأولوية' : 'Priority'}
+            value={String(api.priority ?? 1)}
+          />
+          <InfoRow
+            icon={<FiClock />}
+            label={isArabic ? 'الحد اليومي' : 'Daily limit'}
+            value={formatLimit(api.max_daily_limit, isArabic)}
+          />
+          <InfoRow
+            icon={<FiPackage />}
+            label={isArabic ? 'عدد المنتجات' : 'Products'}
+            value={String(api.products_count ?? 0)}
+          />
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <InfoRow
+            icon={<FiKey />}
+            label={isArabic ? 'مفتاح API' : 'API key'}
+            value={api.encrypted_api_key
+              ? (isArabic ? 'مُعد ومشفّر' : 'Configured & encrypted')
+              : (isArabic ? 'غير محدد' : 'Not configured')}
+          />
+          <InfoRow
+            icon={<FiSettings />}
+            label={isArabic ? 'الوصف' : 'Description'}
+            value={api.description || (isArabic ? 'لا يوجد وصف' : 'No description')}
+          />
+        </div>
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <button
+            type="button"
+            disabled={testing}
+            onClick={onTest}
+            className="
+              inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl px-4
+              text-sm font-black text-white transition hover:opacity-90
+              disabled:cursor-not-allowed disabled:opacity-50
+            "
+            style={{ backgroundColor: accentColor }}
+          >
+            {testing ? <FiRefreshCw className="animate-spin" /> : <FiActivity />}
+            {testing
+              ? (isArabic ? 'جاري الاختبار...' : 'Testing...')
+              : (isArabic ? 'اختبار الاتصال' : 'Test connection')}
+          </button>
+
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={onSync}
+            className="
+              inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border
+              border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition
+              hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50
+              dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800
+            "
+          >
+            {syncing ? <FiRefreshCw className="animate-spin" /> : <FiRefreshCw />}
+            {syncing
+              ? (isArabic ? 'جاري المزامنة...' : 'Syncing...')
+              : (isArabic ? 'مزامنة المنتجات' : 'Sync products')}
+          </button>
+
+          <button
+            type="button"
+            onClick={onLogs}
+            className="
+              inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border
+              border-slate-200 bg-slate-50 px-4 text-sm font-black text-slate-600 transition
+              hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/70
+              dark:text-slate-300 dark:hover:bg-slate-800
+            "
+          >
+            <FiBarChart2 />
+            {isArabic ? 'السجلات' : 'Logs'}
+            <FiExternalLink className="text-xs" />
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+};
+
+const ModalShell = ({
+  open,
+  title,
+  subtitle,
+  onClose,
+  busy,
+  accentColor,
+  children,
+}) => {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/10 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        <div className="relative overflow-hidden border-b border-slate-100 px-5 py-5 dark:border-slate-800 md:px-6">
+          <div
+            className="pointer-events-none absolute -end-16 -top-20 h-40 w-40 rounded-full opacity-[0.08]"
+            style={{ backgroundColor: accentColor }}
+          />
+
+          <div className="relative z-10 flex items-start justify-between gap-4">
+            <div className="min-w-0 text-start">
+              <h3 className="text-xl font-black text-slate-950 dark:text-white">
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="mt-1 text-sm font-semibold text-slate-400">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onClose}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800 dark:hover:text-white"
+            >
+              <FiX />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 md:p-6">
+          {children}
+        </div>
+      </div>
     </div>
   );
 };
 
-const useApi = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+const FieldLabel = ({ children }) => (
+  <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+    {children}
+  </span>
+);
 
-  const callApi = useCallback(async (apiCall, successMessage = null) => {
-    setLoading(true);
-    setError(null);
+const fieldClassName = `
+  w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold
+  text-slate-900 outline-none transition focus:border-slate-400
+  dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500
+`;
 
-    try {
-      const result = await apiCall();
-      if (successMessage) {
-        console.log(successMessage, result);
-      }
-      return { success: true, data: result };
-    } catch (err) {
-      const errorMessage = err.response?.data?.error || err.response?.data?.detail || err.response?.data?.message 
-      || 'Operation failed';
-      setError(errorMessage);
-      console.error('API Error:', err);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return { loading, error, callApi, setError };
-};
-
-const AddApiModal = ({ isOpen, onClose, onSave, loading }) => {
-  const { t, i18n } = useTranslation(['api', 'common']);
-  const isArabic = i18n.resolvedLanguage === 'ar';
-
-  const [formData, setFormData] = useState({
+const AddApiModal = ({
+  open,
+  onClose,
+  onSave,
+  busy,
+  isArabic,
+  accentColor,
+}) => {
+  const initialForm = useMemo(() => ({
     name: '',
     provider: 'daily',
     base_url: '',
@@ -225,730 +426,888 @@ const AddApiModal = ({ isOpen, onClose, onSave, loading }) => {
     priority: 1,
     max_daily_limit: '',
     is_active: true,
-  });
+  }), []);
 
+  const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
-  const isMounted = useRef(true);
 
   useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
+    if (!open) {
+      setForm(initialForm);
+      setErrors({});
+    }
+  }, [initialForm, open]);
 
-  const handleChange = (field, value) => {
-    if (!isMounted.current) return;
-
-    setFormData(prev => ({
-      ...prev,
+  const updateField = (field, value) => {
+    setForm((previous) => ({
+      ...previous,
       [field]: value,
     }));
+
     if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
+      setErrors((previous) => ({
+        ...previous,
         [field]: '',
       }));
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const validate = () => {
+    const nextErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = t('modal.validation.nameRequired');
+    if (!form.name.trim()) {
+      nextErrors.name = isArabic ? 'اسم الـ API مطلوب.' : 'API name is required.';
     }
 
-    if (!formData.base_url.trim()) {
-      newErrors.base_url = t('modal.validation.urlRequired');
-    } else if (!isValidUrl(formData.base_url)) {
-      newErrors.base_url = t('modal.validation.urlInvalid');
+    if (!form.base_url.trim()) {
+      nextErrors.base_url = isArabic ? 'الرابط الأساسي مطلوب.' : 'Base URL is required.';
+    } else {
+      try {
+        new URL(form.base_url);
+      } catch (_) {
+        nextErrors.base_url = isArabic ? 'الرابط غير صالح.' : 'Invalid URL.';
+      }
     }
 
-    if (!formData.api_key.trim()) {
-      newErrors.api_key = t('modal.validation.keyRequired');
+    if (!form.api_key.trim()) {
+      nextErrors.api_key = isArabic ? 'مفتاح API مطلوب.' : 'API key is required.';
     }
 
-    if (formData.priority < 1 || formData.priority > 10) {
-      newErrors.priority = t('modal.validation.priorityRange');
+    const priority = Number(form.priority);
+    if (!Number.isFinite(priority) || priority < 1 || priority > 10) {
+      nextErrors.priority = isArabic
+        ? 'الأولوية يجب أن تكون بين 1 و10.'
+        : 'Priority must be between 1 and 10.';
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
-  const isValidUrl = (string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  };
+  const submit = async (event) => {
+    event.preventDefault();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
+    if (!validate()) {
       return;
     }
 
-    const success = await onSave(formData);
-    if (success && isMounted.current) {
-      setFormData({
-        name: '',
-        provider: 'daily',
-        base_url: '',
-        description: '',
-        api_key: '',
-        priority: 1,
-        max_daily_limit: '',
-        is_active: true,
-      });
+    const saved = await onSave(form);
+    if (saved) {
+      setForm(initialForm);
       setErrors({});
     }
   };
 
-  const handleClose = () => {
-    if (!isMounted.current) return;
-
-    setFormData({
-      name: '',
-      provider: 'daily',
-      base_url: '',
-      description: '',
-      api_key: '',
-      priority: 1,
-      max_daily_limit: '',
-      is_active: true
-    });
-    setErrors({});
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className={`bg-white dark:bg-secondary-dark-bg rounded-lg p-6 w-full max-w-md mx-4 text-start`}>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-850 dark:text-white">{t('modal.titleAdd')}</h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl"
-            type="button"
-            aria-label="Close modal"
-          >
-            ×
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-750 dark:text-gray-300 mb-1">
-              {t('modal.labels.name')}
-            </label>
+    <ModalShell
+      open={open}
+      title={isArabic ? 'إضافة واجهة API جديدة' : 'Add new API'}
+      subtitle={isArabic
+        ? 'أدخل بيانات المزود والاتصال ثم احفظ الواجهة.'
+        : 'Enter provider and connection details, then save.'}
+      onClose={onClose}
+      busy={busy}
+      accentColor={accentColor}
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <FieldLabel>{isArabic ? 'اسم API' : 'API name'}</FieldLabel>
             <input
               type="text"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              className={`w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-650 dark:text-white ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder={t('modal.placeholders.name')}
+              value={form.name}
+              onChange={(event) => updateField('name', event.target.value)}
+              className={`${fieldClassName} ${errors.name ? 'border-red-400' : ''}`}
+              placeholder={isArabic ? 'مثال: Daily' : 'Example: Daily'}
             />
             {errors.name && (
-              <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+              <p className="mt-1 text-xs font-bold text-red-500">{errors.name}</p>
             )}
-          </div>
+          </label>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-755 dark:text-gray-300 mb-1">
-              {t('modal.labels.provider')}
-            </label>
+          <label className="block">
+            <FieldLabel>{isArabic ? 'المزود' : 'Provider'}</FieldLabel>
             <select
-              value={formData.provider}
-              onChange={(e) => handleChange('provider', e.target.value)}
-              className="w-full p-2 border border-gray-300 dark:border-gray-650 dark:bg-gray-700 dark:text-white rounded"
+              value={form.provider}
+              onChange={(event) => updateField('provider', event.target.value)}
+              className={fieldClassName}
             >
-              <option value="daily">{t('provider.daily')}</option>
-              <option value="alfaour">{t('provider.alfaour')}</option>
-              <option value="alaaeddin">{t('provider.alaaeddin')}</option>
+              <option value="daily">Daily</option>
+              <option value="alfaour">Alfaour</option>
+              <option value="alaaeddin">Alaaeddin</option>
             </select>
-          </div>
+          </label>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-755 dark:text-gray-300 mb-1">
-              {t('modal.labels.baseUrl')}
-            </label>
+        <label className="block">
+          <FieldLabel>{isArabic ? 'الرابط الأساسي' : 'Base URL'}</FieldLabel>
+          <input
+            type="url"
+            dir="ltr"
+            value={form.base_url}
+            onChange={(event) => updateField('base_url', event.target.value)}
+            className={`${fieldClassName} ${errors.base_url ? 'border-red-400' : ''}`}
+            placeholder="https://api.example.com"
+          />
+          {errors.base_url && (
+            <p className="mt-1 text-xs font-bold text-red-500">{errors.base_url}</p>
+          )}
+        </label>
+
+        <label className="block">
+          <FieldLabel>{isArabic ? 'مفتاح API' : 'API key'}</FieldLabel>
+          <input
+            type="password"
+            dir="ltr"
+            value={form.api_key}
+            onChange={(event) => updateField('api_key', event.target.value)}
+            className={`${fieldClassName} ${errors.api_key ? 'border-red-400' : ''}`}
+            placeholder="••••••••••••••••"
+          />
+          {errors.api_key && (
+            <p className="mt-1 text-xs font-bold text-red-500">{errors.api_key}</p>
+          )}
+        </label>
+
+        <label className="block">
+          <FieldLabel>{isArabic ? 'الوصف' : 'Description'}</FieldLabel>
+          <textarea
+            rows="3"
+            value={form.description}
+            onChange={(event) => updateField('description', event.target.value)}
+            className={`${fieldClassName} resize-none`}
+            placeholder={isArabic ? 'ملاحظات اختيارية عن المزود...' : 'Optional provider notes...'}
+          />
+        </label>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="block">
+            <FieldLabel>{isArabic ? 'الأولوية' : 'Priority'}</FieldLabel>
             <input
-              type="url"
-              value={formData.base_url}
-              onChange={(e) => handleChange('base_url', e.target.value)}
-              className={`w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-650 dark:text-white ${
-                errors.base_url ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder={t('modal.placeholders.baseUrl')}
+              type="number"
+              min="1"
+              max="10"
+              value={form.priority}
+              onChange={(event) => updateField('priority', event.target.value)}
+              className={`${fieldClassName} ${errors.priority ? 'border-red-400' : ''}`}
             />
-            {errors.base_url && (
-              <p className="text-red-500 text-xs mt-1">{errors.base_url}</p>
+            {errors.priority && (
+              <p className="mt-1 text-xs font-bold text-red-500">{errors.priority}</p>
             )}
-          </div>
+          </label>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-755 dark:text-gray-300 mb-1">
-              {t('modal.labels.apiKey')}
-            </label>
+          <label className="block">
+            <FieldLabel>{isArabic ? 'الحد اليومي' : 'Daily limit'}</FieldLabel>
             <input
-              type="password"
-              value={formData.api_key}
-              onChange={(e) => handleChange('api_key', e.target.value)}
-              className={`w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-650 dark:text-white ${
-                errors.api_key ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder={t('modal.placeholders.apiKey')}
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.max_daily_limit}
+              onChange={(event) => updateField('max_daily_limit', event.target.value)}
+              className={fieldClassName}
+              placeholder={isArabic ? 'اتركه فارغاً بلا حد' : 'Leave empty for no limit'}
             />
-            {errors.api_key && (
-              <p className="text-red-500 text-xs mt-1">{errors.api_key}</p>
-            )}
-          </div>
+          </label>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-755 dark:text-gray-300 mb-1">
-              {t('modal.labels.description')}
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              className="w-full p-2 border border-gray-300 dark:border-gray-650 dark:bg-gray-700 dark:text-white rounded"
-              rows="3"
-              placeholder={t('modal.placeholders.description')}
-            />
+        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(event) => updateField('is_active', event.target.checked)}
+            className="h-4 w-4 rounded"
+          />
+          <div className="text-start">
+            <p className="text-sm font-black text-slate-800 dark:text-slate-100">
+              {isArabic ? 'تفعيل الواجهة مباشرة' : 'Activate immediately'}
+            </p>
+            <p className="mt-0.5 text-xs font-semibold text-slate-400">
+              {isArabic
+                ? 'يمكن تغيير حالة الاتصال لاحقاً من إعدادات المزود.'
+                : 'Connection status can be changed later from provider settings.'}
+            </p>
           </div>
+        </label>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-755 dark:text-gray-300 mb-1">
-                {t('modal.labels.priority')}
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                value={formData.priority}
-                onChange={(e) => handleChange('priority', parseInt(e.target.value))}
-                className={`w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-650 dark:text-white ${
-                  errors.priority ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.priority && (
-                <p className="text-red-500 text-xs mt-1">{errors.priority}</p>
-              )}
-            </div>
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {isArabic ? 'إلغاء' : 'Cancel'}
+          </button>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-755 dark:text-gray-300 mb-1">
-                {t('modal.labels.dailyLimit')}
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.max_daily_limit}
-                onChange={(e) => handleChange('max_daily_limit', e.target.value)}
-                className="w-full p-2 border border-gray-300 dark:border-gray-650 dark:bg-gray-700 dark:text-white rounded"
-                placeholder={t('modal.placeholders.dailyLimit')}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="is_active"
-              checked={formData.is_active}
-              onChange={(e) => handleChange('is_active', e.target.checked)}
-              className={isArabic ? 'ml-2' : 'mr-2'}
-            />
-            <label htmlFor="is_active" className="text-sm text-gray-755 dark:text-gray-300">
-              {t('modal.labels.activate')}
-            </label>
-          </div>
-
-          <div className={`flex justify-end pt-4 ${isArabic ? 'space-x-reverse space-x-3' : 'space-x-3'}`}>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800"
-            >
-              {t('modal.buttons.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 ${
-                loading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {loading ? t('modal.buttons.adding') : t('modal.buttons.add')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black text-white transition hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: accentColor }}
+          >
+            {busy ? <FiRefreshCw className="animate-spin" /> : <FiPlus />}
+            {busy
+              ? (isArabic ? 'جاري الإضافة...' : 'Adding...')
+              : (isArabic ? 'إضافة الواجهة' : 'Add API')}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 };
 
 const Api = () => {
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation(['api', 'common']);
-  const isArabic = i18n.resolvedLanguage === 'ar';
+  const { i18n } = useTranslation();
+  const { currentColor } = useStateContext();
+
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const accentColor = currentColor || '#06b6d4';
+
+  const labels = useMemo(() => ({
+    eyebrow: isArabic ? 'لوحة التحكم' : 'Dashboard',
+    title: isArabic ? 'إعدادات API' : 'API Settings',
+    subtitle: isArabic
+      ? 'إدارة واجهات الربط الخارجية، اختبار الاتصال، ومزامنة المنتجات.'
+      : 'Manage external integrations, test connectivity, and sync products.',
+    add: isArabic ? 'إضافة واجهة' : 'Add API',
+    refresh: isArabic ? 'تحديث البيانات' : 'Refresh data',
+    syncingAll: isArabic ? 'جاري المزامنة...' : 'Syncing...',
+    syncAll: isArabic ? 'مزامنة كل الواجهات النشطة' : 'Sync all active APIs',
+    total: isArabic ? 'إجمالي واجهات الربط' : 'Total APIs',
+    active: isArabic ? 'الواجهات النشطة' : 'Active APIs',
+    connected: isArabic ? 'واجهات متصلة' : 'Connected APIs',
+    products: isArabic ? 'إجمالي المنتجات' : 'Total products',
+    providers: isArabic ? 'توزيع المزودين' : 'Provider distribution',
+    providersHint: isArabic
+      ? 'عدد الواجهات المسجلة لكل مزود.'
+      : 'Registered integrations by provider.',
+    listTitle: isArabic ? 'واجهات الربط' : 'Integrations',
+    listHint: isArabic
+      ? 'اختبر الاتصال أو زامن المنتجات أو افتح سجل العمليات لكل واجهة.'
+      : 'Test connectivity, sync products, or open operation logs for each integration.',
+    search: isArabic ? 'ابحث باسم الواجهة أو الرابط...' : 'Search by name or URL...',
+    allProviders: isArabic ? 'كل المزودين' : 'All providers',
+    allStatuses: isArabic ? 'كل الحالات' : 'All statuses',
+    activeOnly: isArabic ? 'نشط' : 'Active',
+    inactiveOnly: isArabic ? 'غير نشط' : 'Inactive',
+    noResults: isArabic
+      ? 'لا توجد واجهات مطابقة للفلاتر الحالية.'
+      : 'No APIs match the current filters.',
+    empty: isArabic
+      ? 'لا توجد واجهات API بعد. أضف أول واجهة للبدء.'
+      : 'No APIs yet. Add your first integration to get started.',
+    loadFailed: isArabic ? 'تعذر تحميل واجهات API.' : 'Failed to load APIs.',
+    addSuccess: isArabic ? 'تمت إضافة واجهة API بنجاح.' : 'API added successfully.',
+    addFailed: isArabic ? 'تعذر إضافة واجهة API.' : 'Failed to add API.',
+    testSuccess: isArabic ? 'نجح اختبار الاتصال.' : 'Connection test succeeded.',
+    testFailed: isArabic ? 'فشل اختبار الاتصال.' : 'Connection test failed.',
+    syncSuccess: isArabic ? 'تمت مزامنة المنتجات.' : 'Products synced successfully.',
+    syncFailed: isArabic ? 'تعذرت مزامنة المنتجات.' : 'Product sync failed.',
+  }), [isArabic]);
 
   const [apis, setApis] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState(null);
   const [testingConnection, setTestingConnection] = useState(null);
   const [syncingProducts, setSyncingProducts] = useState(null);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [providerFilter, setProviderFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  const isMounted = useRef(true);
-  const { loading, error, callApi, setError } = useApi();
+  const mountedRef = useRef(true);
 
-  const [stats, setStats] = useState({
-    totalApis: 0,
-    activeApis: 0,
-    dailyApis: 0,
-    alfaourApis: 0,
-    alaaeddinApis: 0,
-    totalProducts: 0,
-  });
-
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
+  useEffect(() => () => {
+    mountedRef.current = false;
   }, []);
 
-  useEffect(() => {
-    if (isMounted.current) {
-      fetchApis();
+  const fetchApis = useCallback(async ({ background = false } = {}) => {
+    if (!background) {
+      setLoading(true);
     }
-  }, []);
 
-  const fetchApis = useCallback(async () => {
-    const { success, data } = await callApi(
-      () => axiosInstance.get('third_party_apis/apis/'),
-      'APIs fetched successfully',
-    );
-
-    if (success && isMounted.current) {
-      try {
-        let apisData = [];
-        if (Array.isArray(data)) {
-          apisData = data;
-        } else if (data && typeof data === 'object') {
-          apisData = data.results || data.data || Object.values(data).filter(item => typeof item === 'object') || [];
-        }
-
-        apisData = Array.isArray(apisData) ? apisData : [];
-
-        console.log('Processed APIs data:', apisData);
-        setApis(apisData);
-        calculateStats(apisData);
-      } catch (err) {
-        console.error('Error processing API data:', err);
-        setApis([]);
-        calculateStats([]);
-      }
-    }
-  }, [callApi]);
-
-  const calculateStats = useCallback((apisData) => {
-    if (!isMounted.current) return;
-
-    const totalApis = apisData.length;
-    const activeApis = apisData.filter(api => api.is_active).length;
-    const dailyApis = apisData.filter(api => api.provider === 'daily').length;
-    const alfaourApis = apisData.filter(api => api.provider === 'alfaour').length;
-    const alaaeddinApis = apisData.filter(api => api.provider === 'alaaeddin').length;
-
-    const totalProducts = apisData.reduce((total, api) => {
-      return total + (api.products_count || 0);
-    }, 0);
-
-    setStats({
-      totalApis,
-      activeApis,
-      dailyApis,
-      alfaourApis,
-      alaaeddinApis,
-      totalProducts,
-    });
-  }, []);
-
-  const generatePieChartData = useCallback(() => {
-    const providerCounts = {
-      [t('provider.daily', 'Daily')]: apis.filter(api => api.provider === 'daily').length,
-      [t('provider.alfaour', 'Alfaour')]: apis.filter(api => api.provider === 'alfaour').length,
-      [t('provider.alaaeddin', 'Alaaeddin')]: apis.filter(api => api.provider === 'alaaeddin').length
-    };
-
-    return {
-      providerData: Object.entries(providerCounts)
-        .filter(([_, count]) => count > 0)
-        .map(([provider, count]) => ({
-          x: provider,
-          y: count,
-          text: t('distribution.count', { count }),
-        })),
-    };
-  }, [apis, t]);
-
-  const pieChartData = generatePieChartData();
-
-  const handleAddApi = async (formData) => {
-    const { success } = await callApi(
-      () => axiosInstance.post('third_party_apis/apis/', {
-        name: formData.name,
-        provider: formData.provider,
-        base_url: formData.base_url,
-        description: formData.description,
-        api_key: formData.api_key,
-        priority: formData.priority,
-        max_daily_limit: formData.max_daily_limit || null,
-        is_active: formData.is_active,
-      }),
-      'API added successfully',
-    );
-
-    if (success && isMounted.current) {
-      fetchApis();
-      setShowAddModal(false);
-      showNotification('success', t('modal.titleAdd'), t('alerts.addSuccess'));
-      return true;
-    }
-    return false;
-  };
-
-  const handleTestConnection = async (apiId, apiName) => {
-    if (!isMounted.current) return;
+    setError('');
 
     try {
-      setTestingConnection(apiId);
+      const response = await axiosInstance.get('third_party_apis/apis/');
+      const list = normalizeList(response.data);
 
-      const response = await axiosInstance.post(`third_party_apis/apis/${apiId}/test_connection/`);
+      if (mountedRef.current) {
+        setApis(list);
+      }
+    } catch (loadError) {
+      if (mountedRef.current) {
+        setError(getApiError(loadError, labels.loadFailed));
+      }
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [labels.loadFailed]);
 
-      if (!isMounted.current) return;
+  useEffect(() => {
+    fetchApis();
+  }, [fetchApis]);
 
-      if (response.data.connected || response.data.success) {
-        const result = response.data;
-        let message = `✅ ${t('alerts.testSuccess')}\n\n${t('table.headers.name')}: ${apiName}\n${t('table.headers.provider')}: ${result.provider || apiName}\n`;
+  const stats = useMemo(() => ({
+    total: apis.length,
+    active: apis.filter((item) => item.is_active).length,
+    connected: apis.filter((item) => item.is_connected).length,
+    products: apis.reduce(
+      (sum, item) => sum + Number(item.products_count || 0),
+      0,
+    ),
+  }), [apis]);
 
-        if (result.balance_test && result.balance_test.success) {
-          message += `${t('currencies:currency.balance', 'Balance')}: ${result.balance_test.balance || 'N/A'}\n`;
-        }
+  const providerStats = useMemo(() => {
+    const values = ['daily', 'alfaour', 'alaaeddin'];
 
-        if (result.products_test) {
-          message += `${t('table.headers.status', 'Products')}: ${result.products_test.products_count || 0}\n`;
-        }
+    return values.map((provider) => ({
+      provider,
+      label: getProviderName(provider, isArabic),
+      count: apis.filter((item) => item.provider === provider).length,
+    }));
+  }, [apis, isArabic]);
 
-        if (result.details) {
-          message += `${t('common:details', 'Details')}: ${result.details}`;
-        }
+  const providerChartData = useMemo(() => (
+    providerStats
+      .filter((item) => item.count > 0)
+      .map((item, index) => ({
+        x: item.label,
+        y: item.count,
+        text: String(item.count),
+        fill: [accentColor, '#64748b', '#cbd5e1'][index],
+      }))
+  ), [accentColor, providerStats]);
 
-        showNotification('success', t('alerts.connectionTitle'), message);
-        fetchApis();
-      } else {
-        showNotification('error', t('alerts.testFailed'),
-          `API: ${apiName}\nError: ${response.data.error || 'Unknown error'}`
+  const filteredApis = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase();
+
+    return apis.filter((item) => {
+      const matchesSearch = !needle || [
+        item.name,
+        item.provider,
+        item.base_url,
+        item.description,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle));
+
+      const matchesProvider = (
+        providerFilter === 'all'
+        || item.provider === providerFilter
+      );
+
+      const matchesStatus = (
+        statusFilter === 'all'
+        || (statusFilter === 'active' && item.is_active)
+        || (statusFilter === 'inactive' && !item.is_active)
+      );
+
+      return matchesSearch && matchesProvider && matchesStatus;
+    });
+  }, [apis, providerFilter, searchTerm, statusFilter]);
+
+  const showNotice = (type, message, details = '') => {
+    setNotice({ type, message, details });
+  };
+
+  const handleAddApi = async (form) => {
+    setAdding(true);
+    setError('');
+
+    try {
+      await axiosInstance.post('third_party_apis/apis/', {
+        name: form.name.trim(),
+        provider: form.provider,
+        base_url: form.base_url.trim(),
+        description: form.description.trim(),
+        api_key: form.api_key.trim(),
+        priority: Number(form.priority),
+        max_daily_limit: form.max_daily_limit || null,
+        is_active: Boolean(form.is_active),
+      });
+
+      if (!mountedRef.current) {
+        return false;
+      }
+
+      setShowAddModal(false);
+      showNotice('success', labels.addSuccess);
+      await fetchApis({ background: true });
+      return true;
+    } catch (saveError) {
+      if (mountedRef.current) {
+        showNotice('error', labels.addFailed, getApiError(saveError, labels.addFailed));
+      }
+      return false;
+    } finally {
+      if (mountedRef.current) {
+        setAdding(false);
+      }
+    }
+  };
+
+  const handleTestConnection = async (api) => {
+    setTestingConnection(api.id);
+    setNotice(null);
+
+    try {
+      const response = await axiosInstance.post(
+        `third_party_apis/apis/${api.id}/test_connection/`,
+      );
+
+      const result = response.data || {};
+      const success = Boolean(result.connected || result.success);
+
+      if (!success) {
+        throw new Error(result.error || labels.testFailed);
+      }
+
+      const detailParts = [];
+
+      if (result.balance_test?.success) {
+        detailParts.push(
+          `${isArabic ? 'الرصيد' : 'Balance'}: ${result.balance_test.balance ?? 'N/A'}`,
         );
       }
-    } catch (err) {
-      console.error('Connection test error:', err);
-      if (!isMounted.current) return;
 
-      const errorMessage = err.response?.data?.error
-      || err.response?.data?.detail
-      || t('alerts.testFailed');
-      showNotification('error', t('alerts.testFailed'),
-        `API: ${apiName}\nError: ${errorMessage}`);
+      if (result.products_test) {
+        detailParts.push(
+          `${isArabic ? 'المنتجات' : 'Products'}: ${result.products_test.products_count ?? 0}`,
+        );
+      }
+
+      if (result.details) {
+        detailParts.push(String(result.details));
+      }
+
+      showNotice('success', labels.testSuccess, detailParts.join(' • '));
+      await fetchApis({ background: true });
+    } catch (testError) {
+      showNotice('error', labels.testFailed, getApiError(testError, labels.testFailed));
     } finally {
-      if (isMounted.current) {
+      if (mountedRef.current) {
         setTestingConnection(null);
       }
     }
   };
 
-  const handleSyncProducts = async (apiId, apiName) => {
-    if (!isMounted.current) return;
+  const syncOneApi = async (api, { silent = false } = {}) => {
+    if (!silent) {
+      setSyncingProducts(api.id);
+      setNotice(null);
+    }
 
     try {
-      setSyncingProducts(apiId);
+      const response = await axiosInstance.post(
+        `third_party_apis/apis/${api.id}/sync_products/`,
+      );
 
-      const response = await axiosInstance.post(`third_party_apis/apis/${apiId}/sync_products/`);
-
-      if (!isMounted.current) return;
-
-      if (response.data.success) {
-        showNotification('success', t('alerts.syncSuccess'),
-          `API: ${apiName}\nNew: ${response.data.synced_count}\nUpdated: ${response.data.updated_count}\nActive: ${response.data.active_products}/${response.data.total_products}`);
-
-        fetchApis();
-      } else {
-        showNotification('error', t('alerts.syncFailed'),
-          `API: ${apiName}\nError: ${response.data.error || 'Unknown error'}`);
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || labels.syncFailed);
       }
-    } catch (err) {
-      console.error('Product sync error:', err);
-      if (!isMounted.current) return;
 
-      const errorMessage = err.response?.data?.error
-      || err.response?.data?.detail
-      || t('alerts.syncFailed');
-      showNotification('error', t('alerts.syncFailed'),
-        `API: ${apiName}\nError: ${errorMessage}`);
+      if (!silent) {
+        const detail = [
+          `${isArabic ? 'جديد' : 'New'}: ${response.data.synced_count ?? 0}`,
+          `${isArabic ? 'محدث' : 'Updated'}: ${response.data.updated_count ?? 0}`,
+          `${isArabic ? 'نشط' : 'Active'}: ${response.data.active_products ?? 0}/${response.data.total_products ?? 0}`,
+        ].join(' • ');
+
+        showNotice('success', labels.syncSuccess, detail);
+      }
+
+      return true;
+    } catch (syncError) {
+      if (!silent) {
+        showNotice('error', labels.syncFailed, getApiError(syncError, labels.syncFailed));
+      }
+      return false;
     } finally {
-      if (isMounted.current) {
+      if (!silent && mountedRef.current) {
         setSyncingProducts(null);
       }
     }
   };
 
-  const handleViewTransactions = (apiId, apiName) => {
-    navigate(`/api-transactions?api=${apiId}&name=${encodeURIComponent(apiName)}`);
-  };
+  const handleSyncProducts = async (api) => {
+    const success = await syncOneApi(api);
 
-  const showNotification = (type, title, message) => {
-    const styles = {
-      success: { bg: 'bg-green-100 border-green-400 text-green-800' },
-      error: { bg: 'bg-red-100 border-red-400 text-red-800' },
-      warning: { bg: 'bg-yellow-100 border-yellow-400 text-yellow-800' },
-      info: { bg: 'bg-blue-100 border-blue-400 text-blue-800' },
-    };
-
-    const style = styles[type] || styles.info;
-
-    const notification = document.createElement('div');
-    const positionClass = isArabic ? 'left-4' : 'right-4';
-    notification.className = `fixed top-4 ${positionClass} p-4 rounded-lg border ${style.bg} ${style.text} shadow-lg z-50 max-w-md ${isArabic ? 'text-right' : 'text-left'}`;
-    notification.innerHTML = `
-      <div class="font-semibold">${title}</div>
-      <div class="text-sm mt-1 whitespace-pre-line">${message}</div>
-    `;
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-      if (document.body.contains(notification)) {
-        document.body.removeChild(notification);
-      }
-    }, 5000);
-  };
-
-  const tableData = React.useMemo(() => {
-    try {
-      return apis.map(api => ({
-        id: api.id || 0,
-        name: api.name || 'Unnamed API',
-        provider: api.provider || 'unknown',
-        base_url: api.base_url || '',
-        description: api.description || '',
-        priority: api.priority || 1,
-        max_daily_limit: api.max_daily_limit ? `$${parseFloat(api.max_daily_limit).toFixed(2)}` : t('common:limit.noLimit', 'No limit'),
-        is_active: Boolean(api.is_active),
-        is_connected: Boolean(api.is_connected),
-        encrypted_api_key: api.encrypted_api_key || null,
-        created_at: api.created_at ? new Date(api.created_at).toLocaleDateString(i18n.resolvedLanguage) : 'N/A',
-        updated_at: api.updated_at ? new Date(api.updated_at).toLocaleDateString(i18n.resolvedLanguage) : 'N/A',
-      }));
-    } catch (oerror) {
-      console.error('Error processing table data:', oerror);
-      return [];
+    if (success) {
+      await fetchApis({ background: true });
     }
-  }, [apis, i18n.resolvedLanguage, t]);
+  };
 
-  if (loading && apis.length === 0) {
+  const handleSyncAll = async () => {
+    const activeApis = apis.filter((item) => item.is_active);
+
+    if (!activeApis.length) {
+      showNotice(
+        'error',
+        isArabic ? 'لا توجد واجهات نشطة للمزامنة.' : 'No active APIs to sync.',
+      );
+      return;
+    }
+
+    setSyncingAll(true);
+    setNotice(null);
+
+    try {
+      const results = await Promise.all(
+        activeApis.map((api) => syncOneApi(api, { silent: true })),
+      );
+
+      const successCount = results.filter(Boolean).length;
+      const failedCount = results.length - successCount;
+
+      showNotice(
+        failedCount ? 'error' : 'success',
+        failedCount
+          ? (isArabic ? 'اكتملت المزامنة مع بعض الأخطاء.' : 'Sync completed with some errors.')
+          : (isArabic ? 'تمت مزامنة كل الواجهات النشطة.' : 'All active APIs synced.'),
+        `${isArabic ? 'نجح' : 'Succeeded'}: ${successCount} • ${isArabic ? 'فشل' : 'Failed'}: ${failedCount}`,
+      );
+
+      await fetchApis({ background: true });
+    } finally {
+      if (mountedRef.current) {
+        setSyncingAll(false);
+      }
+    }
+  };
+
+  const openLogs = (api) => {
+    navigate(
+      `/api-transactions?api=${api.id}&name=${encodeURIComponent(api.name || '')}`,
+    );
+  };
+
+  if (loading && !apis.length) {
     return (
-      <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl">
-        <Header category={t('category')} title={t('title')} />
-        <div className="flex justify-center items-center h-64">
-          <div className="text-xl text-gray-700 dark:text-gray-300">{t('loading')}</div>
+      <div className="flex min-h-[520px] items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-400">
+          <FiRefreshCw className="animate-spin text-3xl" />
+          <span className="text-sm font-bold">
+            {isArabic ? 'جاري تحميل واجهات API...' : 'Loading APIs...'}
+          </span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`m-2 md:m-10 mt-24 p-2 md:p-10 bg-white dark:bg-secondary-dark-bg rounded-3xl text-start`}>
-      <Header
-        category={t('category')}
-        title={t('title')}
-      />
+    <>
+      <div
+        dir={isArabic ? 'rtl' : 'ltr'}
+        className="mt-20 px-3 py-4 sm:px-5 md:mt-4 md:px-8 md:py-6"
+      >
+        <div className="mx-auto w-full max-w-7xl space-y-5">
+          <section className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-7">
+            <div
+              className="pointer-events-none absolute -start-24 -top-24 h-64 w-64 rounded-full opacity-[0.08]"
+              style={{ backgroundColor: accentColor }}
+            />
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded dark:bg-red-900/30 dark:border-red-800">
-          <p className="text-sm text-red-800 dark:text-red-300">
-            <strong>{t('common:error', 'Error')}:</strong> {error}
-          </p>
-        </div>
-      )}
+            <div className="relative z-10 flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 items-center gap-4">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl text-white shadow-sm"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <FiServer />
+                </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-8">
-        <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 text-center">{t('distribution.title')}</h3>
-          {pieChartData.providerData.length > 0 ? (
-            <AccumulationChartComponent
-              id="api-providers-chart"
-              legendSettings={{
-                visible: true,
-                position: 'Bottom',
-                textStyle: { size: '12px', color: i18n.resolvedLanguage === 'ar' ? '#FFFFFF' : '#484B52' },
-              }}
-              height="300px"
-              tooltip={{ enable: true, format: `\${point.x} : <b>\${point.y} ${isArabic ? t('distribution.count', { count: '' }).trim() : 'APIs'}</b>` }}
-              enableRtl={isArabic}
+                <div className="min-w-0 text-start">
+                  <p
+                    className="text-xs font-black uppercase tracking-[0.18em]"
+                    style={{ color: accentColor }}
+                  >
+                    {labels.eyebrow}
+                  </p>
+                  <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white md:text-3xl">
+                    {labels.title}
+                  </h1>
+                  <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    {labels.subtitle}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => fetchApis({ background: true })}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+                  {labels.refresh}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(true)}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white transition hover:opacity-90"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <FiPlus />
+                  {labels.add}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {notice && (
+            <div
+              className={`
+                flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-bold
+                ${
+                  notice.type === 'success'
+                    ? 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                    : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300'
+                }
+              `}
             >
-              <ChartInject services={[AccumulationLegend, PieSeries, AccumulationDataLabel, AccumulationTooltip]} />
-              <AccumulationSeriesCollectionDirective>
-                <AccumulationSeriesDirective
-                  name="APIs"
-                  dataSource={pieChartData.providerData}
-                  xName="x"
-                  yName="y"
-                  innerRadius="0%"
-                  startAngle={0}
-                  endAngle={360}
-                  radius="70%"
-                  dataLabel={{
-                    visible: true,
-                    name: 'text',
-                    position: 'Outside',
-                    font: {
-                      fontWeight: '600',
-                    },
-                  }}
-                />
-              </AccumulationSeriesCollectionDirective>
-            </AccumulationChartComponent>
+              {notice.type === 'success'
+                ? <FiCheck className="mt-0.5 shrink-0" style={{ color: accentColor }} />
+                : <FiAlertCircle className="mt-0.5 shrink-0" />}
+
+              <div className="min-w-0 flex-1 text-start">
+                <p>{notice.message}</p>
+                {notice.details && (
+                  <p className="mt-1 text-xs font-semibold opacity-80">
+                    {notice.details}
+                  </p>
+                )}
+              </div>
+
+              <button type="button" onClick={() => setNotice(null)}>
+                <FiX />
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+              <FiAlertCircle className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              icon={<FiDatabase />}
+              label={labels.total}
+              value={stats.total}
+              helper={`${stats.active} ${isArabic ? 'نشطة' : 'active'}`}
+              accentColor={accentColor}
+            />
+            <StatCard
+              icon={<FiActivity />}
+              label={labels.active}
+              value={stats.active}
+              helper={isArabic ? 'جاهزة للاستخدام' : 'Ready to use'}
+              accentColor={accentColor}
+            />
+            <StatCard
+              icon={<FiLink />}
+              label={labels.connected}
+              value={stats.connected}
+              helper={`${stats.total - stats.connected} ${isArabic ? 'غير متصلة' : 'disconnected'}`}
+              accentColor={accentColor}
+            />
+            <StatCard
+              icon={<FiPackage />}
+              label={labels.products}
+              value={stats.products.toLocaleString(isArabic ? 'ar-SY' : 'en-US')}
+              helper={isArabic ? 'منتجات مرتبطة بالمزودين' : 'Products across providers'}
+              accentColor={accentColor}
+            />
+          </section>
+
+          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="text-start">
+                <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                  {labels.providers}
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-slate-400">
+                  {labels.providersHint}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={syncingAll}
+                onClick={handleSyncAll}
+                className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <FiRefreshCw className={syncingAll ? 'animate-spin' : ''} />
+                {syncingAll ? labels.syncingAll : labels.syncAll}
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+              <div className="min-h-[320px] rounded-2xl border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+                {providerChartData.length ? (
+                  <ProviderDistribution
+                    data={providerStats
+                      .filter((item) => item.count > 0)
+                      .map((item) => ({
+                        x: item.label,
+                        y: item.count,
+                      }))}
+                    emptyText={
+                      isArabic
+                        ? 'لا توجد بيانات للمخطط.'
+                        : 'No chart data available.'
+                    }
+                  />
+                ) : (
+                  <div className="flex h-[300px] items-center justify-center text-sm font-bold text-slate-400">
+                    {isArabic ? 'لا توجد بيانات للمخطط.' : 'No chart data available.'}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                {providerStats.map((item) => (
+                  <div
+                    key={item.provider}
+                    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-start">
+                        <p className="text-sm font-black text-slate-800 dark:text-slate-100">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-400">
+                          {isArabic ? 'عدد واجهات الربط' : 'Registered APIs'}
+                        </p>
+                      </div>
+                      <span
+                        className="flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-black"
+                        style={{
+                          backgroundColor: `${accentColor}14`,
+                          color: accentColor,
+                        }}
+                      >
+                        {item.count}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div className="text-start">
+                <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                  {labels.listTitle}
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-slate-400">
+                  {labels.listHint}
+                </p>
+              </div>
+
+              <div className="grid w-full gap-2 sm:grid-cols-3 xl:w-auto">
+                <div className="relative min-w-[240px]">
+                  <FiSearch className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder={labels.search}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white ps-10 pe-3 text-sm font-bold text-slate-700 outline-none transition focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  />
+                </div>
+
+                <select
+                  value={providerFilter}
+                  onChange={(event) => setProviderFilter(event.target.value)}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <option value="all">{labels.allProviders}</option>
+                  <option value="daily">Daily</option>
+                  <option value="alfaour">Alfaour</option>
+                  <option value="alaaeddin">Alaaeddin</option>
+                </select>
+
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <option value="all">{labels.allStatuses}</option>
+                  <option value="active">{labels.activeOnly}</option>
+                  <option value="inactive">{labels.inactiveOnly}</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {!apis.length ? (
+            <section className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-secondary-dark-bg">
+              <FiServer className="mx-auto text-4xl text-slate-300" />
+              <p className="mt-3 text-sm font-black text-slate-500 dark:text-slate-300">
+                {labels.empty}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black text-white"
+                style={{ backgroundColor: accentColor }}
+              >
+                <FiPlus />
+                {labels.add}
+              </button>
+            </section>
+          ) : !filteredApis.length ? (
+            <section className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm font-black text-slate-400 dark:border-slate-700 dark:bg-secondary-dark-bg">
+              {labels.noResults}
+            </section>
           ) : (
-            <div className="flex justify-center items-center h-32 text-gray-500 dark:text-gray-400">
-              {t('distribution.noData')}
+            <div className="space-y-4">
+              {filteredApis.map((api) => (
+                <ApiCard
+                  key={api.id}
+                  api={api}
+                  isArabic={isArabic}
+                  accentColor={accentColor}
+                  testing={testingConnection === api.id}
+                  syncing={syncingProducts === api.id}
+                  onTest={() => handleTestConnection(api)}
+                  onSync={() => handleSyncProducts(api)}
+                  onLogs={() => openLogs(api)}
+                />
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-900/20 dark:border-blue-800">
-          <p className="text-blue-800 dark:text-blue-300 font-semibold text-sm">{t('stats.total')}</p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalApis}</p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{t('stats.activeCount', { count: stats.activeApis })}</p>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 dark:bg-green-900/20 dark:border-green-800">
-          <p className="text-green-800 dark:text-green-300 font-semibold text-sm">{t('stats.active')}</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.activeApis}</p>
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">{t('stats.ready')}</p>
-        </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 dark:bg-purple-900/20 dark:border-purple-800">
-          <p className="text-purple-800 dark:text-purple-300 font-semibold text-sm">{t('stats.daily')}</p>
-          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.dailyApis}</p>
-          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">{t('stats.dailyDesc')}</p>
-        </div>
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 dark:bg-orange-900/20 dark:border-orange-800">
-          <p className="text-orange-800 dark:text-orange-300 font-semibold text-sm">{t('stats.alfaour')}</p>
-          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.alfaourApis}</p>
-          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">{t('stats.alfaourDesc')}</p>
-        </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-900/20 dark:border-red-800">
-          <p className="text-red-800 dark:text-red-300 font-semibold text-sm">{t('stats.alaaeddin')}</p>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.alaaeddinApis}</p>
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">{t('stats.alaaeddinDesc')}</p>
-        </div>
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 dark:bg-indigo-900/20 dark:border-indigo-800">
-          <p className="text-indigo-800 dark:text-indigo-300 font-semibold text-sm">{t('stats.totalProducts')}</p>
-          <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.totalProducts}</p>
-          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">{t('stats.availableProducts')}</p>
-        </div>
-      </div>
-
-      <div className="bg-gray-50 dark:bg-secondary-dark-bg rounded-lg p-4 mb-6 border dark:border-gray-700">
-        <h3 className="font-semibold mb-2 text-gray-800 dark:text-white">{t('quickActions.title')}</h3>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm flex items-center gap-2"
-            onClick={() => setShowAddModal(true)}
-            type="button"
-          >
-            <span>+</span> {t('quickActions.addBtn')}
-          </button>
-          <button
-            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded text-sm flex items-center gap-2"
-            onClick={fetchApis}
-            disabled={loading}
-            type="button"
-          >
-            {loading ? '⏳' : '🔄'} {loading ? t('quickActions.refreshing') : t('quickActions.refreshBtn')}
-          </button>
-          <button
-            className="px-4 py-2 bg-purple-50 hover:bg-purple-600 text-white rounded text-sm flex items-center gap-2"
-            onClick={() => {
-              apis.filter(api => api.is_active).forEach(api => {
-                handleSyncProducts(api.id, api.name);
-              });
-            }}
-            type="button"
-          >
-            🔄 {t('quickActions.syncAllBtn')}
-          </button>
-        </div>
-      </div>
-
-      <div className="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-        <ApiTable
-          data={tableData}
-          onTestConnection={handleTestConnection}
-          onSyncProducts={handleSyncProducts}
-          onViewTransactions={handleViewTransactions}
-          testingConnection={testingConnection}
-          syncingProducts={syncingProducts}
-        />
-      </div>
-
       <AddApiModal
-        isOpen={showAddModal}
+        open={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSave={handleAddApi}
-        loading={loading}
+        busy={adding}
+        isArabic={isArabic}
+        accentColor={accentColor}
       />
-
-      {apis.length === 0 && !loading && (
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800 rounded-lg">
-          <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">🚀 {t('gettingStarted.title')}</h4>
-          <p className="text-sm text-blue-700 dark:text-blue-400 mb-3">
-            {t('gettingStarted.desc')}
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h5 className="font-medium text-blue-800 dark:text-blue-300 mb-2">{t('gettingStarted.stepsTitle')}</h5>
-              <ol className="text-sm text-blue-700 dark:text-blue-400 list-decimal list-inside space-y-1">
-                <li>{t('gettingStarted.steps.1')}</li>
-                <li>{t('gettingStarted.steps.2')}</li>
-                <li>{t('gettingStarted.steps.3')}</li>
-                <li>{t('gettingStarted.steps.4')}</li>
-                <li>{t('gettingStarted.steps.5')}</li>
-              </ol>
-            </div>
-            <div>
-              <h5 className="font-medium text-blue-800 dark:text-blue-300 mb-2">{t('gettingStarted.infoTitle')}</h5>
-              <ul className="text-sm text-blue-700 dark:text-blue-400 list-disc list-inside space-y-1">
-                <li><strong>{t('gettingStarted.info.name')}</strong></li>
-                <li><strong>{t('gettingStarted.info.provider')}</strong></li>
-                <li><strong>{t('gettingStarted.info.url')}</strong></li>
-                <li><strong>{t('gettingStarted.info.key')}</strong></li>
-                <li><strong>{t('gettingStarted.info.priority')}</strong></li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
+
 export default Api;

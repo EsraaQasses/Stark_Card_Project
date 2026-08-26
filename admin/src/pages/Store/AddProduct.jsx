@@ -1,40 +1,176 @@
-import React, { useState, useEffect } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  FiArrowLeft,
-  FiPlus,
-  FiTrash2,
-  FiX,
-  FiCheck,
-  FiUploadCloud,
   FiAlertCircle,
-  FiPackage,
+  FiArrowLeft,
+  FiCheck,
   FiDollarSign,
-  FiInfo,
-  FiGlobe,
+  FiImage,
   FiLink,
-  FiSettings
+  FiPackage,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiTrash2,
+  FiUploadCloud,
+  FiX,
 } from 'react-icons/fi';
+
 import axiosInstance from '../../utils/axiosConfig';
 import { useStateContext } from '../../contexts/ContextProvider';
 
-export default function AddProduct() {
-  const { t, i18n } = useTranslation('products');
-  console.log("DIAGNOSTIC: i18n.hasLoadedNamespace('products'):", i18n.hasLoadedNamespace("products"));
-  console.log("DIAGNOSTIC: i18n.language:", i18n.language);
-  console.log("DIAGNOSTIC: t('addProductPage.fields.section'):", t("addProductPage.fields.section"));
-  const isArabic = i18n.resolvedLanguage === 'ar';
-  const navigate = useNavigate();
-  const { currentColor } = useStateContext();
-  const primaryColor = currentColor || '#4F46E5'; // default to Indigo-600
+const normalizeList = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
 
-  // Form State
+  if (Array.isArray(value?.results)) {
+    return value.results;
+  }
+
+  if (Array.isArray(value?.data)) {
+    return value.data;
+  }
+
+  return [];
+};
+
+const mapApiFieldType = (apiType) => {
+  const typeMap = {
+    text: 'text',
+    string: 'text',
+    number: 'number',
+    integer: 'number',
+    email: 'email',
+    phone: 'phone',
+    tel: 'phone',
+    id: 'id',
+    identifier: 'id',
+  };
+
+  return typeMap[String(apiType || '').toLowerCase()] || 'text';
+};
+
+const getApiError = (error, fallback) => (
+  error?.response?.data?.detail
+  || error?.response?.data?.error
+  || error?.response?.data?.message
+  || error?.message
+  || fallback
+);
+
+const AddProduct = () => {
+  const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const { currentColor } = useStateContext();
+
+  const isArabic = (
+    i18n.resolvedLanguage === 'ar'
+    || i18n.language === 'ar'
+  );
+
+  const accentColor = currentColor || '#06b6d4';
+
+  const labels = useMemo(() => ({
+    eyebrow: isArabic ? 'إدارة المتجر' : 'Store Management',
+    title: isArabic ? 'إضافة منتج جديد' : 'Add New Product',
+    subtitle: isArabic
+      ? 'أنشئ المنتج، اربطه بالقسم والمزود، وحدد التسعير والمتطلبات.'
+      : 'Create the product, connect it to a section/provider, and configure pricing and requirements.',
+    back: isArabic ? 'العودة للمنتجات' : 'Back to products',
+    loadingMetadata: isArabic ? 'جاري تحميل بيانات المتجر...' : 'Loading store metadata...',
+    basic: isArabic ? 'المعلومات الأساسية' : 'Basic Information',
+    section: isArabic ? 'القسم' : 'Section',
+    selectSection: isArabic ? 'اختر القسم الرئيسي للمنتج' : 'Select product section',
+    nameAr: isArabic ? 'الاسم بالعربي' : 'Arabic name',
+    nameEn: isArabic ? 'الاسم بالإنجليزي' : 'English name',
+    descAr: isArabic ? 'الوصف بالعربي' : 'Arabic description',
+    descEn: isArabic ? 'الوصف بالإنجليزي' : 'English description',
+    active: isArabic ? 'نشط ومتاح للشراء' : 'Active and available for purchase',
+    image: isArabic ? 'صورة المنتج' : 'Product Image',
+    imageHint: isArabic
+      ? 'PNG / JPG / JPEG / WEBP وبحد أقصى 5MB'
+      : 'PNG / JPG / JPEG / WEBP up to 5MB',
+    dropImage: isArabic
+      ? 'اسحب وأسقط صورة المنتج هنا أو اضغط لاختيار ملف'
+      : 'Drag & drop product image here or click to browse',
+    removeImage: isArabic ? 'إزالة الصورة' : 'Remove image',
+    pricing: isArabic ? 'التسعير والعملة' : 'Pricing & Currency',
+    currency: isArabic ? 'العملة' : 'Currency',
+    productType: isArabic ? 'نوع التسعير' : 'Pricing type',
+    amountBased: isArabic ? 'حسب الكمية' : 'Amount based',
+    customizationBased: isArabic ? 'حسب التخصيص' : 'Customization based',
+    basePrice: isArabic ? 'سعر البيع' : 'Base selling price',
+    minAmount: isArabic ? 'الحد الأدنى للكمية' : 'Minimum amount',
+    maxAmount: isArabic ? 'الحد الأعلى للكمية' : 'Maximum amount',
+    minAmountPrice: isArabic ? 'سعر الحد الأدنى' : 'Minimum amount price',
+    customOptions: isArabic ? 'خيارات التخصيص' : 'Customization options',
+    customPrices: isArabic ? 'أسعار التخصيص' : 'Customization prices',
+    integration: isArabic ? 'ربط مزود API' : 'API Provider Integration',
+    provider: isArabic ? 'المزود' : 'Provider',
+    noProvider: isArabic ? 'بدون مزود API' : 'No API provider',
+    providerProduct: isArabic ? 'منتج المزود' : 'Provider product',
+    selectProviderProduct: isArabic ? 'اختر منتج المزود' : 'Select provider product',
+    loadProviderProducts: isArabic ? 'تحميل منتجات المزود' : 'Load provider products',
+    syncProviderProducts: isArabic ? 'مزامنة ثم تحديث' : 'Sync & refresh',
+    providerSearch: isArabic ? 'ابحث ضمن منتجات المزود...' : 'Search provider products...',
+    providerEmpty: isArabic
+      ? 'لا توجد منتجات محملة لهذا المزود.'
+      : 'No provider products loaded.',
+    providerHint: isArabic
+      ? 'لتسريع الصفحة لا تتم المزامنة تلقائياً عند اختيار المزود. اضغط "مزامنة ثم تحديث" فقط عند الحاجة.'
+      : 'For faster loading, provider sync is not automatic. Use “Sync & refresh” only when needed.',
+    requirements: isArabic ? 'متطلبات المنتج' : 'Product Requirements',
+    requirementsHint: isArabic
+      ? 'حقول يطلبها المنتج من المستخدم مثل المعرف أو رقم الهاتف.'
+      : 'Fields required from the user, such as an ID or phone number.',
+    reqName: isArabic ? 'اسم الحقل' : 'Field name',
+    reqType: isArabic ? 'نوع الحقل' : 'Field type',
+    reqPlaceholder: isArabic ? 'النص التوضيحي' : 'Placeholder',
+    reqRequired: isArabic ? 'مطلوب' : 'Required',
+    addRequirement: isArabic ? 'إضافة متطلب' : 'Add requirement',
+    noRequirements: isArabic ? 'لا توجد متطلبات مضافة.' : 'No requirements added.',
+    save: isArabic ? 'حفظ المنتج' : 'Save product',
+    saving: isArabic ? 'جاري الحفظ...' : 'Saving...',
+    loadFailed: isArabic ? 'تعذر تحميل بيانات الأقسام أو المزودين.' : 'Failed to load store metadata.',
+    providerLoadFailed: isArabic ? 'تعذر تحميل منتجات المزود.' : 'Failed to load provider products.',
+    syncFailed: isArabic ? 'فشلت مزامنة منتجات المزود.' : 'Provider product sync failed.',
+    saveFailed: isArabic ? 'تعذر حفظ المنتج.' : 'Failed to save product.',
+    saveSuccess: isArabic ? 'تم حفظ المنتج بنجاح.' : 'Product saved successfully.',
+    imageType: isArabic ? 'الملف المختار ليس صورة.' : 'Selected file is not an image.',
+    imageSize: isArabic ? 'حجم الصورة يجب أن يكون أقل من 5MB.' : 'Image must be smaller than 5MB.',
+    requiredName: isArabic ? 'الاسم العربي والإنجليزي مطلوبان.' : 'Arabic and English names are required.',
+    requiredSection: isArabic ? 'اختر قسم المنتج.' : 'Select a product section.',
+    invalidPrice: isArabic ? 'سعر البيع يجب أن يكون صفراً أو أكبر.' : 'Base price must be zero or greater.',
+  }), [isArabic]);
+
   const [sections, setSections] = useState([]);
   const [apis, setApis] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [metadataLoading, setMetadataLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState(null);
+
+  const [apiProducts, setApiProducts] = useState([]);
+  const [apiProductsLoading, setApiProductsLoading] = useState(false);
+  const [apiProductsSyncing, setApiProductsSyncing] = useState(false);
+  const [providerSearch, setProviderSearch] = useState('');
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [imagePreview, setImagePreview] = useState('');
+
+  const [newRequirement, setNewRequirement] = useState({
+    field_name: '',
+    field_type: 'text',
+    is_required: true,
+    placeholder: '',
+    order: 0,
+  });
 
   const [newProduct, setNewProduct] = useState({
     name_en: '',
@@ -57,196 +193,242 @@ export default function AddProduct() {
     requirements: [],
   });
 
-  // Local UI States
-  const [selectedApi, setSelectedApi] = useState('');
-  const [apiProducts, setApiProducts] = useState([]);
-  const [loadingApiProducts, setLoadingApiProducts] = useState(false);
-  const [showApiProductsModal, setShowApiProductsModal] = useState(false);
-  const [selectedApiProduct, setSelectedApiProduct] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Requirements Modal States
-  const [showReqModal, setShowReqModal] = useState(false);
-  const [newRequirement, setNewRequirement] = useState({
-    field_name: '',
-    field_type: 'text',
-    is_required: true,
-    placeholder: '',
-    order: 0,
-  });
-
-  // Drag and Drop Zone State
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Escape key listener for modals
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setShowReqModal(false);
-        setShowApiProductsModal(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    let active = true;
 
-  // Fetch sections and APIs on load
-  useEffect(() => {
     const fetchMetadata = async () => {
-      try {
-        setLoading(true);
-        const [sectionsResponse, apisResponse] = await Promise.all([
-          axiosInstance.get('store/admin/sections/'),
-          axiosInstance.get('third_party_apis/apis/').catch(() => ({ data: [] })),
-        ]);
-        setSections(Array.isArray(sectionsResponse.data) ? sectionsResponse.data : []);
-        setApis(apisResponse.data?.results || apisResponse.data || []);
-      } catch (error) {
-        alert(t('addProductPage.alerts.loadFailed', 'Failed to load metadata'));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMetadata();
-  }, [t]);
+      setMetadataLoading(true);
 
-  const mapApiFieldType = (apiType) => {
-    const typeMap = {
-      text: 'text',
-      string: 'text',
-      number: 'number',
-      integer: 'number',
-      email: 'email',
-      phone: 'phone',
-      tel: 'phone',
-      id: 'id',
-      identifier: 'id',
+      const [sectionsResult, apisResult] = await Promise.allSettled([
+        axiosInstance.get('store/admin/sections/'),
+        axiosInstance.get('third_party_apis/apis/'),
+      ]);
+
+      if (!active) {
+        return;
+      }
+
+      if (sectionsResult.status === 'fulfilled') {
+        setSections(normalizeList(sectionsResult.value.data));
+      }
+
+      if (apisResult.status === 'fulfilled') {
+        setApis(normalizeList(apisResult.value.data));
+      }
+
+      if (
+        sectionsResult.status === 'rejected'
+        && apisResult.status === 'rejected'
+      ) {
+        setError(labels.loadFailed);
+      }
+
+      setMetadataLoading(false);
     };
-    return typeMap[apiType?.toLowerCase()] || 'text';
+
+    fetchMetadata();
+
+    return () => {
+      active = false;
+    };
+  }, [labels.loadFailed]);
+
+  useEffect(() => () => {
+    if (imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
+  }, [imagePreview]);
+
+  const updateProduct = (field, value) => {
+    setNewProduct((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
   };
 
-  const fetchApiProducts = async (apiId) => {
+  const handleImageFile = (file) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setNotice({
+        type: 'error',
+        message: labels.imageType,
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setNotice({
+        type: 'error',
+        message: labels.imageSize,
+      });
+      return;
+    }
+
+    if (imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setNewProduct((previous) => ({
+      ...previous,
+      image: file,
+    }));
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const removeImage = () => {
+    if (imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setImagePreview('');
+    setNewProduct((previous) => ({
+      ...previous,
+      image: null,
+    }));
+  };
+
+  const loadProviderProducts = async (apiId, { sync = false } = {}) => {
     if (!apiId) {
       setApiProducts([]);
       return;
     }
+
+    setNotice(null);
+
+    if (sync) {
+      setApiProductsSyncing(true);
+    } else {
+      setApiProductsLoading(true);
+    }
+
     try {
-      setLoadingApiProducts(true);
-      try {
-        await axiosInstance.post(`third_party_apis/apis/${apiId}/sync_products/`);
-      } catch (syncError) {
-        console.warn('API Sync Failed', syncError);
+      if (sync) {
+        await axiosInstance.post(
+          `third_party_apis/apis/${apiId}/sync_products/`,
+        );
       }
-      const response = await axiosInstance.get('store/admin/external-products/', {
-        params: { api_id: apiId },
-      });
-      const productsData = response.data?.results || response.data || [];
-      setApiProducts(productsData);
-    } catch (error) {
-      alert(t('addProductPage.alerts.loadApiFailed', 'Failed to load API products'));
+
+      const response = await axiosInstance.get(
+        'store/admin/external-products/',
+        {
+          params: {
+            api_id: apiId,
+          },
+        },
+      );
+
+      setApiProducts(normalizeList(response.data));
+    } catch (providerError) {
       setApiProducts([]);
+      setNotice({
+        type: 'error',
+        message: getApiError(
+          providerError,
+          sync ? labels.syncFailed : labels.providerLoadFailed,
+        ),
+      });
     } finally {
-      setLoadingApiProducts(false);
+      setApiProductsLoading(false);
+      setApiProductsSyncing(false);
     }
   };
 
   const handleApiChange = (apiId) => {
-    setSelectedApi(apiId);
-    setNewProduct((prev) => ({
-      ...prev,
+    setProviderSearch('');
+    setApiProducts([]);
+
+    setNewProduct((previous) => ({
+      ...previous,
       api_config: apiId,
       external_product: '',
     }));
-    setSelectedApiProduct(null);
-    setSearchQuery('');
 
     if (apiId) {
-      fetchApiProducts(apiId);
-      setShowApiProductsModal(true);
-    } else {
-      setApiProducts([]);
-      setShowApiProductsModal(false);
+      loadProviderProducts(apiId);
     }
   };
 
-  const handleSelectApiProduct = (apiProduct) => {
-    setSelectedApiProduct(apiProduct);
-    setNewProduct((prev) => ({
-      ...prev,
-      name_en: apiProduct.name || prev.name_en,
-      name_ar: apiProduct.name || prev.name_ar,
-      description_en: apiProduct.description || prev.description_en,
-      description_ar: apiProduct.description || prev.description_ar,
-      base_price: parseFloat(apiProduct.base_price) || prev.base_price,
-      external_product: apiProduct.id,
-      requirements: apiProduct.required_fields_json?.map((field, index) => {
-        const fieldData = typeof field === 'object' ? field : { name: field, type: 'text', required: true };
+  const handleProviderProduct = (externalId) => {
+    const selected = apiProducts.find(
+      (item) => Number(item.id) === Number(externalId),
+    );
+
+    if (!selected) {
+      updateProduct('external_product', externalId);
+      return;
+    }
+
+    const requirements = Array.isArray(selected.required_fields_json)
+      ? selected.required_fields_json.map((field, index) => {
+        const fieldData = typeof field === 'object'
+          ? field
+          : {
+            name: field,
+            type: 'text',
+            required: true,
+          };
+
         return {
           field_name: fieldData.name || `field_${index}`,
-          field_type: mapApiFieldType(fieldData.type) || 'text',
+          field_type: mapApiFieldType(fieldData.type),
           is_required: fieldData.required !== false,
           placeholder: fieldData.placeholder || '',
           order: index,
         };
-      }) || prev.requirements,
-    }));
-    setErrors((prev) => ({
-      ...prev,
-      name_en: null,
-      name_ar: null,
-      base_price: null,
-      api_config: null,
-    }));
-    setShowApiProductsModal(false);
-    setSearchQuery('');
-    alert(t('addProductPage.alerts.apiSelected', { name: apiProduct.name }));
-  };
+      })
+      : [];
 
-  const handleClearApiSelection = () => {
-    setSelectedApi('');
-    setSelectedApiProduct(null);
-    setApiProducts([]);
-    setSearchQuery('');
-    setNewProduct((prev) => ({
-      ...prev,
-      api_config: '',
-      external_product: '',
+    setNewProduct((previous) => ({
+      ...previous,
+      external_product: selected.id,
+      name_en: selected.name || previous.name_en,
+      name_ar: selected.name || previous.name_ar,
+      description_en: selected.description || previous.description_en,
+      description_ar: selected.description || previous.description_ar,
+      base_price: Number(selected.base_price || previous.base_price || 0),
+      requirements: requirements.length
+        ? requirements
+        : previous.requirements,
     }));
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert(t('addProductPage.alerts.imageTypeErr'));
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(t('addProductPage.alerts.imageSizeErr'));
-        return;
-      }
-      setNewProduct({ ...newProduct, image: file });
-      setErrors((prev) => ({ ...prev, image: null }));
+  const filteredApiProducts = useMemo(() => {
+    const needle = providerSearch.trim().toLowerCase();
+
+    if (!needle) {
+      return apiProducts;
     }
-  };
 
-  const handleRemoveImage = () => {
-    setNewProduct({ ...newProduct, image: null });
-  };
+    return apiProducts.filter((product) => [
+      product.name,
+      product.name_ar,
+      product.name_en,
+      product.external_id,
+      product.sku,
+    ]
+      .filter((value) => value !== null && value !== undefined)
+      .some((value) => String(value).toLowerCase().includes(needle)));
+  }, [apiProducts, providerSearch]);
 
-  // Requirements handlers
-  const handleAddRequirement = () => {
+  const addRequirement = () => {
     if (!newRequirement.field_name.trim()) {
-      alert(t('addProductPage.alerts.reqNameRequired', 'Field name is required'));
       return;
     }
-    setNewProduct((prev) => ({
-      ...prev,
-      requirements: [...prev.requirements, {
-        ...newRequirement,
-        order: prev.requirements.length,
-      }],
+
+    setNewProduct((previous) => ({
+      ...previous,
+      requirements: [
+        ...previous.requirements,
+        {
+          ...newRequirement,
+          order: previous.requirements.length,
+        },
+      ],
     }));
+
     setNewRequirement({
       field_name: '',
       field_type: 'text',
@@ -254,68 +436,64 @@ export default function AddProduct() {
       placeholder: '',
       order: 0,
     });
-    setShowReqModal(false);
   };
 
-  const handleRemoveRequirement = (index) => {
-    setNewProduct((prev) => ({
-      ...prev,
-      requirements: prev.requirements.filter((_, i) => i !== index),
+  const removeRequirement = (index) => {
+    setNewProduct((previous) => ({
+      ...previous,
+      requirements: previous.requirements.filter(
+        (_, itemIndex) => itemIndex !== index,
+      ),
     }));
   };
 
-  // Validation
-  const validateForm = () => {
-    const tempErrors = {};
-    if (!newProduct.name_ar.trim() || newProduct.name_ar.trim().length < 3) {
-      tempErrors.name_ar = t('addProductPage.validation.nameAr');
-    }
-    if (!newProduct.name_en.trim() || newProduct.name_en.trim().length < 3) {
-      tempErrors.name_en = t('addProductPage.validation.nameEn');
-    }
-    if (!newProduct.section) {
-      tempErrors.section = t('addProductPage.validation.section');
-    }
-    if (newProduct.base_price === undefined || newProduct.base_price === '' || parseFloat(newProduct.base_price) < 0) {
-      tempErrors.base_price = t('addProductPage.validation.basePrice');
-    }
-    if (newProduct.product_type === 'amount_based') {
-      if (!newProduct.min_amount || parseFloat(newProduct.min_amount) <= 0) {
-        tempErrors.min_amount = t('addProductPage.validation.minAmount');
-      }
-      if (!newProduct.max_amount || parseFloat(newProduct.max_amount) < parseFloat(newProduct.min_amount)) {
-        tempErrors.max_amount = t('addProductPage.validation.maxAmount');
-      }
-      if (!newProduct.min_amount_price || parseFloat(newProduct.min_amount_price) <= 0) {
-        tempErrors.min_amount_price = t('addProductPage.validation.minAmountPrice');
-      }
-    } else if (newProduct.product_type === 'customization_based') {
-      if (!newProduct.customization_options.trim()) {
-        tempErrors.customization_options = t('addProductPage.validation.customOptions');
-      }
-      if (!newProduct.customization_prices.trim()) {
-        tempErrors.customization_prices = t('addProductPage.validation.customPrices');
-      }
-    }
-    if (newProduct.api_config) {
-      if (!newProduct.external_product) {
-        tempErrors.api_config = t('addProductPage.validation.apiConfig');
-      }
+  const validate = () => {
+    if (
+      !newProduct.name_ar.trim()
+      || !newProduct.name_en.trim()
+    ) {
+      setNotice({
+        type: 'error',
+        message: labels.requiredName,
+      });
+      return false;
     }
 
-    setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
+    if (!newProduct.section) {
+      setNotice({
+        type: 'error',
+        message: labels.requiredSection,
+      });
+      return false;
+    }
+
+    if (
+      Number.isNaN(Number(newProduct.base_price))
+      || Number(newProduct.base_price) < 0
+    ) {
+      setNotice({
+        type: 'error',
+        message: labels.invalidPrice,
+      });
+      return false;
+    }
+
+    return true;
   };
 
-  const handleSaveProduct = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) {
+  const handleSaveProduct = async (event) => {
+    event.preventDefault();
+
+    if (!validate()) {
       return;
     }
 
+    setSubmitting(true);
+    setNotice(null);
+
     try {
-      setSubmitting(true);
       const formData = new FormData();
+
       formData.append('name_en', newProduct.name_en);
       formData.append('name_ar', newProduct.name_ar);
       formData.append('description_en', newProduct.description_en);
@@ -323,1225 +501,760 @@ export default function AddProduct() {
       formData.append('section', newProduct.section);
       formData.append('product_type', newProduct.product_type);
       formData.append('currency', newProduct.currency);
-      formData.append('base_price', newProduct.base_price.toString());
-      formData.append('is_active', newProduct.is_active.toString());
+      formData.append('base_price', String(newProduct.base_price));
+      formData.append('is_active', String(newProduct.is_active));
 
       if (newProduct.api_config) {
         formData.append('api_config', newProduct.api_config);
       }
+
       if (newProduct.external_product) {
         formData.append('external_product', newProduct.external_product);
       }
 
       if (newProduct.product_type === 'amount_based') {
-        formData.append('min_amount', newProduct.min_amount.toString());
-        formData.append('max_amount', newProduct.max_amount.toString());
-        formData.append('min_amount_price', newProduct.min_amount_price.toString());
-      } else if (newProduct.product_type === 'customization_based') {
-        formData.append('customization_options', newProduct.customization_options);
-        formData.append('customization_prices', newProduct.customization_prices);
+        formData.append('min_amount', String(newProduct.min_amount));
+        formData.append('max_amount', String(newProduct.max_amount));
+        formData.append(
+          'min_amount_price',
+          String(newProduct.min_amount_price),
+        );
+      }
+
+      if (newProduct.product_type === 'customization_based') {
+        formData.append(
+          'customization_options',
+          newProduct.customization_options,
+        );
+        formData.append(
+          'customization_prices',
+          newProduct.customization_prices,
+        );
       }
 
       if (newProduct.image instanceof File) {
         formData.append('image', newProduct.image);
       }
 
-      if (newProduct.requirements.length > 0) {
-        formData.append('requirements', JSON.stringify(newProduct.requirements));
+      if (newProduct.requirements.length) {
+        formData.append(
+          'requirements',
+          JSON.stringify(newProduct.requirements),
+        );
       }
 
-      const config = {
-        headers: {
-          'Content-Type': 'multipart/form-data',
+      await axiosInstance.post(
+        'store/admin/products/',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          transformRequest: (data) => data,
         },
-        transformRequest: (data) => data,
-      };
+      );
 
-      await axiosInstance.post('store/admin/products/', formData, config);
-      alert(t('addProductPage.messages.success'));
-      navigate('/products');
-    } catch (error) {
-      const errorMessage = error.response?.data || t('addProductPage.alerts.saveFailed');
-      alert(t('addProductPage.alerts.saveError', {
-        message: typeof errorMessage === 'object' ? JSON.stringify(errorMessage) : errorMessage
-      }));
+      setNotice({
+        type: 'success',
+        message: labels.saveSuccess,
+      });
+
+      window.setTimeout(() => {
+        navigate('/products');
+      }, 500);
+    } catch (saveError) {
+      setNotice({
+        type: 'error',
+        message: getApiError(saveError, labels.saveFailed),
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Drag and Drop handlers
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
+  const inputClass = `
+    w-full rounded-xl border border-slate-200 bg-white px-4 py-3
+    text-sm font-bold text-slate-800 outline-none transition
+    focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950
+    dark:text-white dark:focus:border-slate-500
+  `;
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert(t('addProductPage.alerts.imageTypeErr'));
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert(t('addProductPage.alerts.imageSizeErr'));
-        return;
-      }
-      setNewProduct({ ...newProduct, image: file });
-      setErrors((prev) => ({ ...prev, image: null }));
-    }
-  };
-
-  // Filter API products locally based on searchQuery
-  const filteredApiProducts = apiProducts.filter((p) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase().trim();
-    const name = (p.name || '').toLowerCase();
-    const nameAr = (p.name_ar || '').toLowerCase();
-    const nameEn = (p.name_en || '').toLowerCase();
-    const extId = (p.external_id || '').toString().toLowerCase();
-    const sku = (p.sku || '').toLowerCase();
-
-    return name.includes(query) || 
-           nameAr.includes(query) || 
-           nameEn.includes(query) || 
-           extId.includes(query) || 
-           sku.includes(query);
-  });
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] w-full bg-main-bg dark:bg-main-dark-bg transition-colors duration-200">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto" />
-          <p className="mt-4 text-gray-600 dark:text-gray-300 font-medium">
-            {t('addProductPage.alerts.loading', 'Loading products...')}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const cardClass = `
+    rounded-3xl border border-slate-100 bg-white p-5 shadow-sm
+    dark:border-slate-800 dark:bg-secondary-dark-bg md:p-6
+  `;
 
   return (
-    <div className="min-h-screen bg-main-bg dark:bg-main-dark-bg p-4 md:p-8 transition-colors duration-200">
-      <div className="max-w-6xl mx-auto">
-        {/* Header Block */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 pb-4 border-b border-gray-200 dark:border-gray-800">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">
-              <span>{t('addProductPage.breadcrumb.products')}</span>
-              <span className="rtl:rotate-180">/</span>
-              <span className="text-gray-800 dark:text-gray-200 font-semibold">
-                {t('addProductPage.breadcrumb.addProduct')}
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-              {t('addProductPage.title')}
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('addProductPage.subtitle')}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/products')}
-            className="mt-4 md:mt-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 dark:border-gray-800 dark:bg-secondary-dark-bg text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-all text-sm font-medium shadow-sm"
-          >
-            <FiArrowLeft className="w-4 h-4 rtl:rotate-180" />
-            {t('addProductPage.backToProducts')}
-          </button>
-        </div>
+    <div
+      dir={isArabic ? 'rtl' : 'ltr'}
+      className="mt-20 px-3 py-4 sm:px-5 md:mt-4 md:px-8 md:py-6"
+    >
+      <div className="mx-auto w-full max-w-7xl space-y-5">
+        <section className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-7">
+          <div
+            className="pointer-events-none absolute -end-24 -top-24 h-60 w-60 rounded-full opacity-[0.08]"
+            style={{ backgroundColor: accentColor }}
+          />
 
-        {/* Form Container */}
-        <form onSubmit={handleSaveProduct} className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            {/* Left Column (Details) */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Card 1: Basic Info */}
-              <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 pb-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                  <span className="p-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-lg">
-                    <FiPackage className="w-5 h-5" />
-                  </span>
-                  {t('addProductPage.cards.basicInfo')}
-                </h2>
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl text-white"
+                style={{ backgroundColor: accentColor }}
+              >
+                <FiPackage />
+              </div>
+
+              <div className="text-start">
+                <p
+                  className="text-xs font-black uppercase tracking-[0.16em]"
+                  style={{ color: accentColor }}
+                >
+                  {labels.eyebrow}
+                </p>
+                <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white md:text-3xl">
+                  {labels.title}
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  {labels.subtitle}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/products')}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            >
+              <FiArrowLeft className={isArabic ? 'rotate-180' : ''} />
+              {labels.back}
+            </button>
+          </div>
+        </section>
+
+        {metadataLoading && (
+          <div className="flex items-center gap-2 rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-secondary-dark-bg dark:text-slate-300">
+            <FiRefreshCw className="animate-spin" style={{ color: accentColor }} />
+            {labels.loadingMetadata}
+          </div>
+        )}
+
+        {notice && (
+          <div
+            className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-bold ${
+              notice.type === 'error'
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
+                : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+            }`}
+          >
+            {notice.type === 'error'
+              ? <FiAlertCircle className="mt-0.5 shrink-0" />
+              : <FiCheck className="mt-0.5 shrink-0" style={{ color: accentColor }} />}
+            <span className="flex-1 text-start">
+              {notice.message}
+            </span>
+            <button type="button" onClick={() => setNotice(null)}>
+              <FiX />
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSaveProduct} className="space-y-5">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-5">
+              <section className={cardClass}>
+                <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${accentColor}14`,
+                      color: accentColor,
+                    }}
+                  >
+                    <FiPackage />
+                  </div>
+                  <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                    {labels.basic}
+                  </h2>
+                </div>
 
                 <div className="space-y-4">
-                  {/* Parent Section */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('addProductPage.fields.section')}
-                    </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                      {labels.section} *
+                    </span>
                     <select
                       value={newProduct.section}
-                      onChange={(e) => {
-                        setNewProduct({ ...newProduct, section: e.target.value });
-                        setErrors((prev) => ({ ...prev, section: null }));
-                      }}
-                      className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all ${
-                        errors.section
-                          ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                          : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                      }`}
+                      onChange={(event) => updateProduct('section', event.target.value)}
+                      className={inputClass}
                     >
-                      <option value="">{t('addProductPage.placeholders.selectSection')}</option>
+                      <option value="">
+                        {labels.selectSection}
+                      </option>
                       {sections.map((section) => (
                         <option key={section.id} value={section.id}>
-                          {isArabic ? `${section.name_ar} / ${section.name_en}` : `${section.name_en} / ${section.name_ar}`}
+                          {isArabic
+                            ? (section.name_ar || section.name_en)
+                            : (section.name_en || section.name_ar)}
                         </option>
                       ))}
                     </select>
-                    {errors.section && (
-                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                        <FiAlertCircle className="w-3.5 h-3.5" />
-                        {errors.section}
-                      </p>
-                    )}
-                  </div>
+                  </label>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Arabic Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('addProductPage.fields.nameAr')}
-                      </label>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.nameAr} *
+                      </span>
                       <input
                         type="text"
                         dir="rtl"
                         value={newProduct.name_ar}
-                        onChange={(e) => {
-                          setNewProduct({ ...newProduct, name_ar: e.target.value });
-                          setErrors((prev) => ({ ...prev, name_ar: null }));
-                        }}
-                        className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all text-right ${
-                          errors.name_ar
-                            ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                            : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                        }`}
-                        placeholder={t('addProductPage.placeholders.nameAr')}
+                        onChange={(event) => updateProduct('name_ar', event.target.value)}
+                        className={inputClass}
+                        placeholder="مثال: ببجي موبايل 600 UC"
                       />
-                      {errors.name_ar && (
-                        <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                          <FiAlertCircle className="w-3.5 h-3.5" />
-                          {errors.name_ar}
-                        </p>
-                      )}
-                    </div>
+                    </label>
 
-                    {/* English Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('addProductPage.fields.nameEn')}
-                      </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.nameEn} *
+                      </span>
                       <input
                         type="text"
                         dir="ltr"
                         value={newProduct.name_en}
-                        onChange={(e) => {
-                          setNewProduct({ ...newProduct, name_en: e.target.value });
-                          setErrors((prev) => ({ ...prev, name_en: null }));
-                        }}
-                        className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all text-left ${
-                          errors.name_en
-                            ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                            : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                        }`}
-                        placeholder={t('addProductPage.placeholders.nameEn')}
+                        onChange={(event) => updateProduct('name_en', event.target.value)}
+                        className={inputClass}
+                        placeholder="Example: PUBG Mobile 600 UC"
                       />
-                      {errors.name_en && (
-                        <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                          <FiAlertCircle className="w-3.5 h-3.5" />
-                          {errors.name_en}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Linked API Product Name */}
-                  {selectedApiProduct && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        {t('addProductPage.fields.apiName')}
-                      </label>
-                      <input
-                        type="text"
-                        readOnly
-                        value={selectedApiProduct.name}
-                        className="w-full border border-gray-200 dark:border-gray-800 rounded-xl p-2.5 bg-gray-50 dark:bg-gray-800/40 text-gray-500 dark:text-gray-400 text-sm cursor-not-allowed font-medium"
-                      />
-                    </div>
-                  )}
-
-                  {/* Active State Toggle switch */}
-                  <div className="pt-2">
-                    <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 max-w-md">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {t('addProductPage.fields.isActive')}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setNewProduct({ ...newProduct, is_active: !newProduct.is_active })}
-                        className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                        style={{ backgroundColor: newProduct.is_active ? primaryColor : '#E5E7EB' }}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            newProduct.is_active ? 'translate-x-6 rtl:-translate-x-6' : 'translate-x-1 rtl:-translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Pricing and Currency */}
-              <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 pb-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                  <span className="p-1.5 bg-green-50 dark:bg-green-900/20 text-green-500 rounded-lg">
-                    <FiDollarSign className="w-5 h-5" />
-                  </span>
-                  {t('addProductPage.cards.pricing')}
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Currency selector */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('addProductPage.fields.currency')}
                     </label>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.descAr}
+                      </span>
+                      <textarea
+                        rows="4"
+                        dir="rtl"
+                        value={newProduct.description_ar}
+                        onChange={(event) => updateProduct('description_ar', event.target.value)}
+                        className={`${inputClass} resize-none`}
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.descEn}
+                      </span>
+                      <textarea
+                        rows="4"
+                        dir="ltr"
+                        value={newProduct.description_en}
+                        onChange={(event) => updateProduct('description_en', event.target.value)}
+                        className={`${inputClass} resize-none`}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                    <div className="text-start">
+                      <p className="text-sm font-black text-slate-800 dark:text-slate-100">
+                        {labels.active}
+                      </p>
+                    </div>
+
+                    <input
+                      type="checkbox"
+                      checked={newProduct.is_active}
+                      onChange={(event) => updateProduct('is_active', event.target.checked)}
+                      className="h-5 w-5"
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className={cardClass}>
+                <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${accentColor}14`,
+                      color: accentColor,
+                    }}
+                  >
+                    <FiDollarSign />
+                  </div>
+                  <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                    {labels.pricing}
+                  </h2>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                      {labels.currency} *
+                    </span>
                     <select
                       value={newProduct.currency}
-                      onChange={(e) => setNewProduct({ ...newProduct, currency: e.target.value })}
-                      className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      onChange={(event) => updateProduct('currency', event.target.value)}
+                      className={inputClass}
                     >
                       <option value="USD">USD ($)</option>
-                      <option value="SYP">{t('addProductPage.fields.sypOption')}</option>
+                      <option value="SYP">SYP</option>
                     </select>
-                  </div>
+                  </label>
 
-                  {/* Sale Price field */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('addProductPage.fields.salePrice')}
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 start-0 flex items-center ps-3 text-gray-500 dark:text-gray-400 text-sm">
-                        {newProduct.currency === 'USD' ? '$' : 'SYP'}
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                      {labels.productType} *
+                    </span>
+                    <select
+                      value={newProduct.product_type}
+                      onChange={(event) => updateProduct('product_type', event.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="amount_based">
+                        {labels.amountBased}
+                      </option>
+                      <option value="customization_based">
+                        {labels.customizationBased}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                      {labels.basePrice} *
+                    </span>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={newProduct.base_price}
+                      onChange={(event) => updateProduct('base_price', event.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                </div>
+
+                {newProduct.product_type === 'amount_based' && (
+                  <div className="mt-4 grid gap-4 md:grid-cols-3">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.minAmount}
                       </span>
                       <input
                         type="number"
+                        step="0.0001"
                         min="0"
-                        step="0.01"
-                        value={newProduct.base_price || ''}
-                        onChange={(e) => {
-                          setNewProduct({ ...newProduct, base_price: parseFloat(e.target.value) || 0 });
-                          setErrors((prev) => ({ ...prev, base_price: null }));
-                        }}
-                        className={`w-full border rounded-xl p-2.5 ps-12 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all ${
-                          errors.base_price
-                            ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                            : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                        }`}
-                        placeholder="0.00"
+                        value={newProduct.min_amount}
+                        onChange={(event) => updateProduct('min_amount', event.target.value)}
+                        className={inputClass}
                       />
-                    </div>
-                    {errors.base_price && (
-                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                        <FiAlertCircle className="w-3.5 h-3.5" />
-                        {errors.base_price}
-                      </p>
-                    )}
-                  </div>
+                    </label>
 
-                  {/* Read-only Cost Price if linked to API */}
-                  {selectedApiProduct && (
-                    <div className="md:col-span-2 bg-slate-50 dark:bg-gray-800/30 p-4 rounded-xl border border-gray-100 dark:border-gray-800 space-y-2">
-                      <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mb-2">
-                        ⚠️ {t('addProductPage.fields.pricingPreviewNotice')}
-                      </p>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600 dark:text-gray-400 font-medium">
-                          {t('addProductPage.fields.costPrice')} (Third Party API):
-                        </span>
-                        <span className="font-bold text-gray-900 dark:text-white">
-                          ${parseFloat(selectedApiProduct.base_price || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
-                        <span className="text-gray-600 dark:text-gray-400 font-medium">
-                          {t('addProductPage.fields.profitMargin')}
-                        </span>
-                        <span className={`font-bold ${
-                          (newProduct.base_price - selectedApiProduct.base_price) >= 0 ? 'text-green-600' : 'text-red-500'
-                        }`}>
-                          ${(newProduct.base_price - selectedApiProduct.base_price).toFixed(2)} ({
-                            selectedApiProduct.base_price > 0
-                              ? (((newProduct.base_price - selectedApiProduct.base_price) / selectedApiProduct.base_price) * 100).toFixed(1)
-                              : 0
-                          }%)
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.maxAmount}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        value={newProduct.max_amount}
+                        onChange={(event) => updateProduct('max_amount', event.target.value)}
+                        className={inputClass}
+                      />
+                    </label>
 
-                {/* Amount details price unit preview */}
-                {newProduct.product_type === 'amount_based' && newProduct.min_amount > 0 && newProduct.min_amount_price > 0 && (
-                  <div className="mt-4 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 rounded-xl flex items-center justify-between text-sm">
-                    <span className="text-blue-700 dark:text-blue-300 font-medium">
-                      {t('addProductPage.fields.unitPrice')}
-                    </span>
-                    <span className="font-bold text-blue-800 dark:text-blue-200">
-                      {newProduct.currency === 'USD' ? '$' : 'SYP '}
-                      {(newProduct.min_amount_price / newProduct.min_amount).toFixed(4)}
-                    </span>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.minAmountPrice}
+                      </span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        value={newProduct.min_amount_price}
+                        onChange={(event) => updateProduct('min_amount_price', event.target.value)}
+                        className={inputClass}
+                      />
+                    </label>
                   </div>
                 )}
-              </div>
 
-              {/* Card 3: Description */}
-              <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 pb-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                  <span className="p-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded-lg">
-                    <FiGlobe className="w-5 h-5" />
-                  </span>
-                  {t('addProductPage.cards.description')}
-                </h2>
-
-                <div className="space-y-4">
-                  {/* Arabic Description */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
-                      <span>{t('addProductPage.fields.descriptionAr')}</span>
-                      <span className="text-xs text-gray-400 font-normal">({t('addProductPage.languages.arabic')})</span>
+                {newProduct.product_type === 'customization_based' && (
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.customOptions}
+                      </span>
+                      <textarea
+                        rows="4"
+                        value={newProduct.customization_options}
+                        onChange={(event) => updateProduct('customization_options', event.target.value)}
+                        className={`${inputClass} resize-none`}
+                      />
                     </label>
-                    <textarea
-                      dir="rtl"
-                      value={newProduct.description_ar}
-                      onChange={(e) => setNewProduct({ ...newProduct, description_ar: e.target.value })}
-                      className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-right"
-                      rows="4"
-                      placeholder={t('addProductPage.placeholders.descriptionAr')}
-                    />
+
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.customPrices}
+                      </span>
+                      <textarea
+                        rows="4"
+                        value={newProduct.customization_prices}
+                        onChange={(event) => updateProduct('customization_prices', event.target.value)}
+                        className={`${inputClass} resize-none`}
+                      />
+                    </label>
                   </div>
+                )}
+              </section>
 
-                  {/* English Description */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
-                      <span>{t('addProductPage.fields.descriptionEn')}</span>
-                      <span className="text-xs text-gray-400 font-normal">({t('addProductPage.languages.english')})</span>
-                    </label>
-                    <textarea
-                      dir="ltr"
-                      value={newProduct.description_en}
-                      onChange={(e) => setNewProduct({ ...newProduct, description_en: e.target.value })}
-                      className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left"
-                      rows="4"
-                      placeholder={t('addProductPage.placeholders.descriptionEn')}
-                    />
+              <section className={cardClass}>
+                <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${accentColor}14`,
+                      color: accentColor,
+                    }}
+                  >
+                    <FiLink />
+                  </div>
+                  <div className="text-start">
+                    <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                      {labels.integration}
+                    </h2>
+                    <p className="mt-1 text-xs font-semibold text-slate-400">
+                      {labels.providerHint}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Card 4: Quantity Type */}
-              <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 pb-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                  <span className="p-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 rounded-lg">
-                    <FiSettings className="w-5 h-5" />
-                  </span>
-                  {t('addProductPage.cards.quantityType')}
-                </h2>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                      {labels.provider}
+                    </span>
+                    <select
+                      value={newProduct.api_config}
+                      onChange={(event) => handleApiChange(event.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">
+                        {labels.noProvider}
+                      </option>
+                      {apis.map((api) => (
+                        <option key={api.id} value={api.id}>
+                          {api.name} ({api.provider})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <div className="space-y-6">
-                  {/* Radio Cards to select Quantity Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      {t('addProductPage.fields.quantityTypeLabel')}
-                    </label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Amount Based */}
-                      <label className={`flex p-4 border rounded-xl cursor-pointer transition-all ${
-                        newProduct.product_type === 'amount_based'
-                          ? 'border-indigo-600 bg-indigo-50/10 dark:bg-indigo-950/20'
-                          : 'border-gray-200 dark:border-gray-800 hover:border-indigo-300 hover:bg-slate-50 dark:hover:bg-gray-800/40'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="product_type"
-                          value="amount_based"
-                          checked={newProduct.product_type === 'amount_based'}
-                          onChange={() => setNewProduct({ ...newProduct, product_type: 'amount_based' })}
-                          className="w-4 h-4 text-indigo-600 border-gray-300 mt-0.5"
-                          style={{ accentColor: primaryColor }}
-                        />
-                        <div className="ms-3">
-                          <span className="block text-sm font-bold text-gray-900 dark:text-white">
-                            {t('addProductPage.fields.quantityTypes.amount')}
-                          </span>
-                          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {t('addProductPage.fields.quantityTypes.amountDesc')}
-                          </span>
-                        </div>
-                      </label>
+                  <div className="flex items-end gap-2">
+                    <button
+                      type="button"
+                      disabled={!newProduct.api_config || apiProductsLoading}
+                      onClick={() => loadProviderProducts(newProduct.api_config)}
+                      className="inline-flex h-[46px] flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <FiRefreshCw className={apiProductsLoading ? 'animate-spin' : ''} />
+                      {labels.loadProviderProducts}
+                    </button>
 
-                      {/* Custom Options Based */}
-                      <label className={`flex p-4 border rounded-xl cursor-pointer transition-all ${
-                        newProduct.product_type === 'customization_based'
-                          ? 'border-indigo-600 bg-indigo-50/10 dark:bg-indigo-950/20'
-                          : 'border-gray-200 dark:border-gray-800 hover:border-indigo-300 hover:bg-slate-50 dark:hover:bg-gray-800/40'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="product_type"
-                          value="customization_based"
-                          checked={newProduct.product_type === 'customization_based'}
-                          onChange={() => setNewProduct({ ...newProduct, product_type: 'customization_based' })}
-                          className="w-4 h-4 text-indigo-600 border-gray-300 mt-0.5"
-                          style={{ accentColor: primaryColor }}
-                        />
-                        <div className="ms-3">
-                          <span className="block text-sm font-bold text-gray-900 dark:text-white">
-                            {t('addProductPage.fields.quantityTypes.custom')}
-                          </span>
-                          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {t('addProductPage.fields.quantityTypes.customDesc')}
-                          </span>
-                        </div>
-                      </label>
-                    </div>
+                    <button
+                      type="button"
+                      disabled={!newProduct.api_config || apiProductsSyncing}
+                      onClick={() => loadProviderProducts(
+                        newProduct.api_config,
+                        { sync: true },
+                      )}
+                      className="inline-flex h-[46px] flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black text-white transition hover:opacity-90 disabled:opacity-40"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      <FiRefreshCw className={apiProductsSyncing ? 'animate-spin' : ''} />
+                      {labels.syncProviderProducts}
+                    </button>
                   </div>
-
-                  {/* Dynamic Inputs Based on Choice */}
-                  {newProduct.product_type === 'amount_based' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 dark:bg-gray-800/30 rounded-xl border border-gray-100 dark:border-gray-800">
-                      {/* Min Amount */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('addProductPage.fields.minAmount')}
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={newProduct.min_amount || ''}
-                          onChange={(e) => {
-                            setNewProduct({ ...newProduct, min_amount: parseFloat(e.target.value) || 0 });
-                            setErrors((prev) => ({ ...prev, min_amount: null }));
-                          }}
-                          className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all ${
-                            errors.min_amount
-                              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                              : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                          }`}
-                          placeholder="e.g. 100"
-                        />
-                        {errors.min_amount && (
-                          <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                            <FiAlertCircle className="w-3.5 h-3.5" />
-                            {errors.min_amount}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Max Amount */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('addProductPage.fields.maxAmount')}
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={newProduct.max_amount || ''}
-                          onChange={(e) => {
-                            setNewProduct({ ...newProduct, max_amount: parseFloat(e.target.value) || 0 });
-                            setErrors((prev) => ({ ...prev, max_amount: null }));
-                          }}
-                          className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all ${
-                            errors.max_amount
-                              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                              : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                          }`}
-                          placeholder="e.g. 10000"
-                        />
-                        {errors.max_amount && (
-                          <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                            <FiAlertCircle className="w-3.5 h-3.5" />
-                            {errors.max_amount}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Min Amount Price */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('addProductPage.fields.minAmountPrice')}
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={newProduct.min_amount_price || ''}
-                          onChange={(e) => {
-                            setNewProduct({ ...newProduct, min_amount_price: parseFloat(e.target.value) || 0 });
-                            setErrors((prev) => ({ ...prev, min_amount_price: null }));
-                          }}
-                          className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all ${
-                            errors.min_amount_price
-                              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                              : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                          }`}
-                          placeholder="e.g. 5.00"
-                        />
-                        {errors.min_amount_price && (
-                          <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                            <FiAlertCircle className="w-3.5 h-3.5" />
-                            {errors.min_amount_price}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {newProduct.product_type === 'customization_based' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-gray-800/30 rounded-xl border border-gray-100 dark:border-gray-800">
-                      {/* Options */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('addProductPage.fields.customOptions')}
-                        </label>
-                        <textarea
-                          value={newProduct.customization_options}
-                          onChange={(e) => {
-                            setNewProduct({ ...newProduct, customization_options: e.target.value });
-                            setErrors((prev) => ({ ...prev, customization_options: null }));
-                          }}
-                          className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all ${
-                            errors.customization_options
-                              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                              : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                          }`}
-                          rows="3"
-                          placeholder={t('addProductPage.placeholders.customOptions')}
-                        />
-                        <p className="text-xs text-gray-400 mt-1">
-                          {t('addProductPage.fields.optionHint')}
-                        </p>
-                        {errors.customization_options && (
-                          <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                            <FiAlertCircle className="w-3.5 h-3.5" />
-                            {errors.customization_options}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Prices */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('addProductPage.fields.customPrices')}
-                        </label>
-                        <textarea
-                          value={newProduct.customization_prices}
-                          onChange={(e) => {
-                            setNewProduct({ ...newProduct, customization_prices: e.target.value });
-                            setErrors((prev) => ({ ...prev, customization_prices: null }));
-                          }}
-                          className={`w-full border rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 transition-all ${
-                            errors.customization_prices
-                              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                              : 'border-gray-300 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
-                          }`}
-                          rows="3"
-                          placeholder={t('addProductPage.placeholders.customPrices')}
-                        />
-                        <p className="text-xs text-gray-400 mt-1">
-                          {t('addProductPage.fields.priceHint')}
-                        </p>
-                        {errors.customization_prices && (
-                          <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                            <FiAlertCircle className="w-3.5 h-3.5" />
-                            {errors.customization_prices}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              {/* Card 5: API Integration Details */}
-              <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 pb-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                  <span className="p-1.5 bg-sky-50 dark:bg-sky-900/20 text-sky-500 rounded-lg">
-                    <FiGlobe className="w-5 h-5" />
-                  </span>
-                  {t('addProductPage.cards.apiConfig')}
-                </h2>
+                {newProduct.api_config && (
+                  <div className="mt-4 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+                    <div className="relative">
+                      <FiSearch className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="search"
+                        value={providerSearch}
+                        onChange={(event) => setProviderSearch(event.target.value)}
+                        placeholder={labels.providerSearch}
+                        className={`${inputClass} ps-10`}
+                      />
+                    </div>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* API provider selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('addProductPage.fields.apiProvider')}
-                      </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.providerProduct}
+                      </span>
                       <select
-                        value={newProduct.api_config}
-                        onChange={(e) => handleApiChange(e.target.value)}
-                        className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                        value={newProduct.external_product}
+                        onChange={(event) => handleProviderProduct(event.target.value)}
+                        disabled={apiProductsLoading || apiProductsSyncing}
+                        className={`${inputClass} disabled:opacity-50`}
                       >
-                        <option value="">{t('addProductPage.fields.noApiOption')}</option>
-                        {apis.map((api) => (
-                          <option key={api.id} value={api.id}>
-                            {api.name} ({api.provider})
+                        <option value="">
+                          {labels.selectProviderProduct}
+                        </option>
+                        {filteredApiProducts.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name || product.name_en || `#${product.id}`}
                           </option>
                         ))}
                       </select>
-                    </div>
+                    </label>
 
-                    {/* API Action buttons / connection status */}
-                    <div className="flex items-end">
-                      {newProduct.api_config && (
-                        <div className="flex gap-2 w-full">
-                          <button
-                            type="button"
-                            onClick={() => setShowApiProductsModal(true)}
-                            className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition text-sm font-medium flex items-center justify-center gap-2 shadow-sm"
-                          >
-                            <FiLink className="w-4 h-4" />
-                            {t('addProductPage.fields.selectApi')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleClearApiSelection}
-                            className="px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-650 border border-red-200 rounded-xl transition text-sm font-medium"
-                          >
-                            <FiTrash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    {!apiProducts.length && !apiProductsLoading && (
+                      <p className="text-xs font-semibold text-slate-400">
+                        {labels.providerEmpty}
+                      </p>
+                    )}
                   </div>
-
-                  {/* Show selected API product metadata block */}
-                  {selectedApiProduct && (
-                    <div className="p-4 bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-900 rounded-xl flex items-center justify-between text-sm animate-fade-in">
-                      <div>
-                        <p className="font-bold text-green-900 dark:text-green-300">
-                          {t('addProductPage.fields.connectedTo', { name: selectedApiProduct.name })}
-                        </p>
-                        <p className="text-xs text-green-700 dark:text-green-400 mt-1">
-                          {t('addProductPage.fields.connectedInfo', {
-                            price: selectedApiProduct.base_price,
-                            provider: selectedApiProduct.provider,
-                            id: selectedApiProduct.external_id
-                          })}
-                        </p>
-                        {selectedApiProduct.required_fields_json?.length > 0 && (
-                          <p className="text-xs text-green-800 dark:text-green-300 font-semibold mt-1 flex items-center gap-1">
-                            <FiCheck className="w-3.5 h-3.5" />
-                            {t('addProductPage.fields.autoAddedFields', { count: selectedApiProduct.required_fields_json.length })}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowApiProductsModal(true)}
-                        className="px-3 py-1.5 bg-white border border-green-300 dark:bg-secondary-dark-bg dark:border-green-900 text-green-800 dark:text-green-300 text-xs font-semibold rounded-lg hover:bg-green-50 dark:hover:bg-green-950/40 transition"
-                      >
-                        {t('addProductPage.fields.changeApi')}
-                      </button>
-                    </div>
-                  )}
-
-                  {errors.api_config && (
-                    <p className="mt-1 text-xs text-red-500 flex items-center gap-1 font-medium">
-                      <FiAlertCircle className="w-3.5 h-3.5" />
-                      {errors.api_config}
-                    </p>
-                  )}
-                </div>
-              </div>
+                )}
+              </section>
             </div>
 
-            {/* Right Column (Sidebars / Media / Requirements) */}
-            <div className="space-y-6">
-              {/* Card 7: Product Image */}
-              <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <h2 className="text-md font-bold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                  <span className="p-1.5 bg-pink-50 dark:bg-pink-900/20 text-pink-500 rounded-lg">
-                    <FiUploadCloud className="w-4 h-4" />
-                  </span>
-                  {t('addProductPage.cards.image')}
-                </h2>
-
-                <div className="space-y-4">
-                  {/* Drop zone container */}
+            <aside className="space-y-5">
+              <section className={cardClass}>
+                <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
                   <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => document.getElementById('image_upload_input').click()}
-                    className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px] ${
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${accentColor}14`,
+                      color: accentColor,
+                    }}
+                  >
+                    <FiImage />
+                  </div>
+                  <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                    {labels.image}
+                  </h2>
+                </div>
+
+                <label
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsDragging(false);
+                    handleImageFile(event.dataTransfer.files?.[0]);
+                  }}
+                  className="block cursor-pointer"
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => handleImageFile(event.target.files?.[0])}
+                    className="hidden"
+                  />
+
+                  <div
+                    className={`flex min-h-[210px] flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed p-4 text-center transition ${
                       isDragging
-                        ? 'border-indigo-600 bg-indigo-50/10'
-                        : newProduct.image
-                          ? 'border-green-300 bg-green-50/5'
-                          : 'border-gray-200 dark:border-gray-800 hover:border-indigo-400 hover:bg-slate-50 dark:hover:bg-gray-850/40'
+                        ? 'border-slate-500 bg-slate-100 dark:bg-slate-800'
+                        : 'border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-900/40'
                     }`}
                   >
-                    <input
-                      id="image_upload_input"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-
-                    {newProduct.image ? (
-                      <div className="relative group">
-                        <img
-                          src={URL.createObjectURL(newProduct.image)}
-                          alt="Uploaded Preview"
-                          className="w-28 h-28 object-cover rounded-xl border border-gray-100 dark:border-gray-850 shadow-sm"
-                          onError={(e) => {
-                            e.target.src = 'https://cdn-icons-png.flaticon.com/512/1170/1170679.png';
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveImage();
-                          }}
-                          className="absolute -top-2 -end-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-md transition"
-                        >
-                          <FiX className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    {imagePreview ? (
+                      <img
+                        src={imagePreview}
+                        alt="Product preview"
+                        className="max-h-[190px] w-full rounded-xl object-contain"
+                      />
                     ) : (
                       <>
-                        <FiUploadCloud className="w-10 h-10 text-gray-400 mb-3" />
-                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                          {t('addProductPage.fields.dropzone.title')}
+                        <FiUploadCloud className="text-4xl text-slate-300" />
+                        <p className="mt-3 text-sm font-black text-slate-700 dark:text-slate-200">
+                          {labels.dropImage}
                         </p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 leading-relaxed">
-                          {t('addProductPage.fields.dropzone.subtitle')}
+                        <p className="mt-2 text-xs font-semibold text-slate-400">
+                          {labels.imageHint}
                         </p>
                       </>
                     )}
                   </div>
+                </label>
 
-                  {newProduct.image && (
-                    <div className="flex justify-between items-center bg-slate-50 dark:bg-gray-800/40 p-2.5 rounded-xl border border-gray-100 dark:border-gray-800">
-                      <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[150px]">
-                        {newProduct.image.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleRemoveImage}
-                        className="text-xs font-bold text-red-600 hover:text-red-700 transition"
-                      >
-                        {t('addProductPage.fields.requirements.removeRequirement')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 8: Product Requirements */}
-              <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100 dark:border-gray-800">
-                  <h2 className="text-md font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <span className="p-1.5 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded-lg">
-                      <FiArrowLeft className="w-4 h-4 rotate-90" />
-                    </span>
-                    {t('addProductPage.fields.requirements.title')}
-                  </h2>
+                {imagePreview && (
                   <button
                     type="button"
-                    onClick={() => setShowReqModal(true)}
-                    className="p-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 hover:dark:bg-indigo-900/40 transition flex items-center gap-1 text-xs font-bold"
+                    onClick={removeImage}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-black text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300"
                   >
-                    <FiPlus className="w-3.5 h-3.5" />
-                    {t('addProductPage.fields.requirements.addRequirement')}
+                    <FiTrash2 />
+                    {labels.removeImage}
                   </button>
-                </div>
+                )}
+              </section>
 
-                {newProduct.requirements.length > 0 ? (
-                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-                    {newProduct.requirements.map((req, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/60 rounded-xl"
-                      >
-                        <div className="flex-1 truncate me-2">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                            {req.field_name}
-                          </p>
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
-                            <span className="capitalize">{t('addProductPage.api.types.' + req.field_type, req.field_type)}</span>
-                            <span>•</span>
-                            <span className={req.is_required ? 'text-red-500 font-bold' : 'text-gray-400'}>
-                              {req.is_required ? t('addProductPage.fields.requirements.required') : t('addProductPage.fields.requirements.optional')}
-                            </span>
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveRequirement(index)}
-                          className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition"
-                        >
-                          <FiTrash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
-                    <p className="text-xs text-gray-400 dark:text-gray-500 px-4 leading-relaxed">
-                      {t('addProductPage.fields.requirements.empty')}
+              <section className={cardClass}>
+                <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+                  <div className="text-start">
+                    <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                      {labels.requirements}
+                    </h2>
+                    <p className="mt-1 text-xs font-semibold text-slate-400">
+                      {labels.requirementsHint}
                     </p>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${accentColor}14`,
+                      color: accentColor,
+                    }}
+                  >
+                    <FiPlus />
+                  </div>
+                </div>
 
-          {/* Action Bar */}
-          <div className="bg-white dark:bg-secondary-dark-bg border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-md flex flex-col md:flex-row items-center justify-end gap-3 transition-colors">
-            <button
-              type="button"
-              onClick={() => navigate('/products')}
-              className="w-full md:w-auto px-6 py-2.5 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition font-bold text-sm"
-            >
-              {t('addProductPage.fields.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className={`w-full md:w-auto px-8 py-2.5 text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center justify-center gap-2 ${
-                submitting ? 'opacity-55 cursor-not-allowed' : 'hover:drop-shadow-lg'
-              }`}
-              style={{ backgroundColor: primaryColor }}
-            >
-              {submitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                  {t('addProductPage.messages.saving')}
-                </>
-              ) : (
-                <>
-                  <FiCheck className="w-4 h-4" />
-                  {t('addProductPage.fields.createProduct')}
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* MODAL 1: Requirements Modal */}
-      {showReqModal && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowReqModal(false);
-          }}
-          className="fixed inset-0 flex items-center justify-center bg-black/60 z-[200000] p-4 backdrop-blur-sm"
-        >
-          <div className="bg-white dark:bg-secondary-dark-bg border border-gray-150 dark:border-gray-800 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-up">
-            <div className="flex justify-between items-center mb-6 pb-2 border-b border-gray-100 dark:border-gray-800">
-              <h3 className="text-md font-bold text-gray-900 dark:text-white">
-                {t('addProductPage.fields.requirements.modalTitle')}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowReqModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-white"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Field Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('addProductPage.fields.requirements.fieldName')}
-                </label>
-                <input
-                  type="text"
-                  value={newRequirement.field_name}
-                  onChange={(e) => setNewRequirement({ ...newRequirement, field_name: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-755 rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder={t('addProductPage.fields.requirements.placeholders.fieldName')}
-                />
-              </div>
-
-              {/* Field Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('addProductPage.fields.requirements.fieldType')}
-                </label>
-                <select
-                  value={newRequirement.field_type}
-                  onChange={(e) => setNewRequirement({ ...newRequirement, field_type: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-750 rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20"
-                >
-                  <option value="text">{t('addProductPage.api.types.text')}</option>
-                  <option value="number">{t('addProductPage.api.types.number')}</option>
-                  <option value="email">{t('addProductPage.api.types.email')}</option>
-                  <option value="phone">{t('addProductPage.api.types.phone')}</option>
-                  <option value="id">{t('addProductPage.api.types.id')}</option>
-                </select>
-              </div>
-
-              {/* Placeholder text */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {t('addProductPage.fields.requirements.placeholder')}
-                </label>
-                <input
-                  type="text"
-                  value={newRequirement.placeholder}
-                  onChange={(e) => setNewRequirement({ ...newRequirement, placeholder: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-755 rounded-xl p-2.5 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder={t('addProductPage.fields.requirements.placeholders.placeholderText')}
-                />
-              </div>
-
-              {/* Required Switch checkbox */}
-              <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800">
-                <input
-                  type="checkbox"
-                  id="is_required_requirement"
-                  checked={newRequirement.is_required}
-                  onChange={(e) => setNewRequirement({ ...newRequirement, is_required: e.target.checked })}
-                  className="w-4 h-4 text-indigo-650 rounded border-gray-300 focus:ring-indigo-500"
-                  style={{ accentColor: primaryColor }}
-                />
-                <label
-                  htmlFor="is_required_requirement"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer select-none"
-                >
-                  {t('addProductPage.fields.requirements.required')}
-                </label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <button
-                type="button"
-                onClick={() => setShowReqModal(false)}
-                className="px-5 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 transition text-sm font-bold"
-              >
-                {t('addProductPage.fields.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleAddRequirement}
-                className="px-6 py-2 text-white rounded-xl font-bold text-sm hover:drop-shadow-md transition"
-                style={{ backgroundColor: primaryColor }}
-              >
-                {t('addProductPage.fields.requirements.addRequirement')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: Synced API Products Modal */}
-      {showApiProductsModal && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowApiProductsModal(false);
-          }}
-          className="fixed inset-0 flex items-center justify-center bg-black/60 z-[200000] p-4 backdrop-blur-sm"
-        >
-          <div className="bg-white dark:bg-secondary-dark-bg border border-gray-150 dark:border-gray-800 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-up">
-            <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                {t('addProductPage.api.title')}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowApiProductsModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-white"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
-              {t('addProductPage.api.subtitle')}
-            </p>
-
-            {/* Local Search and Filtering Input Block */}
-            {!loadingApiProducts && apiProducts.length > 0 && (
-              <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full sm:max-w-md">
+                <div className="space-y-3">
                   <input
                     type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('addProductPage.api.searchPlaceholder')}
-                    className="w-full border border-gray-300 dark:border-gray-700 rounded-xl p-2.5 pe-10 bg-white dark:bg-secondary-dark-bg dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    value={newRequirement.field_name}
+                    onChange={(event) => setNewRequirement((previous) => ({
+                      ...previous,
+                      field_name: event.target.value,
+                    }))}
+                    placeholder={labels.reqName}
+                    className={inputClass}
                   />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute inset-y-0 end-0 flex items-center pe-3 text-gray-400 hover:text-gray-600 dark:hover:text-white"
-                      title={t('addProductPage.api.clearSearch')}
-                    >
-                      <FiX className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-slate-50 dark:bg-gray-850 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-800 self-stretch sm:self-auto text-center sm:text-left">
-                  {t('addProductPage.api.resultsCount', { count: filteredApiProducts.length })}
-                </span>
-              </div>
-            )}
 
-            {loadingApiProducts ? (
-              <div className="flex flex-col items-center justify-center h-48">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-650" />
-                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 font-medium">
-                  {t('addProductPage.alerts.loadingApiProducts', 'Loading products from API...')}
-                </p>
-              </div>
-            ) : apiProducts.length > 0 ? (
-              filteredApiProducts.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredApiProducts.map((apiProduct) => (
-                    <div
-                      key={apiProduct.id}
-                      onClick={() => handleSelectApiProduct(apiProduct)}
-                      className={`border rounded-xl p-4 cursor-pointer hover:shadow-md transition-all flex flex-col justify-between ${
-                        selectedApiProduct?.id === apiProduct.id
-                          ? 'border-indigo-650 bg-indigo-50/10 dark:bg-indigo-950/20'
-                          : 'border-gray-250 dark:border-gray-800 hover:border-indigo-400 dark:bg-[#2A2D35]'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-bold text-gray-950 dark:text-white text-sm line-clamp-1">
-                            {apiProduct.name}
-                          </h3>
-                          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
-                            ${parseFloat(apiProduct.base_price || 0).toFixed(2)}
-                          </span>
-                        </div>
+                  <select
+                    value={newRequirement.field_type}
+                    onChange={(event) => setNewRequirement((previous) => ({
+                      ...previous,
+                      field_type: event.target.value,
+                    }))}
+                    className={inputClass}
+                  >
+                    <option value="text">Text</option>
+                    <option value="number">Number</option>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                    <option value="id">ID</option>
+                  </select>
 
-                        {apiProduct.description && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-2 leading-relaxed">
-                            {apiProduct.description}
-                          </p>
-                        )}
+                  <input
+                    type="text"
+                    value={newRequirement.placeholder}
+                    onChange={(event) => setNewRequirement((previous) => ({
+                      ...previous,
+                      placeholder: event.target.value,
+                    }))}
+                    placeholder={labels.reqPlaceholder}
+                    className={inputClass}
+                  />
 
-                        {apiProduct.required_fields_json?.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300">
-                              {t('addProductPage.api.reqListHeader')}
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {apiProduct.required_fields_json.slice(0, 3).map((field, idx) => {
-                                const fieldData = typeof field === 'object' ? field : { name: field, type: 'text' };
-                                const typeVal = fieldData.type || '';
-                                const displayType = ['text', 'number', 'email', 'phone', 'id'].includes(typeVal)
-                                  ? t('addProductPage.api.types.' + typeVal)
-                                  : (typeVal ? t('addProductPage.api.unknownType', { type: typeVal }) : t('addProductPage.api.unknownType', { type: 'text' }));
-                                return (
-                                  <span
-                                    key={idx}
-                                    className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded text-[9px] font-medium"
-                                  >
-                                    {fieldData.name} ({displayType})
-                                  </span>
-                                );
-                              })}
-                              {apiProduct.required_fields_json.length > 3 && (
-                                <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold self-center">
-                                  {t('addProductPage.api.moreFields', { count: apiProduct.required_fields_json.length - 3 })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  <label className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={newRequirement.is_required}
+                      onChange={(event) => setNewRequirement((previous) => ({
+                        ...previous,
+                        is_required: event.target.checked,
+                      }))}
+                    />
+                    {labels.reqRequired}
+                  </label>
 
-                      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                        <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate max-w-[100px] capitalize">
-                          {apiProduct.category || t('addProductPage.api.uncategorized')}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectApiProduct(apiProduct);
-                          }}
-                          className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition"
-                        >
-                          {t('addProductPage.api.select')}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400 border border-dashed rounded-xl border-gray-250 dark:border-gray-800">
-                  <FiAlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm font-medium">
-                    {t('addProductPage.api.noResults')}
-                  </p>
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="mt-3 px-4 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 border border-indigo-200 dark:bg-indigo-950/20 dark:border-indigo-900 rounded-lg text-xs font-semibold transition"
+                    onClick={addRequirement}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                   >
-                    {t('addProductPage.api.clearSearch')}
+                    <FiPlus />
+                    {labels.addRequirement}
                   </button>
                 </div>
-              )
-            ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400 border border-dashed rounded-xl border-gray-250 dark:border-gray-800">
-                <FiAlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm font-medium">
-                  {t('addProductPage.alerts.noApiProducts')}
-                </p>
-              </div>
-            )}
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="mt-4 space-y-2">
+                  {!newProduct.requirements.length ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 p-5 text-center text-xs font-bold text-slate-400 dark:border-slate-700">
+                      {labels.noRequirements}
+                    </div>
+                  ) : (
+                    newProduct.requirements.map((requirement, index) => (
+                      <div
+                        key={`${requirement.field_name}-${index}`}
+                        className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/40"
+                      >
+                        <div className="min-w-0 text-start">
+                          <p className="truncate text-sm font-black text-slate-800 dark:text-slate-100">
+                            {requirement.field_name}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-400">
+                            {requirement.field_type}
+                            {requirement.is_required ? ` • ${labels.reqRequired}` : ''}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeRequirement(index)}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/20"
+                        >
+                          <FiTrash2 />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            </aside>
+          </div>
+
+          <section className="sticky bottom-3 z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => setShowApiProductsModal(false)}
-                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-secondary-dark-bg text-gray-700 dark:text-gray-300 rounded-xl text-sm font-bold border border-gray-300 dark:border-gray-700 transition"
+                disabled={submitting}
+                onClick={() => navigate('/products')}
+                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
               >
-                {t('addProductPage.fields.cancel')}
+                {labels.back}
               </button>
-              {apiProducts.length > 0 && filteredApiProducts.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleSelectApiProduct(filteredApiProducts[0])}
-                  className="px-6 py-2 text-white rounded-xl text-sm font-bold transition hover:drop-shadow-md"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {t('addProductPage.api.selectFirst')}
-                </button>
-              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-black text-white transition hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: accentColor }}
+              >
+                {submitting
+                  ? <FiRefreshCw className="animate-spin" />
+                  : <FiCheck />}
+                {submitting ? labels.saving : labels.save}
+              </button>
             </div>
-          </div>
-        </div>
-      )}
+          </section>
+        </form>
+      </div>
     </div>
   );
-}
+};
+
+export default AddProduct;

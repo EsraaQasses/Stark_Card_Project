@@ -9,16 +9,13 @@ import {
 } from 'react-icons/ri';
 import { MdKeyboardArrowDown } from 'react-icons/md';
 
-import { TooltipComponent } from '@syncfusion/ej2-react-popups';
 import { useTranslation } from 'react-i18next';
 
-import {
-  Currencies,
-  LastActions,
-  Notification,
-  Payments,
-  UserProfile,
-} from '.';
+import Currencies from './Currencies';
+import LastActions from './LastActions';
+import Notification from './Notification';
+import Payments from './Payments';
+import UserProfile from './UserProfile';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useStateContext } from '../contexts/ContextProvider';
@@ -32,10 +29,7 @@ const NavActionButton = ({
   isActive,
   accentColor,
 }) => (
-  <TooltipComponent
-    content={title}
-    position="BottomCenter"
-  >
+
     <button
       type="button"
       onClick={customFunc}
@@ -96,7 +90,6 @@ const NavActionButton = ({
         />
       )}
     </button>
-  </TooltipComponent>
 );
 
 const Navbar = () => {
@@ -528,13 +521,7 @@ const Navbar = () => {
           />
 
           <div className="relative">
-            <TooltipComponent
-              content={t(
-                'common.view_profile',
-                'View Profile',
-              )}
-              position="BottomCenter"
-            >
+          
               <button
                 type="button"
                 onClick={handleProfileClick}
@@ -637,7 +624,6 @@ const Navbar = () => {
                   `}
                 />
               </button>
-            </TooltipComponent>
 
             {isClicked.userProfile && (
               <UserProfile
@@ -646,13 +632,6 @@ const Navbar = () => {
             )}
           </div>
 
-          <TooltipComponent
-            content={t(
-              'common.logout',
-              'Logout',
-            )}
-            position="BottomCenter"
-          >
             <button
               type="button"
               onClick={handleLogout}
@@ -679,7 +658,6 @@ const Navbar = () => {
             >
               <RiLogoutBoxRLine />
             </button>
-          </TooltipComponent>
         </div>
 
         {/* Mobile Profile */}

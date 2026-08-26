@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { MdOutlineCancel } from 'react-icons/md';
-import { TooltipComponent } from '@syncfusion/ej2-react-popups';
 import { useTranslation } from 'react-i18next';
 import { links } from '../data/links';
 import { useStateContext } from '../contexts/ContextProvider';
@@ -34,16 +33,14 @@ const Sidebar = () => {
                 Stark Card
               </span>
             </Link>
-            <TooltipComponent content={t('common.menu', 'Menu')} position="BottomCenter">
-              <button
-                type="button"
-                onClick={() => setActiveMenu(!activeMenu)}
-                style={{ color: currentColor }}
-                className="text-xl rounded-full p-3 hover:drop-shadow-xl hover:bg-light-gray mt-4 block md:hidden"
-              >
-                <MdOutlineCancel />
-              </button>
-            </TooltipComponent>
+            <button
+              type="button"
+              onClick={() => setActiveMenu(!activeMenu)}
+              style={{ color: currentColor }}
+              className="text-xl rounded-full p-3 hover:drop-shadow-xl hover:bg-light-gray mt-4 block md:hidden"
+            >
+              <MdOutlineCancel />
+            </button>
           </div>
           <div className="mt-10 ">
             {links.map((item) => (

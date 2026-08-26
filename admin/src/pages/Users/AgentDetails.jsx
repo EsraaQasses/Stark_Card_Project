@@ -305,6 +305,42 @@ const AgentDetails = () => {
       ? 'فئة الوكيل'
       : 'Agent Category',
 
+    categorySubtitle: isArabic
+      ? 'يمكنك تغيير فئة الوكيل من الفئات الفعالة المتوفرة في النظام.'
+      : 'Change the agent category using the active categories available in the system.',
+
+    chooseCategory: isArabic
+      ? 'اختر الفئة'
+      : 'Choose category',
+
+    defaultCategory: isArabic
+      ? 'استخدام الفئة الافتراضية'
+      : 'Use default category',
+
+    saveCategory: isArabic
+      ? 'حفظ الفئة'
+      : 'Save category',
+
+    savingCategory: isArabic
+      ? 'جاري حفظ الفئة...'
+      : 'Saving category...',
+
+    categoryUpdated: isArabic
+      ? 'تم تغيير فئة الوكيل بنجاح.'
+      : 'Agent category updated successfully.',
+
+    categoryUpdateFailed: isArabic
+      ? 'تعذر تغيير فئة الوكيل.'
+      : 'Failed to update agent category.',
+
+    categoriesLoadFailed: isArabic
+      ? 'تعذر تحميل الفئات المتوفرة.'
+      : 'Failed to load available categories.',
+
+    noAvailableCategories: isArabic
+      ? 'لا توجد فئات فعالة متوفرة حالياً.'
+      : 'No active categories are currently available.',
+
     noCategory: isArabic
       ? 'لا توجد فئة مخصصة لهذا الوكيل.'
       : 'No category is assigned to this agent.',
@@ -502,6 +538,12 @@ const AgentDetails = () => {
   const [limitsError, setLimitsError] = useState('');
   const [savingLimits, setSavingLimits] = useState(false);
 
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [initialCategoryId, setInitialCategoryId] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+
   const [demoting, setDemoting] = useState(false);
 
   const loadAgent = useCallback(
@@ -518,12 +560,16 @@ const AgentDetails = () => {
         const [
           agentsResponse,
           clientsResponse,
+          categoriesResponse,
         ] = await Promise.all([
           axiosInstance.get(
             '/agents/agents/',
           ),
           axiosInstance.get(
             `/agents/${agentId}/users/`,
+          ),
+          axiosInstance.get(
+            '/users/categories/active_categories/',
           ),
         ]);
 
@@ -551,6 +597,51 @@ const AgentDetails = () => {
             clientsResponse.data,
           ),
         );
+
+        const availableCategories = normalizeList(
+          categoriesResponse.data,
+        );
+
+        const assignedCategory = (
+          found?.category_details
+          || found?.category
+          || null
+        );
+
+        const hasAssignedCategory = Boolean(
+          found?.has_assigned_category
+          && assignedCategory?.id != null,
+        );
+
+        const categoryOptions = [...availableCategories];
+
+        // active_categories only returns active categories.
+        // Keep the currently assigned category visible even if it is inactive,
+        // otherwise a controlled <select> falls back visually to its first option.
+        if (
+          hasAssignedCategory
+          && !categoryOptions.some(
+            (item) => String(item.id) === String(assignedCategory.id),
+          )
+        ) {
+          categoryOptions.unshift({
+            ...assignedCategory,
+            is_current_assignment: true,
+          });
+        }
+
+        setCategories(categoryOptions);
+
+        const effectiveCategoryId = hasAssignedCategory
+          ? String(assignedCategory.id)
+          : String(
+            availableCategories.find((item) => item.is_default)?.id
+            || '',
+          );
+
+        setSelectedCategoryId(effectiveCategoryId);
+        setInitialCategoryId(effectiveCategoryId);
+        setCategoryError('');
       } catch (loadError) {
         console.error(
           'Error loading agent:',
@@ -764,6 +855,59 @@ const AgentDetails = () => {
       );
     } finally {
       setSavingLimits(false);
+    }
+  };
+
+  const saveCategory = async () => {
+    if (!selectedCategoryId) {
+      setCategoryError(
+        isArabic
+          ? 'اختر فئة للوكيل أولاً.'
+          : 'Choose a category for the agent first.',
+      );
+      return;
+    }
+
+    if (selectedCategoryId === initialCategoryId) {
+      return;
+    }
+
+    setSavingCategory(true);
+    setCategoryError('');
+    setNotice(null);
+
+    try {
+      await axiosInstance.post(
+        '/users/assign-category/',
+        {
+          user_id: Number(agentId),
+          category_id: Number(selectedCategoryId),
+          notes: 'Changed from agent details',
+        },
+      );
+
+      setNotice({
+        type: 'success',
+        message: labels.categoryUpdated,
+      });
+
+      await loadAgent({
+        background: true,
+      });
+    } catch (saveError) {
+      const message = getApiError(
+        saveError,
+        labels.categoryUpdateFailed,
+      );
+
+      setCategoryError(message);
+
+      setNotice({
+        type: 'error',
+        message,
+      });
+    } finally {
+      setSavingCategory(false);
     }
   };
 
@@ -1488,17 +1632,231 @@ const AgentDetails = () => {
                   dark:bg-secondary-dark-bg
                 "
               >
-                <h2
+                <div
                   className="
                     mb-5
-                    text-lg
-                    font-black
-                    text-slate-900
-                    dark:text-white
+                    flex
+                    flex-col
+                    gap-4
+                    lg:flex-row
+                    lg:items-end
+                    lg:justify-between
                   "
                 >
-                  {labels.categoryInfo}
-                </h2>
+                  <div className="text-start">
+                    <h2
+                      className="
+                        text-lg
+                        font-black
+                        text-slate-900
+                        dark:text-white
+                      "
+                    >
+                      {labels.categoryInfo}
+                    </h2>
+
+                    <p
+                      className="
+                        mt-1
+                        text-xs
+                        font-medium
+                        text-slate-400
+                        dark:text-slate-500
+                      "
+                    >
+                      {labels.categorySubtitle}
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      flex
+                      w-full
+                      flex-col
+                      gap-2
+                      sm:flex-row
+                      lg:w-auto
+                    "
+                  >
+                    <label
+                      className="
+                        block
+                        w-full
+                        sm:min-w-[290px]
+                      "
+                    >
+                      <span className="sr-only">
+                        {labels.chooseCategory}
+                      </span>
+
+                      <select
+                        value={selectedCategoryId}
+                        disabled={savingCategory}
+                        onChange={(event) => {
+                          setSelectedCategoryId(
+                            event.target.value,
+                          );
+                          setCategoryError('');
+                        }}
+                        className="
+                          h-11
+                          w-full
+                          rounded-xl
+                          border
+                          border-slate-200
+                          bg-white
+                          px-4
+                          text-sm
+                          font-bold
+                          text-slate-700
+                          outline-none
+                          transition
+                          focus:border-current
+                          disabled:cursor-not-allowed
+                          disabled:opacity-60
+                          dark:border-slate-700
+                          dark:bg-slate-900
+                          dark:text-slate-200
+                        "
+                      >
+                        {!categories.length && (
+                          <option value="">
+                            {isArabic
+                              ? 'لا توجد فئات متاحة'
+                              : 'No categories available'}
+                          </option>
+                        )}
+
+                        {categories.map((item) => {
+                          const isCurrent = (
+                            String(item.id) === initialCategoryId
+                          );
+
+                          const isInactive = item.is_active === false;
+
+                          return (
+                            <option
+                              key={item.id}
+                              value={String(item.id)}
+                              disabled={isInactive && !isCurrent}
+                            >
+                              {item.display_name || item.name}
+                              {' '}
+                              ({formatNumber(
+                                item.profit_percentage,
+                                {
+                                  maximumFractionDigits: 2,
+                                },
+                              )}%)
+                              {isCurrent
+                                ? (isArabic
+                                  ? ' - الفئة الحالية'
+                                  : ' - Current')
+                                : ''}
+                              {isInactive
+                                ? (isArabic
+                                  ? ' - غير نشطة'
+                                  : ' - Inactive')
+                                : ''}
+                              {item.is_default
+                                ? (isArabic
+                                  ? ' - افتراضية'
+                                  : ' - Default')
+                                : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+
+                    <button
+                      type="button"
+                      disabled={
+                        savingCategory
+                        || !selectedCategoryId
+                        || selectedCategoryId === initialCategoryId
+                      }
+                      onClick={saveCategory}
+                      className="
+                        flex
+                        h-11
+                        shrink-0
+                        items-center
+                        justify-center
+                        gap-2
+                        rounded-xl
+                        px-5
+                        text-sm
+                        font-black
+                        text-white
+                        shadow-sm
+                        transition
+                        hover:opacity-90
+                        disabled:cursor-not-allowed
+                        disabled:opacity-50
+                      "
+                      style={{
+                        backgroundColor: accentColor,
+                      }}
+                    >
+                      {savingCategory
+                        ? <FiRefreshCw className="animate-spin" />
+                        : <FiCheck />}
+
+                      {savingCategory
+                        ? labels.savingCategory
+                        : labels.saveCategory}
+                    </button>
+                  </div>
+                </div>
+
+                {categoryError && (
+                  <div
+                    className="
+                      mb-4
+                      flex
+                      items-start
+                      gap-2
+                      rounded-xl
+                      border
+                      border-red-200
+                      bg-red-50
+                      px-4
+                      py-3
+                      text-sm
+                      font-bold
+                      text-red-700
+                      dark:border-red-900/40
+                      dark:bg-red-950/30
+                      dark:text-red-300
+                    "
+                  >
+                    <FiAlertCircle className="mt-0.5 shrink-0" />
+                    <span>{categoryError}</span>
+                  </div>
+                )}
+
+                {categories.length === 0 && !categoryError && (
+                  <div
+                    className="
+                      mb-4
+                      rounded-xl
+                      border
+                      border-amber-200
+                      bg-amber-50
+                      px-4
+                      py-3
+                      text-sm
+                      font-bold
+                      text-amber-700
+                      dark:border-amber-900/40
+                      dark:bg-amber-950/30
+                      dark:text-amber-300
+                    "
+                  >
+                    {labels.noAvailableCategories}
+                  </div>
+                )}
 
                 {!category ? (
                   <div

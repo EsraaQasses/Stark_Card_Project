@@ -30,42 +30,326 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [metricErrors, setMetricErrors] = useState({});
-
+  const [
+    detailsLoading,
+    setDetailsLoading,
+  ] = useState(true);
   // ============================================
   // Fetch Dashboard Data
   // ============================================
-  const fetchAllStats = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setMetricErrors({});
+  const normalizeRows = (response) => {
+  const payload = response?.data;
 
+  if (Array.isArray(payload?.results)) {
+    return payload.results;
+  }
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  return [];
+};
+
+const buildChartData = (requests) => {
+    const monthKeys = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'july',
+    ];
+
+    const monthMap = {
+      Jan: 'jan',
+      Feb: 'feb',
+      Mar: 'mar',
+      Apr: 'apr',
+      May: 'may',
+      Jun: 'jun',
+      Jul: 'july',
+      July: 'july',
+    };
+
+    const monthlyStats = {};
+
+    monthKeys.forEach((month) => {
+      monthlyStats[month] = {
+        sales: 0,
+        customers: new Set(),
+      };
+    });
+
+    let hasData = false;
+
+    requests.forEach((request) => {
+      const dateValue = (
+        request.created_at
+        || request.Timestamp
+        || request.created
+      );
+
+      if (!dateValue) {
+        return;
+      }
+
+      const date = new Date(dateValue);
+
+      if (Number.isNaN(date.getTime())) {
+        return;
+      }
+
+      const monthName = date.toLocaleString(
+        'en-US',
+        {
+          month: 'short',
+        },
+      );
+
+      const monthKey = monthMap[monthName];
+
+      if (!monthKey || !monthlyStats[monthKey]) {
+        return;
+      }
+
+      hasData = true;
+
+      monthlyStats[monthKey].sales += (
+        parseFloat(request.amount) || 0
+      );
+
+      const userId = (
+        request.user?.id
+        || request.user_id
+        || request.SourceEntityID
+        || `request-${request.id}`
+      );
+
+      monthlyStats[monthKey].customers.add(
+        userId,
+      );
+    });
+
+    let distinctMonthsWithData = 0;
+
+    const salesData = monthKeys.map(
+      (month) => {
+        const sales = (
+          monthlyStats[month].sales
+        );
+
+        const customers = (
+          monthlyStats[month]
+            .customers
+            .size
+        );
+
+        if (
+          sales > 0
+          || customers > 0
+        ) {
+          distinctMonthsWithData += 1;
+        }
+
+        return {
+          x: (
+            month.charAt(0).toUpperCase()
+            + month.slice(1)
+          ),
+
+          y: Number(
+            sales.toFixed(2),
+          ),
+        };
+      },
+    );
+
+    const customersData = monthKeys.map(
+      (month) => ({
+        x: (
+          month.charAt(0).toUpperCase()
+          + month.slice(1)
+        ),
+
+        y: (
+          monthlyStats[month]
+            .customers
+            .size
+        ),
+      }),
+    );
+
+    return {
+      salesData,
+      customersData,
+
+      hasEnoughData: (
+        hasData
+        && distinctMonthsWithData >= 3
+      ),
+    };
+  };
+
+const loadRevenueAndChart = async () => {
+    setDetailsLoading(true);
+
+    try {
+      const results = await Promise.allSettled([
+        axiosInstance.get(
+          '/all_requests/admin/requests/',
+          {
+            params: {
+              status: 'pending',
+              page_size: 100,
+            },
+          },
+        ),
+
+        axiosInstance.get(
+          '/all_requests/admin/requests/',
+          {
+            params: {
+              status: 'in_progress',
+              page_size: 100,
+            },
+          },
+        ),
+
+        axiosInstance.get(
+          '/all_requests/admin/requests/',
+          {
+            params: {
+              status: 'objection',
+              page_size: 100,
+            },
+          },
+        ),
+      ]);
+
+      const allRequests = results.flatMap(
+        (result) => {
+          if (result.status !== 'fulfilled') {
+            return [];
+          }
+
+          return normalizeRows(
+            result.value,
+          );
+        },
+      );
+
+      const totalRevenue = allRequests.reduce(
+        (sum, request) => (
+          sum
+          + (
+            parseFloat(request.amount)
+            || 0
+          )
+        ),
+        0,
+      );
+
+      setStats((previous) => ({
+        ...previous,
+        totalRevenue,
+      }));
+
+      setChartData(
+        buildChartData(allRequests),
+      );
+
+      const allFailed = results.every(
+        (result) => (
+          result.status === 'rejected'
+        ),
+      );
+
+      setMetricErrors((previous) => ({
+        ...previous,
+        totalRevenue: allFailed,
+      }));
+    } catch (loadError) {
+      console.error(
+        'Background dashboard data failed:',
+        loadError,
+      );
+
+      setMetricErrors((previous) => ({
+        ...previous,
+        totalRevenue: true,
+      }));
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+const fetchAllStats = async () => {
+    setLoading(true);
+    setError(null);
+
+    setMetricErrors({});
+
+    try {
       const results = await Promise.allSettled([
         Promise.all([
-          axiosInstance.get("/shipping/standard/", {
-            params: {
-              status: "pending",
-              page_size: 1,
+          axiosInstance.get(
+            '/shipping/standard/',
+            {
+              params: {
+                status: 'pending',
+                page_size: 1,
+              },
             },
-          }),
+          ),
 
-          axiosInstance.get("/shipping/via-agent/", {
-            params: {
-              status: "pending",
-              page_size: 1,
+          axiosInstance.get(
+            '/shipping/via-agent/',
+            {
+              params: {
+                status: 'pending',
+                page_size: 1,
+              },
             },
-          }),
+          ),
 
-          axiosInstance.get("/shipping/agent-admin/", {
-            params: {
-              status: "pending",
-              page_size: 1,
+          axiosInstance.get(
+            '/shipping/agent-admin/',
+            {
+              params: {
+                status: 'pending',
+                page_size: 1,
+              },
             },
-          }),
-        ]).then((responses) => {
-          const pendingCount = responses.reduce(
-            (sum, response) => (
-              sum
+          ),
+        ]),
+
+        axiosInstance.get(
+          '/all_requests/admin/requests/stats/',
+        ),
+
+        axiosInstance.get(
+          '/users/stats/',
+        ),
+      ]);
+
+      const [
+        shippingResult,
+        requestsStatsResult,
+        usersResult,
+      ] = results;
+
+      let shippingCount = 0;
+
+      if (
+        shippingResult.status
+        === 'fulfilled'
+      ) {
+        shippingCount = (
+          shippingResult.value.reduce(
+            (total, response) => (
+              total
               + (
                 response.data?.count
                 ?? (
@@ -76,293 +360,143 @@ const Home = () => {
               )
             ),
             0,
-          );
-
-          return {
-            data: {
-              pending_count: pendingCount,
-            },
-          };
-        }),
-
-        axiosInstance.get(
-          "/all_requests/admin/requests/?status=pending&page_size=100",
-        ),
-
-        axiosInstance.get(
-          "/all_requests/admin/requests/?status=in_progress&page_size=100",
-        ),
-
-        axiosInstance.get(
-          "/all_requests/admin/requests/?status=objection&page_size=100",
-        ),
-
-        axiosInstance.get("/users/stats/"),
-      ]);
-
-      const metricKeys = [
-        "shipping",
-        "pending",
-        "inProgress",
-        "objection",
-        "totalUsers",
-      ];
-
-      const failedMetrics = {};
-
-      results.forEach((result, index) => {
-        if (result.status === "rejected") {
-          failedMetrics[metricKeys[index]] = true;
-
-          console.warn(
-            `${metricKeys[index]} dashboard request failed:`,
-            result.reason?.response?.status,
-            result.reason?.message,
-          );
-        }
-      });
-
-      if (
-        failedMetrics.pending
-        || failedMetrics.inProgress
-        || failedMetrics.objection
-      ) {
-        failedMetrics.totalRevenue = true;
+          )
+        );
       }
+
+      const requestStats = (
+        requestsStatsResult.status
+        === 'fulfilled'
+          ? requestsStatsResult.value.data
+          : {}
+      );
+
+      const userStats = (
+        usersResult.status
+        === 'fulfilled'
+          ? usersResult.value.data
+          : {}
+      );
+
+      setStats((previous) => ({
+        ...previous,
+
+        shipping: shippingCount,
+
+        pending: (
+          requestStats.pending
+          ?? previous.pending
+        ),
+
+        inProgress: (
+          requestStats.in_progress
+          ?? previous.inProgress
+        ),
+
+        objection: (
+          requestStats.objection
+          ?? previous.objection
+        ),
+
+        totalUsers: (
+          userStats.total_users
+          ?? previous.totalUsers
+        ),
+      }));
+
+      const failedMetrics = {
+        shipping: (
+          shippingResult.status
+          === 'rejected'
+        ),
+
+        pending: (
+          requestsStatsResult.status
+          === 'rejected'
+        ),
+
+        inProgress: (
+          requestsStatsResult.status
+          === 'rejected'
+        ),
+
+        objection: (
+          requestsStatsResult.status
+          === 'rejected'
+        ),
+
+        totalUsers: (
+          usersResult.status
+          === 'rejected'
+        ),
+
+        totalRevenue: false,
+      };
 
       setMetricErrors(failedMetrics);
 
-      const valueAt = (index) => (
-        results[index].status === "fulfilled"
-          ? results[index].value
-          : null
-      );
-
-      const shippingResponse = valueAt(0);
-      const pendingResponse = valueAt(1);
-      const inProgressResponse = valueAt(2);
-      const objectionResponse = valueAt(3);
-      const usersResponse = valueAt(4);
-
-      const listFrom = (response) => {
-        const payload = response?.data;
-
-        if (Array.isArray(payload?.results)) {
-          return payload.results;
-        }
-
-        return Array.isArray(payload) ? payload : [];
-      };
-
-      const pendingData = listFrom(pendingResponse);
-      const inProgressData = listFrom(inProgressResponse);
-      const objectionData = listFrom(objectionResponse);
-
-      const shippingCount = (
-        shippingResponse?.data?.pending_count
-        ?? shippingResponse?.data?.count
-        ?? 0
-      );
-
-      const pendingCount = (
-        pendingResponse?.data?.count
-        ?? pendingData.length
-      );
-
-      const inProgressCount = (
-        inProgressResponse?.data?.count
-        ?? inProgressData.length
-      );
-
-      const objectionCount = (
-        objectionResponse?.data?.count
-        ?? objectionData.length
-      );
-
-      const userCount = usersResponse?.data?.total_users ?? 0;
-
-      const allRequests = [
-        ...(Array.isArray(pendingData) ? pendingData : []),
-        ...(Array.isArray(inProgressData) ? inProgressData : []),
-        ...(Array.isArray(objectionData) ? objectionData : []),
-      ];
-
-      const totalRevenue = allRequests.reduce(
-        (sum, request) => sum + (parseFloat(request.amount) || 0),
-        0,
-      );
-
-      // ============================================
-      // Chart Data
-      // ============================================
-      const monthKeys = [
-        "jan",
-        "feb",
-        "mar",
-        "apr",
-        "may",
-        "jun",
-        "july",
-      ];
-
-      const monthMap = {
-        Jan: "jan",
-        Feb: "feb",
-        Mar: "mar",
-        Apr: "apr",
-        May: "may",
-        Jun: "jun",
-        Jul: "july",
-        July: "july",
-      };
-
-      const monthlyStats = {};
-
-      monthKeys.forEach((month) => {
-        monthlyStats[month] = {
-          sales: 0,
-          customers: new Set(),
-        };
-      });
-
-      let hasData = false;
-
-      allRequests.forEach((request) => {
-        const dateStr = (
-          request.created_at
-          || request.Timestamp
-          || request.created
-        );
-
-        if (!dateStr) {
-          return;
-        }
-
-        const date = new Date(dateStr);
-
-        if (Number.isNaN(date.getTime())) {
-          return;
-        }
-
-        const monthName = date.toLocaleString("en-US", {
-          month: "short",
-        });
-
-        const key = monthMap[monthName];
-
-        if (key && monthlyStats[key]) {
-          hasData = true;
-
-          const amount = parseFloat(request.amount) || 0;
-
-          monthlyStats[key].sales += amount;
-
-          const userId = (
-            request.user?.id
-            || request.user_id
-            || request.SourceEntityID
-            || Math.random().toString()
-          );
-
-          monthlyStats[key].customers.add(userId);
-        }
-      });
-
-      const salesData = [];
-      const customersData = [];
-
-      let distinctMonthsWithData = 0;
-
-      monthKeys.forEach((month) => {
-        const sales = monthlyStats[month].sales;
-        const customers = monthlyStats[month].customers.size;
-
-        salesData.push({
-          x: month.charAt(0).toUpperCase() + month.slice(1),
-          y: parseFloat(sales.toFixed(2)),
-        });
-
-        customersData.push({
-          x: month.charAt(0).toUpperCase() + month.slice(1),
-          y: customers,
-        });
-
-        if (sales > 0 || customers > 0) {
-          distinctMonthsWithData += 1;
-        }
-      });
-
-      // ============================================
-      // Update Stats
-      // ============================================
-      setStats((previous) => ({
-        shipping: failedMetrics.shipping
-          ? previous.shipping
-          : shippingCount,
-
-        pending: failedMetrics.pending
-          ? previous.pending
-          : pendingCount,
-
-        inProgress: failedMetrics.inProgress
-          ? previous.inProgress
-          : inProgressCount,
-
-        objection: failedMetrics.objection
-          ? previous.objection
-          : objectionCount,
-
-        totalUsers: failedMetrics.totalUsers
-          ? previous.totalUsers
-          : userCount,
-
-        totalRevenue: failedMetrics.totalRevenue
-          ? previous.totalRevenue
-          : totalRevenue,
-      }));
-
-      setChartData({
-        salesData,
-        customersData,
-        hasEnoughData: (
-          hasData
-          && distinctMonthsWithData >= 3
-        ),
-      });
-
-      const failedLabels = Object.keys(failedMetrics)
-        .filter((key) => key !== "totalRevenue");
+      const failedLabels = Object.entries(
+        failedMetrics,
+      )
+        .filter(([
+          key,
+          failed,
+        ]) => (
+          failed
+          && key !== 'totalRevenue'
+        ))
+        .map(([key]) => key);
 
       if (failedLabels.length) {
         setError(
           t(
-            "overview.status.partialFailure",
+            'overview.status.partialFailure',
             {
-              sections: failedLabels.join(", "),
+              sections:
+                failedLabels.join(', '),
             },
           ),
         );
       }
     } catch (loadError) {
-      console.error("Error fetching stats:", loadError);
+      console.error(
+        'Error fetching dashboard stats:',
+        loadError,
+      );
 
       setError(
         t(
-          "overview.status.failedToLoadData",
-          "Failed to load dashboard data. Please check your connection and try again.",
+          'overview.status.failedToLoadData',
+          'Failed to load dashboard data.',
         ),
       );
-
-      setMetricErrors({
-        shipping: true,
-        pending: true,
-        inProgress: true,
-        objection: true,
-        totalUsers: true,
-        totalRevenue: true,
-      });
     } finally {
+      /*
+      * هون الصفحة بتظهر فوراً.
+      * ما عاد ننتظر بيانات الإيرادات والشارت.
+      */
       setLoading(false);
+
+      const loadDetails = () => {
+        loadRevenueAndChart();
+      };
+
+      if (
+        typeof window.requestIdleCallback
+        === 'function'
+      ) {
+        window.requestIdleCallback(
+          loadDetails,
+          {
+            timeout: 800,
+          },
+        );
+      } else {
+        window.setTimeout(
+          loadDetails,
+          150,
+        );
+      }
     }
   };
 

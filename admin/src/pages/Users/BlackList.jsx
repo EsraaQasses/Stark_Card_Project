@@ -14,11 +14,16 @@ import {
 } from '@syncfusion/ej2-react-grids';
 import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
+import useSyncfusionGridLocale
+  from '../../hooks/useSyncfusionGridLocale';
 
 const Blacklist = () => {
   const { t, i18n } = useTranslation(['blacklist', 'common']);
   const isArabic = i18n.resolvedLanguage === 'ar';
-
+  useSyncfusionGridLocale(
+    i18n.resolvedLanguage
+    || i18n.language,
+  );
   const [blacklistData, setBlacklistData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

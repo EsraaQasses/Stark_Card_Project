@@ -12,6 +12,8 @@ import {
 } from '@syncfusion/ej2-react-grids';
 import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
+import useSyncfusionGridLocale
+  from '../../hooks/useSyncfusionGridLocale';
 
 const ObjectionRequest = () => {
   const { t, i18n } = useTranslation(['requests', 'common']);
