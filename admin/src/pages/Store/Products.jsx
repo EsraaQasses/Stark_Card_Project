@@ -206,40 +206,75 @@ const ProductsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const fetchData = useCallback(async ({ background = false } = {}) => {
+  const fetchData = useCallback(async ({
+    background = false,
+  } = {}) => {
     if (!background) {
       setLoading(true);
     }
 
     setError('');
 
+    /*
+    * الأقسام والـ APIs بيانات مساعدة.
+    * ما لازم نوقف ظهور صفحة المنتجات عليهم.
+    */
+    Promise.allSettled([
+      axiosInstance.get(
+        'store/admin/sections/',
+      ),
+
+      axiosInstance.get(
+        'third_party_apis/apis/',
+      ),
+    ]).then(([
+      sectionsResult,
+      apisResult,
+    ]) => {
+      if (
+        sectionsResult.status
+        === 'fulfilled'
+      ) {
+        setSections(
+          normalizeList(
+            sectionsResult.value.data,
+          ),
+        );
+      }
+
+      if (
+        apisResult.status
+        === 'fulfilled'
+      ) {
+        setApis(
+          normalizeList(
+            apisResult.value.data,
+          ),
+        );
+      }
+    });
+
+    /*
+    * هاد الطلب الوحيد اللي مننتظره
+    * حتى نظهر جدول المنتجات.
+    */
     try {
-      const [productsResult, sectionsResult, apisResult] = await Promise.allSettled([
-        axiosInstance.get('store/admin/products/'),
-        axiosInstance.get('store/admin/sections/'),
-        axiosInstance.get('third_party_apis/apis/'),
-      ]);
+      const response = await axiosInstance.get(
+        'store/admin/products/',
+      );
 
-      if (productsResult.status === 'rejected') {
-        throw productsResult.reason;
-      }
-
-      setProducts(normalizeList(productsResult.value.data));
-
-      if (sectionsResult.status === 'fulfilled') {
-        setSections(normalizeList(sectionsResult.value.data));
-      } else {
-        setSections([]);
-      }
-
-      if (apisResult.status === 'fulfilled') {
-        setApis(normalizeList(apisResult.value.data));
-      } else {
-        setApis([]);
-      }
+      setProducts(
+        normalizeList(response.data),
+      );
     } catch (fetchError) {
       setProducts([]);
-      setError(getApiError(fetchError, labels.loadFailed));
+
+      setError(
+        getApiError(
+          fetchError,
+          labels.loadFailed,
+        ),
+      );
     } finally {
       setLoading(false);
     }

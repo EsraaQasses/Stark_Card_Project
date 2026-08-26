@@ -61,6 +61,40 @@ const getApiError = (error, fallback) => (
   || fallback
 );
 
+const SECTIONS_CACHE_KEY = (
+  'stark-admin-sections'
+);
+
+const readSectionsCache = () => {
+  try {
+    const cached = sessionStorage.getItem(
+      SECTIONS_CACHE_KEY,
+    );
+
+    if (!cached) {
+      return [];
+    }
+
+    const parsed = JSON.parse(cached);
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeSectionsCache = (sections) => {
+  try {
+    sessionStorage.setItem(
+      SECTIONS_CACHE_KEY,
+      JSON.stringify(sections),
+    );
+  } catch {
+    // Ignore cache errors.
+  }
+};
 const StoreSections = () => {
   const { i18n } = useTranslation();
   const navigate = useNavigate();
@@ -131,7 +165,9 @@ const StoreSections = () => {
     imageError: isArabic ? 'يجب اختيار صورة بحجم أقل من 5MB.' : 'Choose an image smaller than 5MB.',
   }), [isArabic]);
 
-  const [sections, setSections] = useState([]);
+  const [sections, setSections] = useState(
+    () => readSectionsCache(),
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -153,7 +189,12 @@ const StoreSections = () => {
 
     try {
       const response = await axiosInstance.get('store/admin/sections/');
-      setSections(normalizeList(response.data));
+      const nextSections = normalizeList(
+        response.data,
+      );
+
+      setSections(nextSections);
+      writeSectionsCache(nextSections);
     } catch (fetchError) {
       setSections([]);
       setError(getApiError(fetchError, labels.loadFailed));
