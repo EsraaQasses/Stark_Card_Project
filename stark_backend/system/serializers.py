@@ -4,8 +4,8 @@ import re
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ["id", "title", "message", "icon", "created_at", "is_read"]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "type", "title", "message", "details", "icon", "created_at", "is_read"]
+        read_only_fields = ["id", "type", "title", "message", "details", "icon", "created_at"]
 
 
 class AdSerializer(serializers.ModelSerializer):

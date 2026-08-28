@@ -79,19 +79,19 @@ class ExchangeRateQuote(models.Model):
         ordering = ["-version", "-created_at"]
         constraints = [
             models.CheckConstraint(
-                condition=~models.Q(base_currency=models.F("quote_currency")),
+                check=~models.Q(base_currency=models.F("quote_currency")),
                 name="exchange_quote_distinct_currencies",
             ),
             models.CheckConstraint(
-                condition=models.Q(platform_buy_base_rate__gt=0),
+                check=models.Q(platform_buy_base_rate__gt=0),
                 name="exchange_quote_buy_rate_positive",
             ),
             models.CheckConstraint(
-                condition=models.Q(platform_sell_base_rate__gt=0),
+                check=models.Q(platform_sell_base_rate__gt=0),
                 name="exchange_quote_sell_rate_positive",
             ),
             models.CheckConstraint(
-                condition=models.Q(platform_sell_base_rate__gte=models.F("platform_buy_base_rate")),
+                check=models.Q(platform_sell_base_rate__gte=models.F("platform_buy_base_rate")),
                 name="exchange_quote_sell_not_below_buy",
             ),
             models.UniqueConstraint(

@@ -26,6 +26,7 @@ class TransactionListSerializer(serializers.ListSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     amount = serializers.SerializerMethodField()
+    sender_name = serializers.SerializerMethodField()
     recipient_name = serializers.SerializerMethodField()
     recipient_phone = serializers.SerializerMethodField()
     direction = serializers.SerializerMethodField()
@@ -43,6 +44,12 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     def get_amount(self, obj):
         return abs(obj.amount) if obj.amount is not None else obj.amount
+
+    def get_sender_name(self, obj):
+        sender = obj.related_transaction.user if obj.amount > 0 and obj.related_transaction else obj.user
+        if not sender:
+            return None
+        return getattr(sender, "full_name", None) or getattr(sender, "name", None)
 
     def get_recipient_name(self, obj):
         if obj.recipient:
@@ -122,7 +129,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             "transaction_type", "currency", "amount", "amount_usd", "amount_syp", "exchange_rate_used",
             "exchange_rate_quote", "exchange_rate_side", "source_amount", "source_currency",
             "target_amount", "target_currency", "rounding_mode", "operation_context", "status", "note",
-            "created_at", "recipient_wallet", "recipient", "recipient_name", "recipient_phone", "direction",
+            "created_at", "recipient_wallet", "recipient", "sender_name", "recipient_name", "recipient_phone", "direction",
             "commission_source_tx_id", "commission_source_user_name", "commission_source_note",
             "commission_source_product_name", "commission_source_created_at"
         ]

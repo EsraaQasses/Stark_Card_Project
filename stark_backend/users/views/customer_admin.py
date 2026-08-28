@@ -75,7 +75,8 @@ class CustomerBalanceAdjustmentRequestView(APIView):
                 request.data.get("reason", ""), request.data.get("idempotency_key"), request,
             )
             return Response({"id": adjustment.id, "status": adjustment.status, "amount": str(adjustment.amount),
-                             "currency": adjustment.currency, "idempotency_key": adjustment.idempotency_key},
+                             "currency": adjustment.currency, "idempotency_key": adjustment.idempotency_key,
+                             "transaction_id": adjustment.transaction_id},
                             status=status.HTTP_200_OK if adjustment.pk else status.HTTP_201_CREATED)
         except ObjectDoesNotExist:
             return Response({"error": "Customer or wallet not found", "error_code": "TARGET_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)

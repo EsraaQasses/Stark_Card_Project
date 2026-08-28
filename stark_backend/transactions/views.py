@@ -952,7 +952,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(amount__lt=0)
 
         return qs.select_related(
-            "user", "wallet", "recipient", "recipient_wallet", "payment", "exchange_rate_quote"
+            "user", "wallet", "recipient", "recipient_wallet", "related_transaction__user",
+            "payment", "exchange_rate_quote"
         ).order_by("-created_at", "-id")
 
 
@@ -1089,18 +1090,25 @@ class TransferCreateView(APIView):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        Notification.objects.create(
-            recipient=recipient,
-            title="Transfer received",
-            message=f"You received {amount} {sender_wallet.currency} from {user.full_name or user.name}.",
-            icon=""
-        )
-        Notification.objects.create(
-            recipient=user,
-            title="Transfer sent",
-            message=f"You sent {amount} {sender_wallet.currency} to {recipient.full_name or recipient.name}.",
-            icon=""
-        )
+        try:
+            Notification.objects.create(
+                recipient=recipient,
+                type="transfer_received",
+                title="Transfer received",
+                message=f"You received {amount} {sender_wallet.currency} from {user.full_name or user.name}.",
+                details={"transaction_id": recipient_tx.id, "sender_id": user.id, "amount": str(amount), "currency": sender_wallet.currency},
+                icon="arrow-down-left",
+            )
+            Notification.objects.create(
+                recipient=user,
+                type="transfer_sent",
+                title="Transfer sent",
+                message=f"You sent {amount} {sender_wallet.currency} to {recipient.full_name or recipient.name}.",
+                details={"transaction_id": sender_tx.id, "recipient_id": recipient.id, "amount": str(amount), "currency": sender_wallet.currency},
+                icon="arrow-up-right",
+            )
+        except Exception:
+            logger.exception("Transfer completed but notification delivery failed for transaction %s", sender_tx.id)
 
         return Response({
             "id": sender_tx.id,

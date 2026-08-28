@@ -1,4 +1,5 @@
-from rest_framework import viewsets, permissions, generics, status
+from rest_framework import mixins, viewsets, permissions, generics, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -9,20 +10,32 @@ from users.permissions import IsAdminUser
 from system.models import log_admin_action
 
 # الإشعارات
-class NotificationViewSet(viewsets.ModelViewSet):
+class NotificationPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = NotificationPagination
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
+        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at', '-id')
 
     def perform_update(self, serializer):
-        serializer.save()
+        serializer.save(is_read=bool(serializer.validated_data.get("is_read", False)))
 
     @action(detail=False, methods=["get"], url_path="unread-count")
     def unread_count(self, request):
         count = Notification.objects.filter(recipient=request.user, is_read=False).count()
         return Response({"unread": count})
+
+    @action(detail=False, methods=["post"], url_path="mark-all-read")
+    def mark_all_read(self, request):
+        updated = Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+        return Response({"updated": updated})
 
 
 # تحكم بالإعلانات (للأدمن فقط)

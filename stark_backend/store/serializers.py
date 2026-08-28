@@ -184,6 +184,23 @@ class ExternalProductSerializer(ProductImageMetadataMixin, serializers.ModelSeri
 
 # ==================== PRODUCT SERIALIZER (For Admin) ====================
 
+class AdminProductListSerializer(ProductImageMetadataMixin, serializers.ModelSerializer):
+    section_name_en = serializers.CharField(source="section.name_en", read_only=True)
+    section_name_ar = serializers.CharField(source="section.name_ar", read_only=True)
+    api_name = serializers.CharField(source="api_config.name", read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id", "name_en", "name_ar", "section", "section_name_en", "section_name_ar",
+            "api_config", "api_name", "external_product", "product_type", "currency",
+            "base_price", "product_profit_percentage", "min_amount", "max_amount",
+            "is_active", "administrator_disabled", "provider_status", "image",
+            "image_url", "image_source", "image_available", "image_is_fallback",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = fields
+
 class ProductSerializer(ProductImageMetadataMixin, serializers.ModelSerializer):
     requirements = ProductRequirementSerializer(many=True, read_only=True)
     image = serializers.ImageField(required=False, allow_null=True)

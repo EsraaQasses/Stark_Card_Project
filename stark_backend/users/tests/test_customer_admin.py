@@ -91,33 +91,43 @@ class CustomerAdministrationTests(TestCase):
         self.assertNotIn("token", result)
         self.assertNotIn("code", result)
 
-    def test_two_person_adjustment_approval_is_idempotent(self):
+    def test_admin_adjustment_is_applied_immediately_and_is_idempotent(self):
         adjustment = CustomerAdministrationService.request_adjustment(
             self.operator, self.customer.id, "10", "USD", "manual correction reason", "adjust-1"
         )
-        with self.assertRaises(PermissionDenied):
-            CustomerAdministrationService.decide_adjustment(self.operator, adjustment.id, True)
-        approved = CustomerAdministrationService.decide_adjustment(self.admin, adjustment.id, True, "reviewed and approved")
-        replay = CustomerAdministrationService.decide_adjustment(self.admin, adjustment.id, True)
-        self.assertEqual(approved.id, replay.id)
+        replay = CustomerAdministrationService.request_adjustment(
+            self.operator, self.customer.id, "10", "USD", "manual correction reason", "adjust-1"
+        )
+        self.assertEqual(adjustment.id, replay.id)
         self.assertEqual(CustomerBalanceAdjustment.objects.get(id=adjustment.id).status, "approved")
         self.assertEqual(TransactionCount.for_user(self.customer), 1)
+        self.customer_wallet.refresh_from_db()
+        self.assertEqual(self.customer_wallet.available_balance, Decimal("110.00000000"))
 
-    def test_rejection_and_insufficient_funds_have_no_balance_effect(self):
-        adjustment = CustomerAdministrationService.request_adjustment(
-            self.operator, self.customer.id, "10", "USD", "customer refund correction", "adjust-reject"
+    def test_admin_adjustment_api_confirms_balance_change(self):
+        self.client.force_authenticate(self.operator)
+        request_response = self.client.post(
+            f"/api/users/admin/customers/{self.customer.id}/balance-adjustments/",
+            {
+                "amount": "50.00",
+                "currency": "USD",
+                "reason": "Manual balance recharge by administrator",
+                "idempotency_key": "api-adjust-1",
+            },
+            format="json",
         )
-        CustomerAdministrationService.decide_adjustment(self.admin, adjustment.id, False, "not supported")
+        self.assertEqual(request_response.status_code, 200)
+        self.assertEqual(request_response.data["status"], "approved")
+        self.assertIsNotNone(request_response.data["transaction_id"])
         self.customer_wallet.refresh_from_db()
-        self.assertEqual(self.customer_wallet.available_balance, Decimal("100"))
-        adjustment = CustomerAdministrationService.request_adjustment(
-            self.operator, self.customer.id, "-1000", "USD", "invalid negative correction", "adjust-fail"
-        )
+        self.assertEqual(self.customer_wallet.available_balance, Decimal("150.00000000"))
+
+    def test_insufficient_funds_rejects_adjustment_without_balance_effect(self):
         with self.assertRaises(Exception):
-            CustomerAdministrationService.decide_adjustment(self.admin, adjustment.id, True, "reviewed")
-        adjustment.refresh_from_db()
+            CustomerAdministrationService.request_adjustment(
+            self.operator, self.customer.id, "-1000", "USD", "invalid negative correction", "adjust-fail"
+            )
         self.customer_wallet.refresh_from_db()
-        self.assertEqual(adjustment.status, "pending")
         self.assertEqual(self.customer_wallet.available_balance, Decimal("100"))
 
 

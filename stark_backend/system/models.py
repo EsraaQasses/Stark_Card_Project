@@ -8,14 +8,18 @@ class Notification(models.Model):
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
     title = models.CharField(max_length=255)
     message = models.TextField()
-    icon = models.ImageField(
-        blank=True,
-        null=True,
-        max_length=100,
-        upload_to="notifications/icons/"  
-    )
+    type = models.CharField(max_length=64, default="general")
+    details = models.JSONField(default=dict, blank=True)
+    icon = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "created_at"]),
+            models.Index(fields=["recipient", "created_at"]),
+        ]
 
     def __str__(self):
         return f"[{self.recipient}] {self.title}"

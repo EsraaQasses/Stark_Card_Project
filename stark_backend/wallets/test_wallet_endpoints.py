@@ -198,6 +198,15 @@ class WalletEndpointFlowTests(TestCase):
         self.assertEqual(sender_wallet.available_balance, Decimal("12.50"))
         self.assertEqual(recipient_wallet.available_balance, Decimal("7.50"))
 
+        self.client.force_authenticate(self.recipient)
+        history = self.client.get("/api/transactions/transactions/", {"transaction_type": "transfer"})
+        self.assertEqual(history.status_code, 200, history.data)
+        received = next(item for item in history.data if item["direction"] == "in")
+        self.assertEqual(received["amount"], "7.50000000")
+        self.assertEqual(received["sender_name"], "Wallet Endpoint User")
+        self.assertEqual(received["status"], "approved")
+        self.assertIsNotNone(received["created_at"])
+
     def test_invalid_deposit_withdrawal_and_transfer_inputs(self):
         responses = []
         for path in (

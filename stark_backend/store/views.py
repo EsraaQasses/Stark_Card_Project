@@ -5,6 +5,7 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count, Prefetch, Q
 from django.db import transaction
 from decimal import Decimal, InvalidOperation
@@ -18,6 +19,7 @@ from .models import (
 from .serializers import (
     SectionSerializer,
     ProductSerializer,
+    AdminProductListSerializer,
     ProductCreateUpdateSerializer,
     ProductRequirementSerializer,
     FavoriteSerializer,
@@ -154,8 +156,17 @@ class ProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
+    class AdminProductPagination(PageNumberPagination):
+        page_size = 50
+        page_size_query_param = "page_size"
+        max_page_size = 100
+
+    pagination_class = AdminProductPagination
+
     def get_serializer_class(self):
         """Use different serializer for create/update operations."""
+        if self.action == "list":
+            return AdminProductListSerializer
         if self.action in ['create', 'update', 'partial_update']:
             return ProductCreateUpdateSerializer
         return ProductSerializer
@@ -167,8 +178,15 @@ class ProductViewSet(viewsets.ModelViewSet):
             'section__father_section',
             'api_config',
             'external_product'
-        ).prefetch_related('requirements')
-        if self.request.user.is_authenticated:
+        )
+        if self.action == "list":
+            queryset = queryset.defer(
+                "description_en", "description_ar", "customization_options",
+                "external_product__external_data", "external_product__required_fields_json",
+            )
+        else:
+            queryset = queryset.prefetch_related('requirements')
+        if self.action != "list" and self.request.user.is_authenticated:
             queryset = queryset.prefetch_related(
                 Prefetch(
                     'favorited_by',
@@ -186,6 +204,23 @@ class ProductViewSet(viewsets.ModelViewSet):
         section_id = self.request.query_params.get('section_id')
         if section_id:
             queryset = queryset.filter(section_id=section_id)
+
+        product_type = self.request.query_params.get("product_type")
+        if product_type in {"amount_based", "customization_based"}:
+            queryset = queryset.filter(product_type=product_type)
+
+        currency = self.request.query_params.get("currency")
+        if currency:
+            queryset = queryset.filter(currency__iexact=currency)
+
+        search = self.request.query_params.get("search") or self.request.query_params.get("q")
+        if search:
+            queryset = queryset.filter(
+                Q(name_en__icontains=search)
+                | Q(name_ar__icontains=search)
+                | Q(external_product__name__icontains=search)
+                | Q(external_product__external_id__icontains=search)
+            )
             
         return queryset
 

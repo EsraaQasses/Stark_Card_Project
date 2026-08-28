@@ -210,21 +210,36 @@ class CustomerAdministrationService:
             target_user=target, requested_by=actor, wallet=wallet, amount=delta,
             currency=currency, reason=reason.strip(), idempotency_key=idempotency_key,
         )
+        operation_key = f"customer-adjustment:{adjustment.id}"
+        context = {"customer_balance_adjustment_id": adjustment.id, "actor_id": actor.id, "reason": adjustment.reason}
+        if adjustment.amount > 0:
+            tx = FinanceService.deposit(wallet_id=adjustment.wallet_id, amount=adjustment.amount,
+                                        transaction_type="deposit", note=f"Admin adjustment #{adjustment.id}",
+                                        idempotency_key=operation_key, operation_context=context)
+        else:
+            tx = FinanceService.withdraw(wallet_id=adjustment.wallet_id, amount=abs(adjustment.amount),
+                                         transaction_type="withdrawal", note=f"Admin adjustment #{adjustment.id}",
+                                         idempotency_key=operation_key, operation_context=context)
+        tx = FinanceService.approve(tx.id, admin_user=actor)
+        adjustment.status = "approved"
+        adjustment.approved_by = actor
+        adjustment.transaction = tx
+        adjustment.decision_reason = "Approved by administrator"
+        adjustment.decided_at = timezone.now()
+        adjustment.save(update_fields=["status", "approved_by", "transaction", "decision_reason", "decided_at"])
         cls._audit(actor, "BALANCE_ADJUSTMENT", target, {
-            "command": "request", "adjustment_id": adjustment.id, "amount": str(delta), "currency": currency,
-            "reason": reason.strip(), "status": "pending",
+            "command": "apply", "adjustment_id": adjustment.id, "transaction_id": tx.id,
+            "amount": str(delta), "currency": currency, "reason": reason.strip(), "status": "approved",
         }, request)
         return adjustment
 
     @classmethod
     @transaction.atomic
     def decide_adjustment(cls, actor, adjustment_id, approve, reason="", request=None):
-        cls._require_superuser(actor)
+        cls._require_admin(actor)
         adjustment = CustomerBalanceAdjustment.objects.select_for_update().select_related("target_user", "wallet").get(pk=adjustment_id)
         if adjustment.status != "pending":
             return adjustment
-        if adjustment.requested_by_id == actor.id:
-            raise PermissionDenied("The adjustment creator cannot approve or reject their own request.")
         if not approve:
             adjustment.status = "rejected"
             adjustment.approved_by = actor
