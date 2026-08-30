@@ -36,9 +36,14 @@ const ShippingRequests = () => {
       setLoading(true);
       setError(null);
       const requestTypes = [
-        { type: 'standard', path: '/shipping/standard/' },
-        { type: 'via-agent', path: '/shipping/via-agent/' },
-        { type: 'agent-admin', path: '/shipping/agent-admin/' },
+        {
+          type: 'standard',
+          path: '/shipping/standard/',
+        },
+        {
+          type: 'agent-admin',
+          path: '/shipping/agent-admin/',
+        },
       ];
       const fetchAllPages = async (path) => {
         const rows = [];
@@ -216,7 +221,9 @@ const ShippingRequests = () => {
       return (
         <span className="text-gray-400 text-sm capitalize">
           {!isAdminAction && isPending
-            ? t('requestsPages.shipping.agentActionRequired', { defaultValue: 'Agent action required' })
+            ? t('requestsPages.shipping.agentActionRequired', {
+                defaultValue: 'Agent action required',
+              })
             : t(`status.${shipping.status}`, shipping.status)}
         </span>
       );
@@ -224,22 +231,7 @@ const ShippingRequests = () => {
 
     return (
       <div className="flex gap-2 justify-center">
-        <button
-          type="button"
-          disabled={Boolean(actionLoading)}
-          className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-xs disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => handleApprove(shipping)}
-        >
-          {isMutating ? t('common:loading', 'Loading...') : t('requestsPages.shipping.table.buttons.approve')}
-        </button>
-        <button
-          type="button"
-          disabled={Boolean(actionLoading)}
-          className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-xs disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={() => handleReject(shipping)}
-        >
-          {t('requestsPages.shipping.table.buttons.reject')}
-        </button>
+        ...
       </div>
     );
   };

@@ -23,7 +23,9 @@ import {
   FiEdit3,
   FiHash,
   FiMapPin,
+  FiMinus,
   FiPercent,
+  FiPlus,
   FiRefreshCw,
   FiShield,
   FiShoppingBag,
@@ -76,6 +78,19 @@ const getInitials = (name) => {
     .toUpperCase();
 };
 
+const createIdempotencyKey = (agentId) => {
+  const randomPart = (
+    typeof crypto !== 'undefined'
+    && typeof crypto.randomUUID === 'function'
+  )
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+
+  return `agent-balance-${agentId}-${randomPart}`;
+};
+
 const ModalShell = ({
   open,
   title,
@@ -89,51 +104,16 @@ const ModalShell = ({
 
   return (
     <div
-      className="
-        fixed
-        inset-0
-        z-[1300]
-        flex
-        items-center
-        justify-center
-        bg-slate-950/60
-        p-4
-        backdrop-blur-sm
-      "
+      className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
     >
       <div
-        className="
-          w-full
-          max-w-lg
-          overflow-hidden
-          rounded-3xl
-          border
-          border-slate-200
-          bg-white
-          shadow-2xl
-          dark:border-slate-700
-          dark:bg-slate-900
-        "
+        className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
       >
         <div
-          className="
-            flex
-            items-center
-            justify-between
-            border-b
-            border-slate-100
-            px-5
-            py-4
-            dark:border-slate-800
-          "
+          className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800"
         >
           <h3
-            className="
-              text-lg
-              font-black
-              text-slate-900
-              dark:text-white
-            "
+            className="text-lg font-black text-slate-900 dark:text-white"
           >
             {title}
           </h3>
@@ -142,21 +122,7 @@ const ModalShell = ({
             type="button"
             disabled={busy}
             onClick={onClose}
-            className="
-              flex
-              h-9
-              w-9
-              items-center
-              justify-center
-              rounded-xl
-              text-slate-400
-              transition
-              hover:bg-slate-100
-              hover:text-slate-700
-              disabled:opacity-40
-              dark:hover:bg-slate-800
-              dark:hover:text-white
-            "
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <FiX />
           </button>
@@ -178,33 +144,13 @@ const InfoCard = ({
   dir,
 }) => (
   <div
-    className="
-      rounded-2xl
-      border
-      border-slate-100
-      bg-slate-50/70
-      p-4
-      dark:border-slate-700
-      dark:bg-slate-900/40
-    "
+    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-900/40"
   >
     <div
-      className="
-        mb-3
-        flex
-        items-center
-        gap-2
-      "
+      className="mb-3 flex items-center gap-2"
     >
       <div
-        className="
-          flex
-          h-9
-          w-9
-          items-center
-          justify-center
-          rounded-xl
-        "
+        className="flex h-9 w-9 items-center justify-center rounded-xl"
         style={{
           backgroundColor: `${accentColor}14`,
           color: accentColor,
@@ -214,11 +160,7 @@ const InfoCard = ({
       </div>
 
       <span
-        className="
-          text-xs
-          font-bold
-          text-slate-400
-        "
+        className="text-xs font-bold text-slate-400"
       >
         {label}
       </span>
@@ -226,13 +168,7 @@ const InfoCard = ({
 
     <p
       dir={dir}
-      className="
-        break-words
-        text-base
-        font-black
-        text-slate-900
-        dark:text-white
-      "
+      className="break-words text-base font-black text-slate-900 dark:text-white"
     >
       {value === null
         || value === undefined
@@ -240,6 +176,75 @@ const InfoCard = ({
         ? '—'
         : String(value)}
     </p>
+  </div>
+);
+
+const BalanceCard = ({
+  label,
+  value,
+  accentColor,
+  addLabel,
+  deductLabel,
+  onAdd,
+  onDeduct,
+  busy,
+}) => (
+  <div
+    className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-900/40"
+  >
+    <div
+      className="mb-3 flex items-center gap-2"
+    >
+      <div
+        className="flex h-9 w-9 items-center justify-center rounded-xl"
+        style={{
+          backgroundColor: `${accentColor}14`,
+          color: accentColor,
+        }}
+      >
+        <FiDollarSign />
+      </div>
+
+      <span
+        className="text-xs font-bold text-slate-400"
+      >
+        {label}
+      </span>
+    </div>
+
+    <p
+      dir="ltr"
+      className="break-words text-base font-black text-slate-900 dark:text-white"
+    >
+      {value}
+    </p>
+
+    <div
+      className="mt-4 grid grid-cols-2 gap-2"
+    >
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onAdd}
+        className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        style={{
+          backgroundColor: accentColor,
+        }}
+      >
+        <FiPlus />
+        {addLabel}
+      </button>
+
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onDeduct}
+        className="flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+      >
+        <FiMinus />
+        {deductLabel}
+      </button>
+    </div>
   </div>
 );
 
@@ -509,6 +514,70 @@ const AgentDetails = () => {
       ? 'الوصف'
       : 'Description',
 
+    addBalance: isArabic
+      ? 'إضافة رصيد'
+      : 'Add balance',
+
+    deductBalance: isArabic
+      ? 'خصم رصيد'
+      : 'Deduct balance',
+
+    balanceAdjustment: isArabic
+      ? 'تعديل رصيد الوكيل'
+      : 'Adjust agent balance',
+
+    adjustmentAmount: isArabic
+      ? 'المبلغ'
+      : 'Amount',
+
+    adjustmentCurrency: isArabic
+      ? 'العملة'
+      : 'Currency',
+
+    adjustmentReason: isArabic
+      ? 'سبب التعديل'
+      : 'Adjustment reason',
+
+    adjustmentReasonHint: isArabic
+      ? 'يجب كتابة سبب واضح لا يقل عن 10 أحرف.'
+      : 'Enter a clear reason of at least 10 characters.',
+
+    executingAdjustment: isArabic
+      ? 'جاري تعديل الرصيد...'
+      : 'Applying balance adjustment...',
+
+    adjustmentCreditSuccess: isArabic
+      ? 'تمت إضافة الرصيد للوكيل بنجاح.'
+      : 'Balance was added to the agent successfully.',
+
+    adjustmentDebitSuccess: isArabic
+      ? 'تم خصم الرصيد من الوكيل بنجاح.'
+      : 'Balance was deducted from the agent successfully.',
+
+    adjustmentFailed: isArabic
+      ? 'تعذر تعديل رصيد الوكيل.'
+      : 'Failed to adjust agent balance.',
+
+    invalidAdjustmentAmount: isArabic
+      ? 'أدخل مبلغاً أكبر من الصفر.'
+      : 'Enter an amount greater than zero.',
+
+    invalidAdjustmentReason: isArabic
+      ? 'سبب التعديل يجب أن يكون 10 أحرف على الأقل.'
+      : 'Adjustment reason must be at least 10 characters.',
+
+    creditOperation: isArabic
+      ? 'إضافة'
+      : 'Credit',
+
+    debitOperation: isArabic
+      ? 'خصم'
+      : 'Debit',
+
+    currentBalance: isArabic
+      ? 'الرصيد الحالي'
+      : 'Current balance',
+
     categoryStatus: isArabic
       ? 'حالة الفئة'
       : 'Category status',
@@ -545,6 +614,16 @@ const AgentDetails = () => {
   const [savingCategory, setSavingCategory] = useState(false);
 
   const [demoting, setDemoting] = useState(false);
+
+  const [adjustmentModal, setAdjustmentModal] = useState(null);
+  const [adjustmentAmount, setAdjustmentAmount] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [adjustmentError, setAdjustmentError] = useState('');
+  const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
+  const [
+    adjustmentIdempotencyKey,
+    setAdjustmentIdempotencyKey,
+  ] = useState('');
 
   const loadAgent = useCallback(
     async ({ background = false } = {}) => {
@@ -719,6 +798,156 @@ const AgentDetails = () => {
     },
     [locale],
   );
+
+  const openAdjustment = (
+    mode,
+    currency,
+  ) => {
+    setAdjustmentModal({
+      mode,
+      currency,
+    });
+
+    setAdjustmentAmount('');
+    setAdjustmentReason('');
+    setAdjustmentError('');
+
+    setAdjustmentIdempotencyKey(
+      createIdempotencyKey(agentId),
+    );
+  };
+
+  const closeAdjustment = () => {
+    if (submittingAdjustment) {
+      return;
+    }
+
+    setAdjustmentModal(null);
+    setAdjustmentAmount('');
+    setAdjustmentReason('');
+    setAdjustmentError('');
+    setAdjustmentIdempotencyKey('');
+  };
+
+  const submitAdjustment = async (event) => {
+    event.preventDefault();
+
+    if (!adjustmentModal) {
+      return;
+    }
+
+    const amountText = String(
+      adjustmentAmount,
+    ).trim();
+
+    const amountNumber = Number(
+      amountText,
+    );
+
+    const reason = adjustmentReason.trim();
+
+    if (
+      !Number.isFinite(amountNumber)
+      || amountNumber <= 0
+    ) {
+      setAdjustmentError(
+        labels.invalidAdjustmentAmount,
+      );
+      return;
+    }
+
+    if (reason.length < 10) {
+      setAdjustmentError(
+        labels.invalidAdjustmentReason,
+      );
+      return;
+    }
+    if (adjustmentModal.mode === 'debit') {
+      const availableBalance = Number(
+        adjustmentModal.currency === 'USD'
+          ? agent?.balance_usd
+          : agent?.balance_syp,
+      );
+
+      if (
+        Number.isFinite(availableBalance)
+        && amountNumber > availableBalance
+      ) {
+        setAdjustmentError(
+          isArabic
+            ? `الرصيد غير كافٍ. الرصيد المتاح: ${formatMoney(
+                availableBalance,
+                adjustmentModal.currency,
+              )}`
+            : `Insufficient balance. Available balance: ${formatMoney(
+                availableBalance,
+                adjustmentModal.currency,
+              )}`,
+        );
+
+        return;
+      }
+    }
+    const signedAmount = (
+      adjustmentModal.mode === 'debit'
+        ? `-${amountText}`
+        : amountText
+    );
+
+    setSubmittingAdjustment(true);
+    setAdjustmentError('');
+    setNotice(null);
+
+    try {
+      await axiosInstance.post(
+        `/users/admin/customers/${agentId}/balance-adjustments/`,
+        {
+          amount: signedAmount,
+          currency: adjustmentModal.currency,
+          reason,
+          idempotency_key: (
+            adjustmentIdempotencyKey
+            || createIdempotencyKey(agentId)
+          ),
+        },
+      );
+
+      const successMessage = (
+        adjustmentModal.mode === 'debit'
+          ? labels.adjustmentDebitSuccess
+          : labels.adjustmentCreditSuccess
+      );
+
+      setAdjustmentModal(null);
+      setAdjustmentAmount('');
+      setAdjustmentReason('');
+      setAdjustmentError('');
+      setAdjustmentIdempotencyKey('');
+
+      setNotice({
+        type: 'success',
+        message: successMessage,
+      });
+
+      await loadAgent({
+        background: true,
+      });
+    } catch (requestError) {
+      console.error(
+        'Error adjusting agent balance:',
+        requestError,
+      );
+
+      setAdjustmentError(
+        getApiError(
+          requestError,
+          labels.adjustmentFailed,
+        ),
+      );
+    } finally {
+      setSubmittingAdjustment(false);
+    }
+  };
 
   const openCommission = () => {
     setCommissionError('');
@@ -986,27 +1215,13 @@ const AgentDetails = () => {
   if (loading) {
     return (
       <div
-        className="
-          flex
-          min-h-[500px]
-          items-center
-          justify-center
-        "
+        className="flex min-h-[500px] items-center justify-center"
       >
         <div
-          className="
-            flex
-            flex-col
-            items-center
-            gap-3
-            text-slate-400
-          "
+          className="flex flex-col items-center gap-3 text-slate-400"
         >
           <FiRefreshCw
-            className="
-              animate-spin
-              text-3xl
-            "
+            className="animate-spin text-3xl"
           />
 
           <span className="text-sm font-bold">
@@ -1021,36 +1236,13 @@ const AgentDetails = () => {
     return (
       <div
         dir={isArabic ? 'rtl' : 'ltr'}
-        className="
-          mt-20
-          px-4
-          md:mt-4
-          md:px-8
-          md:py-6
-        "
+        className="mt-20 px-4 md:mt-4 md:px-8 md:py-6"
       >
         <div
-          className="
-            mx-auto
-            max-w-3xl
-            rounded-3xl
-            border
-            border-red-200
-            bg-red-50
-            p-8
-            text-center
-            text-red-700
-            dark:border-red-900/40
-            dark:bg-red-950/30
-            dark:text-red-300
-          "
+          className="mx-auto max-w-3xl rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
         >
           <FiAlertCircle
-            className="
-              mx-auto
-              mb-3
-              text-3xl
-            "
+            className="mx-auto mb-3 text-3xl"
           />
 
           <p className="font-black">
@@ -1060,15 +1252,7 @@ const AgentDetails = () => {
           <button
             type="button"
             onClick={() => navigate('/agents')}
-            className="
-              mt-4
-              rounded-xl
-              px-5
-              py-2.5
-              text-sm
-              font-black
-              text-white
-            "
+            className="mt-4 rounded-xl px-5 py-2.5 text-sm font-black text-white"
             style={{
               backgroundColor: accentColor,
             }}
@@ -1084,89 +1268,29 @@ const AgentDetails = () => {
     <>
       <div
         dir={isArabic ? 'rtl' : 'ltr'}
-        className="
-          mt-20
-          px-3
-          py-4
-          sm:px-5
-          md:mt-4
-          md:px-8
-          md:py-6
-        "
+        className="mt-20 px-3 py-4 sm:px-5 md:mt-4 md:px-8 md:py-6"
       >
         <div
-          className="
-            mx-auto
-            w-full
-            max-w-7xl
-            space-y-5
-          "
+          className="mx-auto w-full max-w-7xl space-y-5"
         >
           <section
-            className="
-              relative
-              overflow-hidden
-              rounded-3xl
-              border
-              border-slate-100
-              bg-white
-              p-5
-              shadow-sm
-              dark:border-slate-800
-              dark:bg-secondary-dark-bg
-              md:p-7
-            "
+            className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-7"
           >
             <div
-              className="
-                pointer-events-none
-                absolute
-                -start-24
-                -top-24
-                h-64
-                w-64
-                rounded-full
-                opacity-[0.08]
-              "
+              className="pointer-events-none absolute -start-24 -top-24 h-64 w-64 rounded-full opacity-[0.08]"
               style={{
                 backgroundColor: accentColor,
               }}
             />
 
             <div
-              className="
-                relative
-                z-10
-                flex
-                flex-col
-                gap-6
-                xl:flex-row
-                xl:items-center
-                xl:justify-between
-              "
+              className="relative z-10 flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between"
             >
               <div
-                className="
-                  flex
-                  min-w-0
-                  items-center
-                  gap-4
-                "
+                className="flex min-w-0 items-center gap-4"
               >
                 <div
-                  className="
-                    flex
-                    h-20
-                    w-20
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-3xl
-                    text-2xl
-                    font-black
-                    text-white
-                    shadow-md
-                  "
+                  className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl text-2xl font-black text-white shadow-md"
                   style={{
                     backgroundColor: accentColor,
                   }}
@@ -1178,19 +1302,10 @@ const AgentDetails = () => {
 
                 <div className="min-w-0 text-start">
                   <div
-                    className="
-                      mb-2
-                      flex
-                      flex-wrap
-                      items-center
-                      gap-2
-                    "
+                    className="mb-2 flex flex-wrap items-center gap-2"
                   >
                     <span
-                      className="
-                        text-xs
-                        font-extrabold
-                      "
+                      className="text-xs font-extrabold"
                       style={{
                         color: accentColor,
                       }}
@@ -1199,14 +1314,7 @@ const AgentDetails = () => {
                     </span>
 
                     <span
-                      className="
-                        rounded-full
-                        border
-                        px-2.5
-                        py-1
-                        text-xs
-                        font-extrabold
-                      "
+                      className="rounded-full border px-2.5 py-1 text-xs font-extrabold"
                       style={{
                         backgroundColor: `${accentColor}12`,
                         borderColor: `${accentColor}28`,
@@ -1218,30 +1326,13 @@ const AgentDetails = () => {
                   </div>
 
                   <h1
-                    className="
-                      truncate
-                      text-3xl
-                      font-black
-                      text-slate-950
-                      dark:text-white
-                      md:text-4xl
-                    "
+                    className="truncate text-3xl font-black text-slate-950 dark:text-white md:text-4xl"
                   >
                     {displayName}
                   </h1>
 
                   <div
-                    className="
-                      mt-2
-                      flex
-                      flex-wrap
-                      items-center
-                      gap-3
-                      text-sm
-                      font-bold
-                      text-slate-500
-                      dark:text-slate-400
-                    "
+                    className="mt-2 flex flex-wrap items-center gap-3 text-sm font-bold text-slate-500 dark:text-slate-400"
                   >
                     <span dir="ltr">
                       #{agent.id}
@@ -1255,11 +1346,7 @@ const AgentDetails = () => {
 
                     {agent.region && (
                       <span
-                        className="
-                          flex
-                          items-center
-                          gap-1
-                        "
+                        className="flex items-center gap-1"
                       >
                         <FiMapPin />
                         {agent.region}
@@ -1270,12 +1357,7 @@ const AgentDetails = () => {
               </div>
 
               <div
-                className="
-                  flex
-                  flex-col
-                  gap-2
-                  sm:flex-row
-                "
+                className="flex flex-col gap-2 sm:flex-row"
               >
                 <button
                   type="button"
@@ -1285,28 +1367,7 @@ const AgentDetails = () => {
                       background: true,
                     })
                   )}
-                  className="
-                    flex
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    border
-                    border-slate-200
-                    bg-white
-                    px-4
-                    py-2.5
-                    text-sm
-                    font-black
-                    text-slate-600
-                    transition
-                    hover:bg-slate-50
-                    disabled:opacity-50
-                    dark:border-slate-700
-                    dark:bg-slate-900
-                    dark:text-slate-300
-                    dark:hover:bg-slate-800
-                  "
+                  className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   <FiRefreshCw
                     className={
@@ -1322,18 +1383,7 @@ const AgentDetails = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/agents')}
-                  className="
-                    flex
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    px-4
-                    py-2.5
-                    text-sm
-                    font-black
-                    text-white
-                  "
+                  className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white"
                   style={{
                     backgroundColor: accentColor,
                   }}
@@ -1348,15 +1398,7 @@ const AgentDetails = () => {
             </div>
 
             <div
-              className="
-                relative
-                z-10
-                mt-6
-                grid
-                gap-3
-                sm:grid-cols-2
-                xl:grid-cols-4
-              "
+              className="relative z-10 mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
             >
               {[
                 {
@@ -1393,58 +1435,27 @@ const AgentDetails = () => {
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="
-                    rounded-2xl
-                    border
-                    border-slate-100
-                    bg-white/90
-                    p-4
-                    shadow-sm
-                    dark:border-slate-700
-                    dark:bg-slate-900/80
-                  "
+                  className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/80"
                 >
                   <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      gap-3
-                    "
+                    className="flex items-center justify-between gap-3"
                   >
                     <div className="text-start">
                       <p
-                        className="
-                          text-xs
-                          font-bold
-                          text-slate-400
-                        "
+                        className="text-xs font-bold text-slate-400"
                       >
                         {item.label}
                       </p>
 
                       <p
-                        className="
-                          mt-1
-                          text-xl
-                          font-black
-                          text-slate-900
-                          dark:text-white
-                        "
+                        className="mt-1 text-xl font-black text-slate-900 dark:text-white"
                       >
                         {item.value}
                       </p>
                     </div>
 
                     <div
-                      className="
-                        flex
-                        h-10
-                        w-10
-                        items-center
-                        justify-center
-                        rounded-xl
-                      "
+                      className="flex h-10 w-10 items-center justify-center rounded-xl"
                       style={{
                         backgroundColor: `${accentColor}14`,
                         color: accentColor,
@@ -1495,23 +1506,10 @@ const AgentDetails = () => {
           )}
 
           <section
-            className="
-              rounded-2xl
-              border
-              border-slate-100
-              bg-white
-              p-2
-              shadow-sm
-              dark:border-slate-800
-              dark:bg-secondary-dark-bg
-            "
+            className="rounded-2xl border border-slate-100 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg"
           >
             <div
-              className="
-                grid
-                gap-2
-                md:grid-cols-3
-              "
+              className="grid gap-2 md:grid-cols-3"
             >
               {tabs.map((tab) => (
                 <button
@@ -1557,36 +1555,16 @@ const AgentDetails = () => {
           {activeTab === 'overview' && (
             <div className="space-y-5">
               <section
-                className="
-                  rounded-3xl
-                  border
-                  border-slate-100
-                  bg-white
-                  p-5
-                  shadow-sm
-                  dark:border-slate-800
-                  dark:bg-secondary-dark-bg
-                "
+                className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg"
               >
                 <h2
-                  className="
-                    mb-5
-                    text-lg
-                    font-black
-                    text-slate-900
-                    dark:text-white
-                  "
+                  className="mb-5 text-lg font-black text-slate-900 dark:text-white"
                 >
                   {labels.accountInfo}
                 </h2>
 
                 <div
-                  className="
-                    grid
-                    gap-3
-                    sm:grid-cols-2
-                    xl:grid-cols-4
-                  "
+                  className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
                 >
                   <InfoCard
                     icon={<FiHash />}
@@ -1621,69 +1599,30 @@ const AgentDetails = () => {
               </section>
 
               <section
-                className="
-                  rounded-3xl
-                  border
-                  border-slate-100
-                  bg-white
-                  p-5
-                  shadow-sm
-                  dark:border-slate-800
-                  dark:bg-secondary-dark-bg
-                "
+                className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg"
               >
                 <div
-                  className="
-                    mb-5
-                    flex
-                    flex-col
-                    gap-4
-                    lg:flex-row
-                    lg:items-end
-                    lg:justify-between
-                  "
+                  className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
                 >
                   <div className="text-start">
                     <h2
-                      className="
-                        text-lg
-                        font-black
-                        text-slate-900
-                        dark:text-white
-                      "
+                      className="text-lg font-black text-slate-900 dark:text-white"
                     >
                       {labels.categoryInfo}
                     </h2>
 
                     <p
-                      className="
-                        mt-1
-                        text-xs
-                        font-medium
-                        text-slate-400
-                        dark:text-slate-500
-                      "
+                      className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500"
                     >
                       {labels.categorySubtitle}
                     </p>
                   </div>
 
                   <div
-                    className="
-                      flex
-                      w-full
-                      flex-col
-                      gap-2
-                      sm:flex-row
-                      lg:w-auto
-                    "
+                    className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto"
                   >
                     <label
-                      className="
-                        block
-                        w-full
-                        sm:min-w-[290px]
-                      "
+                      className="block w-full sm:min-w-[290px]"
                     >
                       <span className="sr-only">
                         {labels.chooseCategory}
@@ -1698,26 +1637,7 @@ const AgentDetails = () => {
                           );
                           setCategoryError('');
                         }}
-                        className="
-                          h-11
-                          w-full
-                          rounded-xl
-                          border
-                          border-slate-200
-                          bg-white
-                          px-4
-                          text-sm
-                          font-bold
-                          text-slate-700
-                          outline-none
-                          transition
-                          focus:border-current
-                          disabled:cursor-not-allowed
-                          disabled:opacity-60
-                          dark:border-slate-700
-                          dark:bg-slate-900
-                          dark:text-slate-200
-                        "
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-current disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                       >
                         {!categories.length && (
                           <option value="">
@@ -1777,24 +1697,7 @@ const AgentDetails = () => {
                         || selectedCategoryId === initialCategoryId
                       }
                       onClick={saveCategory}
-                      className="
-                        flex
-                        h-11
-                        shrink-0
-                        items-center
-                        justify-center
-                        gap-2
-                        rounded-xl
-                        px-5
-                        text-sm
-                        font-black
-                        text-white
-                        shadow-sm
-                        transition
-                        hover:opacity-90
-                        disabled:cursor-not-allowed
-                        disabled:opacity-50
-                      "
+                      className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                       style={{
                         backgroundColor: accentColor,
                       }}
@@ -1812,24 +1715,7 @@ const AgentDetails = () => {
 
                 {categoryError && (
                   <div
-                    className="
-                      mb-4
-                      flex
-                      items-start
-                      gap-2
-                      rounded-xl
-                      border
-                      border-red-200
-                      bg-red-50
-                      px-4
-                      py-3
-                      text-sm
-                      font-bold
-                      text-red-700
-                      dark:border-red-900/40
-                      dark:bg-red-950/30
-                      dark:text-red-300
-                    "
+                    className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
                   >
                     <FiAlertCircle className="mt-0.5 shrink-0" />
                     <span>{categoryError}</span>
@@ -1838,21 +1724,7 @@ const AgentDetails = () => {
 
                 {categories.length === 0 && !categoryError && (
                   <div
-                    className="
-                      mb-4
-                      rounded-xl
-                      border
-                      border-amber-200
-                      bg-amber-50
-                      px-4
-                      py-3
-                      text-sm
-                      font-bold
-                      text-amber-700
-                      dark:border-amber-900/40
-                      dark:bg-amber-950/30
-                      dark:text-amber-300
-                    "
+                    className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300"
                   >
                     {labels.noAvailableCategories}
                   </div>
@@ -1860,29 +1732,13 @@ const AgentDetails = () => {
 
                 {!category ? (
                   <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-dashed
-                      border-slate-200
-                      p-6
-                      text-center
-                      text-sm
-                      font-bold
-                      text-slate-400
-                      dark:border-slate-700
-                    "
+                    className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400 dark:border-slate-700"
                   >
                     {labels.noCategory}
                   </div>
                 ) : (
                   <div
-                    className="
-                      grid
-                      gap-3
-                      sm:grid-cols-2
-                      xl:grid-cols-4
-                    "
+                    className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
                   >
                     <InfoCard
                       icon={<FiUser />}
@@ -1928,47 +1784,20 @@ const AgentDetails = () => {
               </section>
 
               <section
-                className="
-                  rounded-3xl
-                  border
-                  border-red-100
-                  bg-white
-                  p-5
-                  shadow-sm
-                  dark:border-red-900/30
-                  dark:bg-secondary-dark-bg
-                "
+                className="rounded-3xl border border-red-100 bg-white p-5 shadow-sm dark:border-red-900/30 dark:bg-secondary-dark-bg"
               >
                 <div
-                  className="
-                    flex
-                    flex-col
-                    justify-between
-                    gap-4
-                    sm:flex-row
-                    sm:items-center
-                  "
+                  className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
                 >
                   <div className="text-start">
                     <h2
-                      className="
-                        text-lg
-                        font-black
-                        text-slate-900
-                        dark:text-white
-                      "
+                      className="text-lg font-black text-slate-900 dark:text-white"
                     >
                       {labels.demote}
                     </h2>
 
                     <p
-                      className="
-                        mt-1
-                        text-sm
-                        font-medium
-                        text-slate-500
-                        dark:text-slate-400
-                      "
+                      className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400"
                     >
                       {labels.demoteConfirm}
                     </p>
@@ -1978,22 +1807,7 @@ const AgentDetails = () => {
                     type="button"
                     disabled={demoting}
                     onClick={demoteAgent}
-                    className="
-                      flex
-                      items-center
-                      justify-center
-                      gap-2
-                      rounded-xl
-                      bg-red-600
-                      px-4
-                      py-2.5
-                      text-sm
-                      font-black
-                      text-white
-                      transition
-                      hover:bg-red-700
-                      disabled:opacity-50
-                    "
+                    className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-red-700 disabled:opacity-50"
                   >
                     {demoting
                       ? <FiRefreshCw className="animate-spin" />
@@ -2009,62 +1823,24 @@ const AgentDetails = () => {
           {activeTab === 'financial' && (
             <div className="space-y-5">
               <section
-                className="
-                  rounded-3xl
-                  border
-                  border-slate-100
-                  bg-white
-                  p-5
-                  shadow-sm
-                  dark:border-slate-800
-                  dark:bg-secondary-dark-bg
-                "
+                className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg"
               >
                 <div
-                  className="
-                    mb-5
-                    flex
-                    flex-col
-                    justify-between
-                    gap-3
-                    sm:flex-row
-                    sm:items-center
-                  "
+                  className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center"
                 >
                   <h2
-                    className="
-                      text-lg
-                      font-black
-                      text-slate-900
-                      dark:text-white
-                    "
+                    className="text-lg font-black text-slate-900 dark:text-white"
                   >
                     {labels.financial}
                   </h2>
 
                   <div
-                    className="
-                      flex
-                      flex-col
-                      gap-2
-                      sm:flex-row
-                    "
+                    className="flex flex-col gap-2 sm:flex-row"
                   >
                     <button
                       type="button"
                       onClick={openCommission}
-                      className="
-                        flex
-                        items-center
-                        justify-center
-                        gap-2
-                        rounded-xl
-                        px-4
-                        py-2.5
-                        text-sm
-                        font-black
-                        text-white
-                      "
+                      className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white"
                       style={{
                         backgroundColor: accentColor,
                       }}
@@ -2076,24 +1852,7 @@ const AgentDetails = () => {
                     <button
                       type="button"
                       onClick={openLimits}
-                      className="
-                        flex
-                        items-center
-                        justify-center
-                        gap-2
-                        rounded-xl
-                        border
-                        border-slate-200
-                        bg-white
-                        px-4
-                        py-2.5
-                        text-sm
-                        font-black
-                        text-slate-600
-                        dark:border-slate-700
-                        dark:bg-slate-900
-                        dark:text-slate-300
-                      "
+                      className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                     >
                       <FiEdit3 />
                       {labels.editLimits}
@@ -2102,33 +1861,54 @@ const AgentDetails = () => {
                 </div>
 
                 <div
-                  className="
-                    grid
-                    gap-3
-                    sm:grid-cols-2
-                    xl:grid-cols-4
-                  "
+                  className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
                 >
-                  <InfoCard
-                    icon={<FiDollarSign />}
+                  <BalanceCard
                     label={labels.balanceUsd}
                     value={formatMoney(
                       agent.balance_usd,
                       'USD',
                     )}
                     accentColor={accentColor}
-                    dir="ltr"
+                    addLabel={labels.addBalance}
+                    deductLabel={labels.deductBalance}
+                    busy={submittingAdjustment}
+                    onAdd={() => (
+                      openAdjustment(
+                        'credit',
+                        'USD',
+                      )
+                    )}
+                    onDeduct={() => (
+                      openAdjustment(
+                        'debit',
+                        'USD',
+                      )
+                    )}
                   />
 
-                  <InfoCard
-                    icon={<FiDollarSign />}
+                  <BalanceCard
                     label={labels.balanceSyp}
                     value={formatMoney(
                       agent.balance_syp,
                       'SYP',
                     )}
                     accentColor={accentColor}
-                    dir="ltr"
+                    addLabel={labels.addBalance}
+                    deductLabel={labels.deductBalance}
+                    busy={submittingAdjustment}
+                    onAdd={() => (
+                      openAdjustment(
+                        'credit',
+                        'SYP',
+                      )
+                    )}
+                    onDeduct={() => (
+                      openAdjustment(
+                        'debit',
+                        'SYP',
+                      )
+                    )}
                   />
 
                   <InfoCard
@@ -2206,45 +1986,19 @@ const AgentDetails = () => {
 
           {activeTab === 'clients' && (
             <section
-              className="
-                rounded-3xl
-                border
-                border-slate-100
-                bg-white
-                p-5
-                shadow-sm
-                dark:border-slate-800
-                dark:bg-secondary-dark-bg
-              "
+              className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg"
             >
               <div
-                className="
-                  mb-5
-                  flex
-                  items-center
-                  justify-between
-                  gap-3
-                "
+                className="mb-5 flex items-center justify-between gap-3"
               >
                 <h2
-                  className="
-                    text-lg
-                    font-black
-                    text-slate-900
-                    dark:text-white
-                  "
+                  className="text-lg font-black text-slate-900 dark:text-white"
                 >
                   {labels.clients}
                 </h2>
 
                 <span
-                  className="
-                    rounded-xl
-                    px-3
-                    py-1.5
-                    text-xs
-                    font-black
-                  "
+                  className="rounded-xl px-3 py-1.5 text-xs font-black"
                   style={{
                     backgroundColor: `${accentColor}14`,
                     color: accentColor,
@@ -2256,28 +2010,13 @@ const AgentDetails = () => {
 
               {!clients.length ? (
                 <div
-                  className="
-                    rounded-2xl
-                    border
-                    border-dashed
-                    border-slate-200
-                    p-8
-                    text-center
-                    text-sm
-                    font-bold
-                    text-slate-400
-                    dark:border-slate-700
-                  "
+                  className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm font-bold text-slate-400 dark:border-slate-700"
                 >
                   {labels.noClients}
                 </div>
               ) : (
                 <div
-                  className="
-                    grid
-                    gap-3
-                    md:grid-cols-2
-                  "
+                  className="grid gap-3 md:grid-cols-2"
                 >
                   {clients.map((client) => {
                     const clientName = (
@@ -2309,44 +2048,13 @@ const AgentDetails = () => {
                             },
                           )
                         )}
-                        className="
-                          group
-                          rounded-2xl
-                          border
-                          border-slate-100
-                          bg-slate-50/70
-                          p-4
-                          text-start
-                          transition
-                          hover:border-slate-200
-                          hover:bg-white
-                          hover:shadow-md
-                          dark:border-slate-700
-                          dark:bg-slate-900/40
-                          dark:hover:border-slate-600
-                          dark:hover:bg-slate-900
-                        "
+                        className="group rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-start transition hover:border-slate-200 hover:bg-white hover:shadow-md dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-slate-600 dark:hover:bg-slate-900"
                       >
                         <div
-                          className="
-                            flex
-                            items-center
-                            gap-3
-                          "
+                          className="flex items-center gap-3"
                         >
                           <div
-                            className="
-                              flex
-                              h-11
-                              w-11
-                              shrink-0
-                              items-center
-                              justify-center
-                              rounded-xl
-                              text-sm
-                              font-black
-                              text-white
-                            "
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-black text-white"
                             style={{
                               backgroundColor: accentColor,
                             }}
@@ -2358,27 +2066,13 @@ const AgentDetails = () => {
 
                           <div className="min-w-0 flex-1">
                             <p
-                              className="
-                                truncate
-                                font-black
-                                text-slate-900
-                                dark:text-white
-                              "
+                              className="truncate font-black text-slate-900 dark:text-white"
                             >
                               {clientName}
                             </p>
 
                             <div
-                              className="
-                                mt-1
-                                flex
-                                flex-wrap
-                                items-center
-                                gap-2
-                                text-xs
-                                font-bold
-                                text-slate-400
-                              "
+                              className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-400"
                             >
                               <span dir="ltr">
                                 #{client.id}
@@ -2393,10 +2087,7 @@ const AgentDetails = () => {
                           </div>
 
                           <span
-                            className="
-                              text-xs
-                              font-black
-                            "
+                            className="text-xs font-black"
                             style={{
                               color: accentColor,
                             }}
@@ -2415,6 +2106,267 @@ const AgentDetails = () => {
       </div>
 
       <ModalShell
+        open={Boolean(adjustmentModal)}
+        title={labels.balanceAdjustment}
+        busy={submittingAdjustment}
+        onClose={closeAdjustment}
+      >
+        <form onSubmit={submitAdjustment}>
+          {adjustmentError && (
+            <div
+              className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+            >
+              <FiAlertCircle className="mt-0.5 shrink-0" />
+
+              <span>
+                {adjustmentError}
+              </span>
+            </div>
+          )}
+
+          {adjustmentModal && (
+            <>
+              <div
+                className="mb-5 grid grid-cols-2 gap-3"
+              >
+                <div
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"
+                >
+                  <p
+                    className="text-xs font-bold text-slate-400"
+                  >
+                    {labels.adjustmentCurrency}
+                  </p>
+
+                  <p
+                    dir="ltr"
+                    className="mt-1 text-lg font-black text-slate-900 dark:text-white"
+                  >
+                    {adjustmentModal.currency}
+                  </p>
+                </div>
+
+                <div
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"
+                >
+                  <p
+                    className="text-xs font-bold text-slate-400"
+                  >
+                    {isArabic
+                      ? 'نوع العملية'
+                      : 'Operation'}
+                  </p>
+
+                  <p
+                    className={`
+                      mt-1
+                      text-lg
+                      font-black
+                      ${
+                        adjustmentModal.mode === 'debit'
+                          ? 'text-red-600 dark:text-red-300'
+                          : 'text-emerald-600 dark:text-emerald-300'
+                      }
+                    `}
+                  >
+                    {adjustmentModal.mode === 'debit'
+                      ? labels.debitOperation
+                      : labels.creditOperation}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950"
+              >
+                <div
+                  className="flex items-center justify-between gap-3"
+                >
+                  <span
+                    className="text-xs font-bold text-slate-400"
+                  >
+                    {labels.currentBalance}
+                  </span>
+
+                  <span
+                    dir="ltr"
+                    className="font-black text-slate-900 dark:text-white"
+                  >
+                    {adjustmentModal.currency === 'USD'
+                      ? formatMoney(
+                        agent.balance_usd,
+                        'USD',
+                      )
+                      : formatMoney(
+                        agent.balance_syp,
+                        'SYP',
+                      )}
+                  </span>
+                </div>
+              </div>
+
+              <label className="block">
+                <span
+                  className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200"
+                >
+                  {labels.adjustmentAmount}
+                </span>
+
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={adjustmentAmount}
+                    disabled={submittingAdjustment}
+                    onChange={(event) => {
+                      setAdjustmentAmount(
+                        event.target.value,
+                      );
+
+                      setAdjustmentError('');
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pe-16 font-bold text-slate-900 outline-none transition focus:border-current disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                    dir="ltr"
+                    required
+                    autoFocus
+                  />
+
+                  <span
+                    className="absolute end-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400"
+                  >
+                    {adjustmentModal.currency}
+                  </span>
+                </div>
+              </label>
+
+              <label className="mt-4 block">
+                <span
+                  className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200"
+                >
+                  {labels.adjustmentReason}
+                </span>
+
+                <textarea
+                  rows="4"
+                  minLength="10"
+                  maxLength="500"
+                  value={adjustmentReason}
+                  disabled={submittingAdjustment}
+                  onChange={(event) => {
+                    setAdjustmentReason(
+                      event.target.value,
+                    );
+
+                    setAdjustmentError('');
+                  }}
+                  placeholder={
+                    isArabic
+                      ? 'مثال: إضافة رصيد للوكيل بعد استلام دفعة مالية...'
+                      : 'Example: Adding balance after receiving agent payment...'
+                  }
+                  className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none transition focus:border-current disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                  required
+                />
+
+                <div
+                  className="mt-1 flex items-center justify-between gap-3"
+                >
+                  <span
+                    className="text-xs font-semibold text-slate-400"
+                  >
+                    {labels.adjustmentReasonHint}
+                  </span>
+
+                  <span
+                    dir="ltr"
+                    className="text-xs font-bold text-slate-400"
+                  >
+                    {adjustmentReason.length}/500
+                  </span>
+                </div>
+              </label>
+
+              {adjustmentModal.mode === 'debit' && (
+                <div
+                  className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300"
+                >
+                  <FiAlertCircle className="mt-0.5 shrink-0" />
+
+                  <span>
+                    {isArabic
+                      ? 'سيتم خصم المبلغ مباشرة من رصيد الوكيل بعد التأكيد.'
+                      : 'The amount will be deducted from the agent balance immediately after confirmation.'}
+                  </span>
+                </div>
+              )}
+
+              <div
+                className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+              >
+                <button
+                  type="button"
+                  disabled={submittingAdjustment}
+                  onClick={closeAdjustment}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-600 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
+                >
+                  {labels.cancel}
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={submittingAdjustment}
+                  className={`
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-xl
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-black
+                    text-white
+                    transition
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                    ${
+                      adjustmentModal.mode === 'debit'
+                        ? 'bg-red-600 hover:bg-red-700'
+                        : ''
+                    }
+                  `}
+                  style={
+                    adjustmentModal.mode === 'credit'
+                      ? {
+                          backgroundColor: accentColor,
+                        }
+                      : undefined
+                  }
+                >
+                  {submittingAdjustment ? (
+                    <FiRefreshCw className="animate-spin" />
+                  ) : (
+                    adjustmentModal.mode === 'debit'
+                      ? <FiMinus />
+                      : <FiPlus />
+                  )}
+
+                  {submittingAdjustment
+                    ? labels.executingAdjustment
+                    : (
+                      adjustmentModal.mode === 'debit'
+                        ? labels.deductBalance
+                        : labels.addBalance
+                    )}
+                </button>
+              </div>
+            </>
+          )}
+        </form>
+      </ModalShell>
+
+      <ModalShell
         open={commissionOpen}
         title={labels.commissionModal}
         busy={savingCommission}
@@ -2425,20 +2377,7 @@ const AgentDetails = () => {
         <form onSubmit={saveCommission}>
           {commissionError && (
             <div
-              className="
-                mb-4
-                rounded-xl
-                border
-                border-red-200
-                bg-red-50
-                p-3
-                text-sm
-                font-bold
-                text-red-700
-                dark:border-red-900/40
-                dark:bg-red-950/30
-                dark:text-red-300
-              "
+              className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
             >
               {commissionError}
             </div>
@@ -2446,14 +2385,7 @@ const AgentDetails = () => {
 
           <label className="block">
             <span
-              className="
-                mb-2
-                block
-                text-sm
-                font-black
-                text-slate-700
-                dark:text-slate-200
-              "
+              className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200"
             >
               {labels.commission}
             </span>
@@ -2470,59 +2402,25 @@ const AgentDetails = () => {
                     event.target.value,
                   )
                 )}
-                className="
-                  w-full
-                  rounded-xl
-                  border
-                  border-slate-200
-                  bg-white
-                  px-4
-                  py-3
-                  pe-12
-                  font-bold
-                  text-slate-900
-                  outline-none
-                  dark:border-slate-700
-                  dark:bg-slate-950
-                  dark:text-white
-                "
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pe-12 font-bold text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 dir="ltr"
                 required
               />
 
               <FiPercent
-                className="
-                  absolute
-                  end-4
-                  top-1/2
-                  -translate-y-1/2
-                  text-slate-400
-                "
+                className="absolute end-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
             </div>
 
             <span
-              className="
-                mt-2
-                block
-                text-xs
-                font-semibold
-                text-slate-400
-              "
+              className="mt-2 block text-xs font-semibold text-slate-400"
             >
               {labels.commissionHint}
             </span>
           </label>
 
           <div
-            className="
-              mt-6
-              flex
-              flex-col-reverse
-              gap-2
-              sm:flex-row
-              sm:justify-end
-            "
+            className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
           >
             <button
               type="button"
@@ -2530,18 +2428,7 @@ const AgentDetails = () => {
               onClick={() => (
                 setCommissionOpen(false)
               )}
-              className="
-                rounded-xl
-                border
-                border-slate-200
-                px-4
-                py-2.5
-                text-sm
-                font-black
-                text-slate-600
-                dark:border-slate-700
-                dark:text-slate-300
-              "
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-600 dark:border-slate-700 dark:text-slate-300"
             >
               {labels.cancel}
             </button>
@@ -2549,19 +2436,7 @@ const AgentDetails = () => {
             <button
               type="submit"
               disabled={savingCommission}
-              className="
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-xl
-                px-4
-                py-2.5
-                text-sm
-                font-black
-                text-white
-                disabled:opacity-50
-              "
+              className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
               style={{
                 backgroundColor: accentColor,
               }}
@@ -2589,42 +2464,18 @@ const AgentDetails = () => {
         <form onSubmit={saveLimits}>
           {limitsError && (
             <div
-              className="
-                mb-4
-                rounded-xl
-                border
-                border-red-200
-                bg-red-50
-                p-3
-                text-sm
-                font-bold
-                text-red-700
-                dark:border-red-900/40
-                dark:bg-red-950/30
-                dark:text-red-300
-              "
+              className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
             >
               {limitsError}
             </div>
           )}
 
           <div
-            className="
-              grid
-              gap-4
-              sm:grid-cols-2
-            "
+            className="grid gap-4 sm:grid-cols-2"
           >
             <label className="block">
               <span
-                className="
-                  mb-2
-                  block
-                  text-sm
-                  font-black
-                  text-slate-700
-                  dark:text-slate-200
-                "
+                className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200"
               >
                 {labels.coverageUsd}
               </span>
@@ -2639,21 +2490,7 @@ const AgentDetails = () => {
                     event.target.value,
                   )
                 )}
-                className="
-                  w-full
-                  rounded-xl
-                  border
-                  border-slate-200
-                  bg-white
-                  px-4
-                  py-3
-                  font-bold
-                  text-slate-900
-                  outline-none
-                  dark:border-slate-700
-                  dark:bg-slate-950
-                  dark:text-white
-                "
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 dir="ltr"
                 required
               />
@@ -2661,14 +2498,7 @@ const AgentDetails = () => {
 
             <label className="block">
               <span
-                className="
-                  mb-2
-                  block
-                  text-sm
-                  font-black
-                  text-slate-700
-                  dark:text-slate-200
-                "
+                className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200"
               >
                 {labels.coverageSyp}
               </span>
@@ -2683,21 +2513,7 @@ const AgentDetails = () => {
                     event.target.value,
                   )
                 )}
-                className="
-                  w-full
-                  rounded-xl
-                  border
-                  border-slate-200
-                  bg-white
-                  px-4
-                  py-3
-                  font-bold
-                  text-slate-900
-                  outline-none
-                  dark:border-slate-700
-                  dark:bg-slate-950
-                  dark:text-white
-                "
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-bold text-slate-900 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                 dir="ltr"
                 required
               />
@@ -2705,14 +2521,7 @@ const AgentDetails = () => {
           </div>
 
           <div
-            className="
-              mt-6
-              flex
-              flex-col-reverse
-              gap-2
-              sm:flex-row
-              sm:justify-end
-            "
+            className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
           >
             <button
               type="button"
@@ -2720,18 +2529,7 @@ const AgentDetails = () => {
               onClick={() => (
                 setLimitsOpen(false)
               )}
-              className="
-                rounded-xl
-                border
-                border-slate-200
-                px-4
-                py-2.5
-                text-sm
-                font-black
-                text-slate-600
-                dark:border-slate-700
-                dark:text-slate-300
-              "
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-600 dark:border-slate-700 dark:text-slate-300"
             >
               {labels.cancel}
             </button>
@@ -2739,19 +2537,7 @@ const AgentDetails = () => {
             <button
               type="submit"
               disabled={savingLimits}
-              className="
-                flex
-                items-center
-                justify-center
-                gap-2
-                rounded-xl
-                px-4
-                py-2.5
-                text-sm
-                font-black
-                text-white
-                disabled:opacity-50
-              "
+              className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
               style={{
                 backgroundColor: accentColor,
               }}

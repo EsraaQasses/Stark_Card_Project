@@ -441,7 +441,7 @@ const CustomerDetails = () => {
     purchases: isArabic ? 'المشتريات' : 'Purchases',
     requests: isArabic ? 'الطلبات' : 'Requests',
     shipping: isArabic ? 'طلبات الشحن' : 'Shipping Requests',
-    adjustments: isArabic ? 'طلبات تعديل الرصيد' : 'Balance Adjustments',
+    adjustments: isArabic ? 'سجل تعديلات الرصيد' : 'Balance Adjustment History',
     audit: isArabic ? 'سجل التدقيق' : 'Audit History',
 
     id: isArabic ? 'رقم العميل' : 'Customer ID',
@@ -470,11 +470,11 @@ const CustomerDetails = () => {
     deductBalance: isArabic ? 'خصم رصيد' : 'Deduct balance',
     walletNumber: isArabic ? 'رقم المحفظة' : 'Wallet ID',
     adjustmentNote: isArabic
-      ? 'تعديل الرصيد يُنشأ كطلب معلّق، ويحتاج موافقة Superuser آخر قبل تطبيقه.'
-      : 'Balance changes are created as pending requests and require approval by another superuser before being applied.',
+      ? 'يتم تطبيق إضافة أو خصم الرصيد مباشرة بعد تأكيد العملية، بدون موافقة Admin ثانية.'
+      : 'Balance credits and debits are applied immediately after confirmation, with no second-admin approval.',
     recentAdjustmentNote: isArabic
-      ? 'الطلبات المعروضة مستخرجة من سجل التدقيق الخاص بالعميل.'
-      : 'Displayed adjustments are reconstructed from the customer audit history.',
+      ? 'التعديلات المعروضة مستخرجة من سجل التدقيق الخاص بالعميل.'
+      : 'Displayed balance adjustments are reconstructed from the customer audit history.',
 
     amount: isArabic ? 'المبلغ' : 'Amount',
     currency: isArabic ? 'العملة' : 'Currency',
@@ -483,11 +483,11 @@ const CustomerDetails = () => {
       ? 'السبب إلزامي ويجب أن يكون 10 أحرف على الأقل.'
       : 'Reason is required and must be at least 10 characters.',
     cancel: isArabic ? 'إلغاء' : 'Cancel',
-    submitRequest: isArabic ? 'إرسال طلب التعديل' : 'Submit adjustment',
-    creating: isArabic ? 'جاري إرسال الطلب...' : 'Submitting...',
+    submitRequest: isArabic ? 'تنفيذ تعديل الرصيد' : 'Apply balance adjustment',
+    creating: isArabic ? 'جاري تعديل الرصيد...' : 'Applying adjustment...',
     requestCreated: isArabic
-      ? 'تم إنشاء طلب تعديل الرصيد وهو الآن بانتظار الموافقة.'
-      : 'Balance adjustment request created and is waiting for approval.',
+      ? 'تم تعديل الرصيد بنجاح.'
+      : 'Balance updated successfully.',
     invalidAmount: isArabic
       ? 'أدخل مبلغاً موجباً صالحاً.'
       : 'Enter a valid positive amount.',
@@ -498,26 +498,12 @@ const CustomerDetails = () => {
       ? 'السبب يجب أن يكون 10 أحرف على الأقل.'
       : 'Reason must be at least 10 characters.',
     adjustmentFailed: isArabic
-      ? 'تعذر إنشاء طلب تعديل الرصيد.'
-      : 'Failed to create the balance adjustment request.',
+      ? 'تعذر تعديل الرصيد.'
+      : 'Failed to update the balance.',
     currentBalance: isArabic ? 'الرصيد الحالي' : 'Current balance',
     balanceAfter: isArabic ? 'الرصيد المتوقع بعد العملية' : 'Estimated balance after',
 
-    approve: isArabic ? 'موافقة' : 'Approve',
-    reject: isArabic ? 'رفض' : 'Reject',
-    decisionReason: isArabic ? 'سبب القرار' : 'Decision reason',
-    decisionReasonOptional: isArabic
-      ? 'اختياري، الباك يضع سبباً افتراضياً عند تركه فارغاً.'
-      : 'Optional. The backend provides a default reason when left empty.',
-    approving: isArabic ? 'جاري التنفيذ...' : 'Processing...',
-    approveTitle: isArabic ? 'الموافقة على تعديل الرصيد' : 'Approve adjustment',
-    rejectTitle: isArabic ? 'رفض تعديل الرصيد' : 'Reject adjustment',
-    decisionSuccess: isArabic
-      ? 'تم تحديث حالة طلب تعديل الرصيد.'
-      : 'Balance adjustment status updated.',
-    decisionFailed: isArabic
-      ? 'تعذر تنفيذ القرار. تأكد أن الحساب Superuser وأنك لست منشئ الطلب.'
-      : 'Could not apply the decision. Make sure the account is a superuser and is not the request creator.',
+    decisionReason: isArabic ? 'سبب القرار السابق' : 'Legacy decision reason',
 
     verified: isArabic ? 'حساب موثّق' : 'Verified account',
     activeSessions: isArabic ? 'الجلسات الفعالة' : 'Active sessions',
@@ -560,11 +546,6 @@ const CustomerDetails = () => {
   });
   const [adjustmentError, setAdjustmentError] = useState('');
   const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
-
-  const [decisionModal, setDecisionModal] = useState(null);
-  const [decisionReason, setDecisionReason] = useState('');
-  const [decisionError, setDecisionError] = useState('');
-  const [submittingDecision, setSubmittingDecision] = useState(false);
 
   const customer = aggregate?.profile || null;
   const wallets = aggregate?.wallets || [];
@@ -878,11 +859,13 @@ const CustomerDetails = () => {
         }
 
         const key = String(adjustmentId);
+
         const existing = byId.get(key) || {
           id: adjustmentId,
-          status: 'pending',
+          status: details.status || 'pending',
         };
 
+        // Old flow: adjustment request
         if (details.command === 'request') {
           existing.amount = details.amount;
           existing.currency = details.currency;
@@ -892,15 +875,32 @@ const CustomerDetails = () => {
           existing.requestedBy = entry.actor_id;
         }
 
+        // New flow: direct balance adjustment
+        if (details.command === 'apply') {
+          existing.amount = details.amount;
+          existing.currency = details.currency;
+          existing.reason = details.reason;
+          existing.status = details.status || 'approved';
+          existing.transactionId = details.transaction_id;
+
+          existing.requestedAt = entry.created_at;
+          existing.requestedBy = entry.actor_id;
+
+          existing.decidedAt = entry.created_at;
+          existing.decidedBy = entry.actor_id;
+        }
+
+        // Old approval flow - kept only for historical records
         if (details.command === 'approve') {
           existing.amount = details.amount ?? existing.amount;
           existing.currency = details.currency ?? existing.currency;
-          existing.status = 'approved';
+          existing.status = details.status || 'approved';
           existing.transactionId = details.transaction_id;
           existing.decidedAt = entry.created_at;
           existing.decidedBy = entry.actor_id;
         }
 
+        // Old rejection flow - kept only for historical records
         if (details.command === 'reject') {
           existing.status = 'rejected';
           existing.decisionReason = details.reason;
@@ -1005,6 +1005,33 @@ const CustomerDetails = () => {
       return;
     }
 
+    if (adjustmentModal.mode === 'debit') {
+      const availableBalance = Number(
+        adjustmentModal.currency === 'USD'
+          ? agent?.balance_usd
+          : agent?.balance_syp,
+      );
+
+      if (
+        Number.isFinite(availableBalance)
+        && amountNumber > availableBalance
+      ) {
+        setAdjustmentError(
+          isArabic
+            ? `الرصيد غير كافٍ. الرصيد المتاح: ${formatMoney(
+                availableBalance,
+                adjustmentModal.currency,
+              )}`
+            : `Insufficient balance. Available balance: ${formatMoney(
+                availableBalance,
+                adjustmentModal.currency,
+              )}`,
+        );
+
+        return;
+      }
+    }
+
     const signedAmount = adjustmentModal.mode === 'debit'
       ? `-${amount}`
       : amount;
@@ -1047,68 +1074,6 @@ const CustomerDetails = () => {
       );
     } finally {
       setSubmittingAdjustment(false);
-    }
-  };
-
-  const openDecisionModal = (adjustment, decision) => {
-    setNotice(null);
-    setDecisionError('');
-    setDecisionReason('');
-    setDecisionModal({
-      id: adjustment.id,
-      decision,
-    });
-  };
-
-  const closeDecisionModal = () => {
-    if (submittingDecision) {
-      return;
-    }
-
-    setDecisionModal(null);
-    setDecisionReason('');
-    setDecisionError('');
-  };
-
-  const submitDecision = async (event) => {
-    event.preventDefault();
-
-    if (!decisionModal) {
-      return;
-    }
-
-    setSubmittingDecision(true);
-    setDecisionError('');
-    setNotice(null);
-
-    try {
-      await axiosInstance.post(
-        `/users/admin/balance-adjustments/${decisionModal.id}/${decisionModal.decision}/`,
-        {
-          reason: decisionReason.trim(),
-        },
-      );
-
-      setDecisionModal(null);
-      setDecisionReason('');
-
-      setNotice({
-        type: 'success',
-        message: labels.decisionSuccess,
-      });
-
-      await loadCustomer({
-        background: true,
-      });
-    } catch (decisionRequestError) {
-      setDecisionError(
-        getApiError(
-          decisionRequestError,
-          labels.decisionFailed,
-        ),
-      );
-    } finally {
-      setSubmittingDecision(false);
     }
   };
 
@@ -1896,28 +1861,6 @@ const CustomerDetails = () => {
                             </div>
                           </div>
 
-                          {adjustment.status === 'pending' && (
-                            <div className="flex shrink-0 gap-2">
-                              <button
-                                type="button"
-                                onClick={() => openDecisionModal(adjustment, 'approve')}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:opacity-90"
-                                style={{ backgroundColor: accentColor }}
-                              >
-                                <FiCheck />
-                                {labels.approve}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => openDecisionModal(adjustment, 'reject')}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-red-700"
-                              >
-                                <FiX />
-                                {labels.reject}
-                              </button>
-                            </div>
-                          )}
                         </div>
 
                         {(adjustment.reason
@@ -2211,96 +2154,6 @@ const CustomerDetails = () => {
         </form>
       </ModalShell>
 
-      <ModalShell
-        open={Boolean(decisionModal)}
-        busy={submittingDecision}
-        onClose={closeDecisionModal}
-        accentColor={decisionModal?.decision === 'reject'
-          ? '#dc2626'
-          : accentColor}
-        icon={decisionModal?.decision === 'reject'
-          ? <FiX />
-          : <FiCheck />}
-        title={decisionModal?.decision === 'reject'
-          ? labels.rejectTitle
-          : labels.approveTitle}
-        subtitle={decisionModal
-          ? `#${decisionModal.id}`
-          : ''}
-      >
-        <form onSubmit={submitDecision}>
-          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
-            {labels.adjustmentNote}
-          </div>
-
-          {decisionError && (
-            <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-              <FiAlertCircle className="mt-0.5 shrink-0" />
-              {decisionError}
-            </div>
-          )}
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
-              {labels.decisionReason}
-            </span>
-
-            <textarea
-              rows={4}
-              value={decisionReason}
-              onChange={(event) => setDecisionReason(event.target.value)}
-              className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-slate-800"
-            />
-
-            <span className="mt-1.5 block text-xs font-semibold text-slate-400">
-              {labels.decisionReasonOptional}
-            </span>
-          </label>
-
-          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={closeDecisionModal}
-              disabled={submittingDecision}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {labels.cancel}
-            </button>
-
-            <button
-              type="submit"
-              disabled={submittingDecision}
-              className={`
-                flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60
-                ${
-                  decisionModal?.decision === 'reject'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'hover:opacity-90'
-                }
-              `}
-              style={decisionModal?.decision === 'reject'
-                ? undefined
-                : { backgroundColor: accentColor }}
-            >
-              {submittingDecision
-                ? <FiRefreshCw className="animate-spin" />
-                : (
-                  decisionModal?.decision === 'reject'
-                    ? <FiX />
-                    : <FiCheck />
-                )}
-
-              {submittingDecision
-                ? labels.approving
-                : (
-                  decisionModal?.decision === 'reject'
-                    ? labels.reject
-                    : labels.approve
-                )}
-            </button>
-          </div>
-        </form>
-      </ModalShell>
     </>
   );
 };

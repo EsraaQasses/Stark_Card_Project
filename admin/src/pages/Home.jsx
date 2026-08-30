@@ -30,47 +30,49 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [metricErrors, setMetricErrors] = useState({});
+
   const [
     detailsLoading,
     setDetailsLoading,
   ] = useState(true);
+
   // ============================================
   // Fetch Dashboard Data
   // ============================================
   const normalizeRows = (response) => {
-  const payload = response?.data;
+    const payload = response?.data;
 
-  if (Array.isArray(payload?.results)) {
-    return payload.results;
-  }
+    if (Array.isArray(payload?.results)) {
+      return payload.results;
+    }
 
-  if (Array.isArray(payload)) {
-    return payload;
-  }
+    if (Array.isArray(payload)) {
+      return payload;
+    }
 
-  return [];
-};
+    return [];
+  };
 
-const buildChartData = (requests) => {
+  const buildChartData = (requests) => {
     const monthKeys = [
-      'jan',
-      'feb',
-      'mar',
-      'apr',
-      'may',
-      'jun',
-      'july',
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "july",
     ];
 
     const monthMap = {
-      Jan: 'jan',
-      Feb: 'feb',
-      Mar: 'mar',
-      Apr: 'apr',
-      May: 'may',
-      Jun: 'jun',
-      Jul: 'july',
-      July: 'july',
+      Jan: "jan",
+      Feb: "feb",
+      Mar: "mar",
+      Apr: "apr",
+      May: "may",
+      Jun: "jun",
+      Jul: "july",
+      July: "july",
     };
 
     const monthlyStats = {};
@@ -102,9 +104,9 @@ const buildChartData = (requests) => {
       }
 
       const monthName = date.toLocaleString(
-        'en-US',
+        "en-US",
         {
-          month: 'short',
+          month: "short",
         },
       );
 
@@ -192,36 +194,36 @@ const buildChartData = (requests) => {
     };
   };
 
-const loadRevenueAndChart = async () => {
+  const loadRevenueAndChart = async () => {
     setDetailsLoading(true);
 
     try {
       const results = await Promise.allSettled([
         axiosInstance.get(
-          '/all_requests/admin/requests/',
+          "/all_requests/admin/requests/",
           {
             params: {
-              status: 'pending',
+              status: "pending",
               page_size: 100,
             },
           },
         ),
 
         axiosInstance.get(
-          '/all_requests/admin/requests/',
+          "/all_requests/admin/requests/",
           {
             params: {
-              status: 'in_progress',
+              status: "in_progress",
               page_size: 100,
             },
           },
         ),
 
         axiosInstance.get(
-          '/all_requests/admin/requests/',
+          "/all_requests/admin/requests/",
           {
             params: {
-              status: 'objection',
+              status: "objection",
               page_size: 100,
             },
           },
@@ -230,7 +232,7 @@ const loadRevenueAndChart = async () => {
 
       const allRequests = results.flatMap(
         (result) => {
-          if (result.status !== 'fulfilled') {
+          if (result.status !== "fulfilled") {
             return [];
           }
 
@@ -262,7 +264,7 @@ const loadRevenueAndChart = async () => {
 
       const allFailed = results.every(
         (result) => (
-          result.status === 'rejected'
+          result.status === "rejected"
         ),
       );
 
@@ -272,7 +274,7 @@ const loadRevenueAndChart = async () => {
       }));
     } catch (loadError) {
       console.error(
-        'Background dashboard data failed:',
+        "Background dashboard data failed:",
         loadError,
       );
 
@@ -285,7 +287,7 @@ const loadRevenueAndChart = async () => {
     }
   };
 
-const fetchAllStats = async () => {
+  const fetchAllStats = async () => {
     setLoading(true);
     setError(null);
 
@@ -293,32 +295,35 @@ const fetchAllStats = async () => {
 
     try {
       const results = await Promise.allSettled([
+        /*
+         * طلبات الشحن الخاصة بلوحة الأدمن فقط:
+         *
+         * standard:
+         * العميل -> الأدمن
+         *
+         * agent-admin:
+         * الوكيل -> الأدمن
+         *
+         * via-agent لا يتم جلبه هنا لأنه:
+         * العميل -> الوكيل
+         * وبالتالي لا يجب احتسابه ضمن الطلبات المعلقة على الأدمن.
+         */
         Promise.all([
           axiosInstance.get(
-            '/shipping/standard/',
+            "/shipping/standard/",
             {
               params: {
-                status: 'pending',
+                status: "pending",
                 page_size: 1,
               },
             },
           ),
 
           axiosInstance.get(
-            '/shipping/via-agent/',
+            "/shipping/agent-admin/",
             {
               params: {
-                status: 'pending',
-                page_size: 1,
-              },
-            },
-          ),
-
-          axiosInstance.get(
-            '/shipping/agent-admin/',
-            {
-              params: {
-                status: 'pending',
+                status: "pending",
                 page_size: 1,
               },
             },
@@ -326,11 +331,11 @@ const fetchAllStats = async () => {
         ]),
 
         axiosInstance.get(
-          '/all_requests/admin/requests/stats/',
+          "/all_requests/admin/requests/stats/",
         ),
 
         axiosInstance.get(
-          '/users/stats/',
+          "/users/stats/",
         ),
       ]);
 
@@ -344,7 +349,7 @@ const fetchAllStats = async () => {
 
       if (
         shippingResult.status
-        === 'fulfilled'
+        === "fulfilled"
       ) {
         shippingCount = (
           shippingResult.value.reduce(
@@ -366,14 +371,14 @@ const fetchAllStats = async () => {
 
       const requestStats = (
         requestsStatsResult.status
-        === 'fulfilled'
+        === "fulfilled"
           ? requestsStatsResult.value.data
           : {}
       );
 
       const userStats = (
         usersResult.status
-        === 'fulfilled'
+        === "fulfilled"
           ? usersResult.value.data
           : {}
       );
@@ -407,27 +412,27 @@ const fetchAllStats = async () => {
       const failedMetrics = {
         shipping: (
           shippingResult.status
-          === 'rejected'
+          === "rejected"
         ),
 
         pending: (
           requestsStatsResult.status
-          === 'rejected'
+          === "rejected"
         ),
 
         inProgress: (
           requestsStatsResult.status
-          === 'rejected'
+          === "rejected"
         ),
 
         objection: (
           requestsStatsResult.status
-          === 'rejected'
+          === "rejected"
         ),
 
         totalUsers: (
           usersResult.status
-          === 'rejected'
+          === "rejected"
         ),
 
         totalRevenue: false,
@@ -443,38 +448,38 @@ const fetchAllStats = async () => {
           failed,
         ]) => (
           failed
-          && key !== 'totalRevenue'
+          && key !== "totalRevenue"
         ))
         .map(([key]) => key);
 
       if (failedLabels.length) {
         setError(
           t(
-            'overview.status.partialFailure',
+            "overview.status.partialFailure",
             {
               sections:
-                failedLabels.join(', '),
+                failedLabels.join(", "),
             },
           ),
         );
       }
     } catch (loadError) {
       console.error(
-        'Error fetching dashboard stats:',
+        "Error fetching dashboard stats:",
         loadError,
       );
 
       setError(
         t(
-          'overview.status.failedToLoadData',
-          'Failed to load dashboard data.',
+          "overview.status.failedToLoadData",
+          "Failed to load dashboard data.",
         ),
       );
     } finally {
       /*
-      * هون الصفحة بتظهر فوراً.
-      * ما عاد ننتظر بيانات الإيرادات والشارت.
-      */
+       * هون الصفحة بتظهر فوراً.
+       * ما عاد ننتظر بيانات الإيرادات والشارت.
+       */
       setLoading(false);
 
       const loadDetails = () => {
@@ -483,7 +488,7 @@ const fetchAllStats = async () => {
 
       if (
         typeof window.requestIdleCallback
-        === 'function'
+        === "function"
       ) {
         window.requestIdleCallback(
           loadDetails,
@@ -1500,7 +1505,7 @@ const fetchAllStats = async () => {
                 justify-center
               "
             >
-              {loading ? (
+              {detailsLoading ? (
                 <div
                   className="
                     flex
