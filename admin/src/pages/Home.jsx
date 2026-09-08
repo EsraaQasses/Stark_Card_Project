@@ -1,16 +1,352 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { GoPrimitiveDot } from "react-icons/go";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import { Stacked } from "../components";
 import { useStateContext } from "../contexts/ContextProvider";
 import { earningData } from "../data/earningData";
 import axiosInstance from "../utils/axiosConfig";
 
+const ALL_TIME_START = "1970-01-01";
+const CHART_MONTHS = 7;
+
+const toApiDate = (date) => {
+  const year = date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate(),
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const startOfMonth = (date) => (
+  new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    1,
+  )
+);
+
+const buildMonthAnchors = (
+  count = CHART_MONTHS,
+) => {
+  const now = new Date();
+  const result = [];
+
+  for (
+    let offset = count - 1;
+    offset >= 0;
+    offset -= 1
+  ) {
+    result.push(
+      new Date(
+        now.getFullYear(),
+        now.getMonth() - offset,
+        1,
+      ),
+    );
+  }
+
+  return result;
+};
+
+const moneyValue = (
+  report,
+  metric,
+  currency,
+) => {
+  const value = Number(
+    report?.totals?.[metric]?.[currency]
+    ?? 0,
+  );
+
+  return Number.isFinite(value)
+    ? value
+    : 0;
+};
+
+const compactNumber = (
+  value,
+  maximumFractionDigits = 2,
+) => {
+  const number = Number(value || 0);
+
+  if (!Number.isFinite(number)) {
+    return "0";
+  }
+
+  return number.toLocaleString(
+    undefined,
+    {
+      maximumFractionDigits,
+    },
+  );
+};
+
+const getResponseCount = (response) => (
+  Number(
+    response?.data?.count
+    ?? (
+      Array.isArray(response?.data)
+        ? response.data.length
+        : 0
+    ),
+  ) || 0
+);
+
+const RevenueChart = ({
+  rows,
+  currentColor,
+  t,
+}) => {
+  const maxUsd = Math.max(
+    1,
+    ...rows.map(
+      (item) => item.usd,
+    ),
+  );
+
+  const maxSyp = Math.max(
+    1,
+    ...rows.map(
+      (item) => item.syp,
+    ),
+  );
+
+  const hasData = rows.some(
+    (item) => (
+      item.usd > 0
+      || item.syp > 0
+    ),
+  );
+
+  if (!hasData) {
+    return (
+      <div
+        className="
+          flex
+          min-h-[285px]
+          w-full
+          flex-col
+          items-center
+          justify-center
+          rounded-2xl
+          border-2
+          border-dashed
+          border-gray-200
+          p-6
+          text-center
+          dark:border-gray-700
+        "
+      >
+        <span className="mb-2 text-4xl">
+          📊
+        </span>
+
+        <p
+          className="
+            font-semibold
+            text-gray-600
+            dark:text-gray-400
+          "
+        >
+          {t(
+            "overview.revenue.noChartData",
+            "No financial data available yet",
+          )}
+        </p>
+
+        <p
+          className="
+            mx-auto
+            mt-1
+            max-w-[280px]
+            text-xs
+            text-gray-400
+            dark:text-gray-500
+          "
+        >
+          {t(
+            "overview.revenue.noChartDataDesc",
+            "The chart will appear automatically when successful purchase transactions are recorded.",
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="
+        w-full
+        overflow-hidden
+        rounded-2xl
+        border
+        border-slate-100
+        bg-white
+        p-4
+        dark:border-slate-800
+        dark:bg-slate-900/30
+      "
+    >
+      <div
+        className="
+          flex
+          h-[235px]
+          items-end
+          gap-2
+          sm:gap-3
+        "
+      >
+        {rows.map((item) => {
+          const usdHeight = (
+            item.usd > 0
+              ? Math.max(
+                  5,
+                  (item.usd / maxUsd) * 100,
+                )
+              : 0
+          );
+
+          const sypHeight = (
+            item.syp > 0
+              ? Math.max(
+                  5,
+                  (item.syp / maxSyp) * 100,
+                )
+              : 0
+          );
+
+          return (
+            <div
+              key={item.key}
+              className="
+                flex
+                min-w-0
+                flex-1
+                flex-col
+                items-center
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-[200px]
+                  w-full
+                  items-end
+                  justify-center
+                  gap-1
+                  sm:gap-2
+                "
+              >
+                <div
+                  className="
+                    group
+                    relative
+                    w-[38%]
+                    max-w-8
+                    rounded-t-lg
+                    transition-opacity
+                    hover:opacity-80
+                  "
+                  style={{
+                    height: `${usdHeight}%`,
+                    backgroundColor:
+                      currentColor || "#3B82F6",
+                  }}
+                  title={`USD: ${compactNumber(
+                    item.usd,
+                    2,
+                  )}`}
+                />
+
+                <div
+                  className="
+                    group
+                    relative
+                    w-[38%]
+                    max-w-8
+                    rounded-t-lg
+                    bg-emerald-400
+                    transition-opacity
+                    hover:opacity-80
+                  "
+                  style={{
+                    height: `${sypHeight}%`,
+                  }}
+                  title={`SYP: ${compactNumber(
+                    item.syp,
+                    2,
+                  )}`}
+                />
+              </div>
+
+              <span
+                className="
+                  mt-2
+                  max-w-full
+                  truncate
+                  text-[10px]
+                  font-bold
+                  text-slate-400
+                  sm:text-xs
+                "
+              >
+                {item.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <p
+        className="
+          mt-3
+          text-center
+          text-[10px]
+          font-medium
+          leading-5
+          text-slate-400
+        "
+      >
+        {t(
+          "overview.revenue.chartScaleNote",
+          "USD and SYP bars use separate scales so both currencies remain readable.",
+        )}
+      </p>
+    </div>
+  );
+};
+
 const Home = () => {
-  const { currentMode, currentColor } = useStateContext();
-  const { t } = useTranslation(["dashboard", "common"]);
+  const {
+    currentColor,
+  } = useStateContext();
+
+  const {
+    t,
+    i18n,
+  } = useTranslation([
+    "dashboard",
+    "common",
+  ]);
+
+  const locale = (
+    i18n.resolvedLanguage
+    || i18n.language
+    || "ar"
+  );
 
   const [stats, setStats] = useState({
     shipping: 0,
@@ -18,646 +354,591 @@ const Home = () => {
     inProgress: 0,
     objection: 0,
     totalUsers: 0,
-    totalRevenue: 0,
+    revenueUsd: 0,
+    revenueSyp: 0,
   });
 
-  const [chartData, setChartData] = useState({
-    salesData: [],
-    customersData: [],
-    hasEnoughData: false,
-  });
+  const [
+    monthlyRevenue,
+    setMonthlyRevenue,
+  ] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [metricErrors, setMetricErrors] = useState({});
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
   const [
     detailsLoading,
     setDetailsLoading,
   ] = useState(true);
 
-  // ============================================
-  // Fetch Dashboard Data
-  // ============================================
-  const normalizeRows = (response) => {
-    const payload = response?.data;
+  const [
+    error,
+    setError,
+  ] = useState(null);
 
-    if (Array.isArray(payload?.results)) {
-      return payload.results;
-    }
+  const [
+    metricErrors,
+    setMetricErrors,
+  ] = useState({});
 
-    if (Array.isArray(payload)) {
-      return payload;
-    }
+  const fetchFinancialData = useCallback(
+    async () => {
+      setDetailsLoading(true);
 
-    return [];
-  };
+      try {
+        const monthAnchors =
+          buildMonthAnchors();
 
-  const buildChartData = (requests) => {
-    const monthKeys = [
-      "jan",
-      "feb",
-      "mar",
-      "apr",
-      "may",
-      "jun",
-      "july",
-    ];
+        const today =
+          new Date();
 
-    const monthMap = {
-      Jan: "jan",
-      Feb: "feb",
-      Mar: "mar",
-      Apr: "apr",
-      May: "may",
-      Jun: "jun",
-      Jul: "july",
-      July: "july",
-    };
-
-    const monthlyStats = {};
-
-    monthKeys.forEach((month) => {
-      monthlyStats[month] = {
-        sales: 0,
-        customers: new Set(),
-      };
-    });
-
-    let hasData = false;
-
-    requests.forEach((request) => {
-      const dateValue = (
-        request.created_at
-        || request.Timestamp
-        || request.created
-      );
-
-      if (!dateValue) {
-        return;
-      }
-
-      const date = new Date(dateValue);
-
-      if (Number.isNaN(date.getTime())) {
-        return;
-      }
-
-      const monthName = date.toLocaleString(
-        "en-US",
-        {
-          month: "short",
-        },
-      );
-
-      const monthKey = monthMap[monthName];
-
-      if (!monthKey || !monthlyStats[monthKey]) {
-        return;
-      }
-
-      hasData = true;
-
-      monthlyStats[monthKey].sales += (
-        parseFloat(request.amount) || 0
-      );
-
-      const userId = (
-        request.user?.id
-        || request.user_id
-        || request.SourceEntityID
-        || `request-${request.id}`
-      );
-
-      monthlyStats[monthKey].customers.add(
-        userId,
-      );
-    });
-
-    let distinctMonthsWithData = 0;
-
-    const salesData = monthKeys.map(
-      (month) => {
-        const sales = (
-          monthlyStats[month].sales
-        );
-
-        const customers = (
-          monthlyStats[month]
-            .customers
-            .size
-        );
-
-        if (
-          sales > 0
-          || customers > 0
-        ) {
-          distinctMonthsWithData += 1;
-        }
-
-        return {
-          x: (
-            month.charAt(0).toUpperCase()
-            + month.slice(1)
-          ),
-
-          y: Number(
-            sales.toFixed(2),
-          ),
-        };
-      },
-    );
-
-    const customersData = monthKeys.map(
-      (month) => ({
-        x: (
-          month.charAt(0).toUpperCase()
-          + month.slice(1)
-        ),
-
-        y: (
-          monthlyStats[month]
-            .customers
-            .size
-        ),
-      }),
-    );
-
-    return {
-      salesData,
-      customersData,
-
-      hasEnoughData: (
-        hasData
-        && distinctMonthsWithData >= 3
-      ),
-    };
-  };
-
-  const loadRevenueAndChart = async () => {
-    setDetailsLoading(true);
-
-    try {
-      const results = await Promise.allSettled([
-        axiosInstance.get(
-          "/all_requests/admin/requests/",
-          {
-            params: {
-              status: "pending",
-              page_size: 100,
-            },
-          },
-        ),
-
-        axiosInstance.get(
-          "/all_requests/admin/requests/",
-          {
-            params: {
-              status: "in_progress",
-              page_size: 100,
-            },
-          },
-        ),
-
-        axiosInstance.get(
-          "/all_requests/admin/requests/",
-          {
-            params: {
-              status: "objection",
-              page_size: 100,
-            },
-          },
-        ),
-      ]);
-
-      const allRequests = results.flatMap(
-        (result) => {
-          if (result.status !== "fulfilled") {
-            return [];
-          }
-
-          return normalizeRows(
-            result.value,
-          );
-        },
-      );
-
-      const totalRevenue = allRequests.reduce(
-        (sum, request) => (
-          sum
-          + (
-            parseFloat(request.amount)
-            || 0
-          )
-        ),
-        0,
-      );
-
-      setStats((previous) => ({
-        ...previous,
-        totalRevenue,
-      }));
-
-      setChartData(
-        buildChartData(allRequests),
-      );
-
-      const allFailed = results.every(
-        (result) => (
-          result.status === "rejected"
-        ),
-      );
-
-      setMetricErrors((previous) => ({
-        ...previous,
-        totalRevenue: allFailed,
-      }));
-    } catch (loadError) {
-      console.error(
-        "Background dashboard data failed:",
-        loadError,
-      );
-
-      setMetricErrors((previous) => ({
-        ...previous,
-        totalRevenue: true,
-      }));
-    } finally {
-      setDetailsLoading(false);
-    }
-  };
-
-  const fetchAllStats = async () => {
-    setLoading(true);
-    setError(null);
-
-    setMetricErrors({});
-
-    try {
-      const results = await Promise.allSettled([
-        /*
-         * طلبات الشحن الخاصة بلوحة الأدمن فقط:
-         *
-         * standard:
-         * العميل -> الأدمن
-         *
-         * agent-admin:
-         * الوكيل -> الأدمن
-         *
-         * via-agent لا يتم جلبه هنا لأنه:
-         * العميل -> الوكيل
-         * وبالتالي لا يجب احتسابه ضمن الطلبات المعلقة على الأدمن.
-         */
-        Promise.all([
+        const requests = [
           axiosInstance.get(
-            "/shipping/standard/",
+            "/transactions/financial/summary/",
             {
               params: {
-                status: "pending",
-                page_size: 1,
+                period: "custom",
+                start_date:
+                  ALL_TIME_START,
+                end_date:
+                  toApiDate(today),
               },
             },
           ),
 
-          axiosInstance.get(
-            "/shipping/agent-admin/",
-            {
-              params: {
-                status: "pending",
-                page_size: 1,
-              },
-            },
-          ),
-        ]),
-
-        axiosInstance.get(
-          "/all_requests/admin/requests/stats/",
-        ),
-
-        axiosInstance.get(
-          "/users/stats/",
-        ),
-      ]);
-
-      const [
-        shippingResult,
-        requestsStatsResult,
-        usersResult,
-      ] = results;
-
-      let shippingCount = 0;
-
-      if (
-        shippingResult.status
-        === "fulfilled"
-      ) {
-        shippingCount = (
-          shippingResult.value.reduce(
-            (total, response) => (
-              total
-              + (
-                response.data?.count
-                ?? (
-                  Array.isArray(response.data)
-                    ? response.data.length
-                    : 0
-                )
+          ...monthAnchors.map(
+            (anchor) => (
+              axiosInstance.get(
+                "/transactions/financial/summary/",
+                {
+                  params: {
+                    period: "monthly",
+                    date:
+                      toApiDate(
+                        startOfMonth(anchor),
+                      ),
+                  },
+                },
               )
             ),
-            0,
-          )
+          ),
+        ];
+
+        const results =
+          await Promise.allSettled(
+            requests,
+          );
+
+        const totalResult =
+          results[0];
+
+        if (
+          totalResult.status
+          === "fulfilled"
+        ) {
+          const report =
+            totalResult.value.data || {};
+
+          setStats(
+            (previous) => ({
+              ...previous,
+
+              revenueUsd:
+                moneyValue(
+                  report,
+                  "revenue",
+                  "USD",
+                ),
+
+              revenueSyp:
+                moneyValue(
+                  report,
+                  "revenue",
+                  "SYP",
+                ),
+            }),
+          );
+
+          setMetricErrors(
+            (previous) => ({
+              ...previous,
+              totalRevenue: false,
+            }),
+          );
+        } else {
+          setMetricErrors(
+            (previous) => ({
+              ...previous,
+              totalRevenue: true,
+            }),
+          );
+        }
+
+        const monthRows =
+          monthAnchors.map(
+            (anchor, index) => {
+              const result =
+                results[index + 1];
+
+              const report = (
+                result.status
+                === "fulfilled"
+                  ? result.value.data
+                  : null
+              );
+
+              const label =
+                anchor.toLocaleDateString(
+                  locale,
+                  {
+                    month: "short",
+                  },
+                );
+
+              return {
+                key:
+                  `${anchor.getFullYear()}-${anchor.getMonth() + 1}`,
+
+                label,
+
+                usd:
+                  moneyValue(
+                    report,
+                    "revenue",
+                    "USD",
+                  ),
+
+                syp:
+                  moneyValue(
+                    report,
+                    "revenue",
+                    "SYP",
+                  ),
+
+                failed:
+                  result.status
+                  === "rejected",
+              };
+            },
+          );
+
+        setMonthlyRevenue(
+          monthRows,
         );
+
+        const everyMonthFailed =
+          monthRows.every(
+            (item) => item.failed,
+          );
+
+        setMetricErrors(
+          (previous) => ({
+            ...previous,
+
+            financialChart:
+              everyMonthFailed,
+          }),
+        );
+      } catch (loadError) {
+        console.error(
+          "Financial dashboard data failed:",
+          loadError,
+        );
+
+        setMetricErrors(
+          (previous) => ({
+            ...previous,
+            totalRevenue: true,
+            financialChart: true,
+          }),
+        );
+      } finally {
+        setDetailsLoading(false);
       }
+    },
+    [locale],
+  );
 
-      const requestStats = (
-        requestsStatsResult.status
-        === "fulfilled"
-          ? requestsStatsResult.value.data
-          : {}
-      );
+  const fetchOperationalStats =
+    useCallback(async () => {
+      setLoading(true);
+      setError(null);
 
-      const userStats = (
-        usersResult.status
-        === "fulfilled"
-          ? usersResult.value.data
-          : {}
-      );
+      try {
+        const results =
+          await Promise.allSettled([
+            Promise.all([
+              axiosInstance.get(
+                "/shipping/standard/",
+                {
+                  params: {
+                    status: "pending",
+                    page_size: 1,
+                  },
+                },
+              ),
 
-      setStats((previous) => ({
-        ...previous,
+              axiosInstance.get(
+                "/shipping/agent-admin/",
+                {
+                  params: {
+                    status: "pending",
+                    page_size: 1,
+                  },
+                },
+              ),
+            ]),
 
-        shipping: shippingCount,
+            axiosInstance.get(
+              "/all_requests/admin/requests/stats/",
+            ),
 
-        pending: (
-          requestStats.pending
-          ?? previous.pending
-        ),
+            axiosInstance.get(
+              "/users/stats/",
+            ),
+          ]);
 
-        inProgress: (
-          requestStats.in_progress
-          ?? previous.inProgress
-        ),
+        const [
+          shippingResult,
+          requestsStatsResult,
+          usersResult,
+        ] = results;
 
-        objection: (
-          requestStats.objection
-          ?? previous.objection
-        ),
+        let shippingCount = 0;
 
-        totalUsers: (
-          userStats.total_users
-          ?? previous.totalUsers
-        ),
-      }));
-
-      const failedMetrics = {
-        shipping: (
+        if (
           shippingResult.status
-          === "rejected"
-        ),
+          === "fulfilled"
+        ) {
+          shippingCount =
+            shippingResult.value.reduce(
+              (
+                total,
+                response,
+              ) => (
+                total
+                + getResponseCount(
+                  response,
+                )
+              ),
+              0,
+            );
+        }
 
-        pending: (
+        const requestStats = (
           requestsStatsResult.status
-          === "rejected"
-        ),
+          === "fulfilled"
+            ? requestsStatsResult
+                .value
+                .data
+            : {}
+        );
 
-        inProgress: (
-          requestsStatsResult.status
-          === "rejected"
-        ),
-
-        objection: (
-          requestsStatsResult.status
-          === "rejected"
-        ),
-
-        totalUsers: (
+        const userStats = (
           usersResult.status
-          === "rejected"
-        ),
+          === "fulfilled"
+            ? usersResult
+                .value
+                .data
+            : {}
+        );
 
-        totalRevenue: false,
-      };
+        setStats(
+          (previous) => ({
+            ...previous,
 
-      setMetricErrors(failedMetrics);
+            shipping:
+              shippingCount,
 
-      const failedLabels = Object.entries(
-        failedMetrics,
-      )
-        .filter(([
-          key,
-          failed,
-        ]) => (
-          failed
-          && key !== "totalRevenue"
-        ))
-        .map(([key]) => key);
+            pending:
+              Number(
+                requestStats.pending
+                ?? previous.pending,
+              ) || 0,
 
-      if (failedLabels.length) {
+            inProgress:
+              Number(
+                requestStats.in_progress
+                ?? previous.inProgress,
+              ) || 0,
+
+            objection:
+              Number(
+                requestStats.objection
+                ?? previous.objection,
+              ) || 0,
+
+            totalUsers:
+              Number(
+                userStats.total_users
+                ?? previous.totalUsers,
+              ) || 0,
+          }),
+        );
+
+        const failedMetrics = {
+          shipping:
+            shippingResult.status
+            === "rejected",
+
+          pending:
+            requestsStatsResult.status
+            === "rejected",
+
+          inProgress:
+            requestsStatsResult.status
+            === "rejected",
+
+          objection:
+            requestsStatsResult.status
+            === "rejected",
+
+          totalUsers:
+            usersResult.status
+            === "rejected",
+        };
+
+        setMetricErrors(
+          (previous) => ({
+            ...previous,
+            ...failedMetrics,
+          }),
+        );
+
+        const failedLabels =
+          Object.entries(
+            failedMetrics,
+          )
+            .filter(
+              ([
+                ,
+                failed,
+              ]) => failed,
+            )
+            .map(
+              ([key]) => key,
+            );
+
+        if (
+          failedLabels.length > 0
+        ) {
+          setError(
+            t(
+              "overview.status.partialFailure",
+              {
+                sections:
+                  failedLabels.join(
+                    ", ",
+                  ),
+
+                defaultValue:
+                  "Some dashboard statistics could not be loaded.",
+              },
+            ),
+          );
+        }
+      } catch (loadError) {
+        console.error(
+          "Error fetching dashboard stats:",
+          loadError,
+        );
+
         setError(
           t(
-            "overview.status.partialFailure",
-            {
-              sections:
-                failedLabels.join(", "),
-            },
+            "overview.status.failedToLoadData",
+            "Failed to load dashboard data.",
           ),
         );
+      } finally {
+        setLoading(false);
       }
-    } catch (loadError) {
-      console.error(
-        "Error fetching dashboard stats:",
-        loadError,
-      );
+    }, [t]);
 
-      setError(
-        t(
-          "overview.status.failedToLoadData",
-          "Failed to load dashboard data.",
-        ),
-      );
-    } finally {
-      /*
-       * هون الصفحة بتظهر فوراً.
-       * ما عاد ننتظر بيانات الإيرادات والشارت.
-       */
-      setLoading(false);
-
-      const loadDetails = () => {
-        loadRevenueAndChart();
-      };
-
-      if (
-        typeof window.requestIdleCallback
-        === "function"
-      ) {
-        window.requestIdleCallback(
-          loadDetails,
-          {
-            timeout: 800,
-          },
-        );
-      } else {
-        window.setTimeout(
-          loadDetails,
-          150,
-        );
-      }
-    }
-  };
+  const refreshData =
+    useCallback(async () => {
+      await Promise.allSettled([
+        fetchOperationalStats(),
+        fetchFinancialData(),
+      ]);
+    }, [
+      fetchFinancialData,
+      fetchOperationalStats,
+    ]);
 
   useEffect(() => {
-    fetchAllStats();
-  }, []);
+    refreshData();
+  }, [refreshData]);
 
-  // ============================================
-  // Prepare Cards Data
-  // ============================================
-  const updatedEarningData = earningData.map((item) => {
-    const titleKey = item.title
-      .toLowerCase()
-      .replace(/\s+/g, "");
+  const updatedEarningData =
+    useMemo(
+      () => (
+        earningData.map(
+          (item) => {
+            const titleKey =
+              item.title
+                .toLowerCase()
+                .replace(
+                  /\s+/g,
+                  "",
+                );
 
-    if (titleKey.includes("shipping")) {
-      return {
-        ...item,
+            if (
+              titleKey.includes(
+                "shipping",
+              )
+            ) {
+              return {
+                ...item,
 
-        amount: loading
-          ? "..."
-          : metricErrors.shipping
-            ? "—"
-            : stats.shipping.toString(),
+                amount:
+                  loading
+                    ? "..."
+                    : metricErrors.shipping
+                      ? "—"
+                      : stats.shipping
+                          .toString(),
 
-        hasError: Boolean(metricErrors.shipping),
+                hasError:
+                  Boolean(
+                    metricErrors.shipping,
+                  ),
 
-        description: t(
-          "overview.cards.shipping-requests.desc",
-          {
-            count: stats.shipping,
+                description:
+                  t(
+                    "overview.cards.shipping-requests.desc",
+                    {
+                      count:
+                        stats.shipping,
+
+                      defaultValue:
+                        `${stats.shipping} pending shipping requests`,
+                    },
+                  ),
+              };
+            }
+
+            if (
+              titleKey.includes(
+                "pending",
+              )
+            ) {
+              return {
+                ...item,
+
+                amount:
+                  loading
+                    ? "..."
+                    : metricErrors.pending
+                      ? "—"
+                      : stats.pending
+                          .toString(),
+
+                hasError:
+                  Boolean(
+                    metricErrors.pending,
+                  ),
+
+                description:
+                  t(
+                    "overview.cards.pending.desc",
+                    {
+                      count:
+                        stats.pending,
+
+                      defaultValue:
+                        `${stats.pending} pending requests`,
+                    },
+                  ),
+              };
+            }
+
+            if (
+              titleKey.includes(
+                "progress",
+              )
+            ) {
+              return {
+                ...item,
+
+                amount:
+                  loading
+                    ? "..."
+                    : metricErrors.inProgress
+                      ? "—"
+                      : stats.inProgress
+                          .toString(),
+
+                hasError:
+                  Boolean(
+                    metricErrors.inProgress,
+                  ),
+
+                description:
+                  t(
+                    "overview.cards.in-progress.desc",
+                    {
+                      count:
+                        stats.inProgress,
+
+                      defaultValue:
+                        `${stats.inProgress} active requests`,
+                    },
+                  ),
+              };
+            }
+
+            if (
+              titleKey.includes(
+                "objection",
+              )
+            ) {
+              return {
+                ...item,
+
+                amount:
+                  loading
+                    ? "..."
+                    : metricErrors.objection
+                      ? "—"
+                      : stats.objection
+                          .toString(),
+
+                hasError:
+                  Boolean(
+                    metricErrors.objection,
+                  ),
+
+                description:
+                  t(
+                    "overview.cards.objection-requests.desc",
+                    {
+                      count:
+                        stats.objection,
+
+                      defaultValue:
+                        `${stats.objection} objection requests`,
+                    },
+                  ),
+              };
+            }
+
+            return item;
           },
-        ),
-      };
-    }
+        )
+      ),
+      [
+        loading,
+        metricErrors,
+        stats,
+        t,
+      ],
+    );
 
-    if (titleKey.includes("pending")) {
-      return {
-        ...item,
-
-        amount: loading
-          ? "..."
-          : metricErrors.pending
-            ? "—"
-            : stats.pending.toString(),
-
-        hasError: Boolean(metricErrors.pending),
-
-        description: t(
-          "overview.cards.pending.desc",
-          {
-            count: stats.pending,
-          },
-        ),
-      };
-    }
-
-    if (titleKey.includes("progress")) {
-      return {
-        ...item,
-
-        amount: loading
-          ? "..."
-          : metricErrors.inProgress
-            ? "—"
-            : stats.inProgress.toString(),
-
-        hasError: Boolean(metricErrors.inProgress),
-
-        description: t(
-          "overview.cards.in-progress.desc",
-          {
-            count: stats.inProgress,
-          },
-        ),
-      };
-    }
-
-    if (titleKey.includes("objection")) {
-      return {
-        ...item,
-
-        amount: loading
-          ? "..."
-          : metricErrors.objection
-            ? "—"
-            : stats.objection.toString(),
-
-        hasError: Boolean(metricErrors.objection),
-
-        description: t(
-          "overview.cards.objection-requests.desc",
-          {
-            count: stats.objection,
-          },
-        ),
-      };
-    }
-
-    if (
-      titleKey.includes("customer")
-      || titleKey.includes("user")
-    ) {
-      return {
-        ...item,
-
-        amount: loading
-          ? "..."
-          : metricErrors.totalUsers
-            ? "—"
-            : stats.totalUsers.toString(),
-
-        hasError: Boolean(metricErrors.totalUsers),
-
-        description: t(
-          "overview.revenue.registeredUsersDesc",
-          {
-            count: stats.totalUsers,
-          },
-        ),
-      };
-    }
-
-    if (
-      titleKey.includes("revenue")
-      || titleKey.includes("sales")
-    ) {
-      return {
-        ...item,
-
-        amount: loading
-          ? "..."
-          : metricErrors.totalRevenue
-            ? "—"
-            : `$${stats.totalRevenue.toLocaleString()}`,
-
-        hasError: Boolean(metricErrors.totalRevenue),
-
-        description: t(
-          "overview.revenue.pendingDesc",
-          "Total pending revenue",
-        ),
-      };
-    }
-
-    return item;
-  });
-
-  // ============================================
-  // Helpers
-  // ============================================
-  const refreshData = () => {
-    fetchAllStats();
-  };
-
-  const getStatusColor = (count) => {
+  const getStatusColor = (
+    count,
+  ) => {
     if (count === 0) {
       return "bg-green-500";
     }
@@ -666,10 +947,15 @@ const Home = () => {
       return "bg-yellow-500";
     }
 
-    return "bg-red-500 animate-pulse";
+    return (
+      "bg-red-500 "
+      + "animate-pulse"
+    );
   };
 
-  const getPriorityLevel = (count) => {
+  const getPriorityLevel = (
+    count,
+  ) => {
     if (count === 0) {
       return "Low";
     }
@@ -681,90 +967,135 @@ const Home = () => {
     return "High";
   };
 
-  const getPriorityClass = (level) => {
+  const getPriorityClass = (
+    level,
+  ) => {
     if (level === "High") {
-      return "bg-red-100 text-red-800";
+      return (
+        "bg-red-100 "
+        + "text-red-800"
+      );
     }
 
     if (level === "Medium") {
-      return "bg-yellow-100 text-yellow-800";
+      return (
+        "bg-yellow-100 "
+        + "text-yellow-800"
+      );
     }
 
-    return "bg-green-100 text-green-800";
+    return (
+      "bg-green-100 "
+      + "text-green-800"
+    );
   };
 
-  const getCountForTitle = (titleKey) => {
-    if (titleKey.includes("shipping")) {
+  const getCountForTitle = (
+    titleKey,
+  ) => {
+    if (
+      titleKey.includes(
+        "shipping",
+      )
+    ) {
       return stats.shipping;
     }
 
-    if (titleKey.includes("pending")) {
+    if (
+      titleKey.includes(
+        "pending",
+      )
+    ) {
       return stats.pending;
     }
 
-    if (titleKey.includes("progress")) {
+    if (
+      titleKey.includes(
+        "progress",
+      )
+    ) {
       return stats.inProgress;
     }
 
-    if (titleKey.includes("objection")) {
-      return stats.objection;
-    }
-
     if (
-      titleKey.includes("customer")
-      || titleKey.includes("user")
+      titleKey.includes(
+        "objection",
+      )
     ) {
-      return stats.totalUsers;
+      return stats.objection;
     }
 
     return 0;
   };
 
-  const handleErrorClose = () => {
-    setError(null);
-  };
+  const revenueUsdText =
+    metricErrors.totalRevenue
+      ? "—"
+      : `$${stats.revenueUsd
+          .toLocaleString(
+            locale,
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            },
+          )}`;
 
-  // ============================================
-  // Render
-  // ============================================
+  const revenueSypText =
+    metricErrors.totalRevenue
+      ? "—"
+      : `${stats.revenueSyp
+          .toLocaleString(
+            locale,
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            },
+          )} SYP`;
+
   return (
-    <div className="mt-20 md:mt-4 px-3 sm:px-5 md:px-8 py-4 md:py-6">
-
-      {/* ============================================
-          HEADER
-      ============================================ */}
+    <div
+      className="
+        mt-20
+        px-3
+        py-4
+        sm:px-5
+        md:mt-4
+        md:px-8
+        md:py-6
+      "
+    >
       <div className="mb-7">
         <div
           className="
             relative
             overflow-hidden
-            bg-white
-            dark:bg-secondary-dark-bg
+            rounded-2xl
             border
             border-gray-100
-            dark:border-gray-700
-            rounded-2xl
-            shadow-sm
+            bg-white
             px-5
-            md:px-7
             py-5
+            shadow-sm
+            dark:border-gray-700
+            dark:bg-secondary-dark-bg
+            md:px-7
             md:py-6
           "
         >
-          {/* Decorative Background */}
           <div
             className="
+              pointer-events-none
               absolute
-              -top-16
               -end-16
-              w-48
+              -top-16
               h-48
+              w-48
               rounded-full
               opacity-[0.06]
-              pointer-events-none
             "
             style={{
-              backgroundColor: currentColor,
+              backgroundColor:
+                currentColor,
             }}
           />
 
@@ -774,33 +1105,43 @@ const Home = () => {
               z-10
               flex
               flex-col
-              sm:flex-row
-              sm:items-center
               justify-between
               gap-5
+              sm:flex-row
+              sm:items-center
             "
           >
-            {/* Header Text */}
             <div className="text-start">
-
-              {/* Subtitle */}
-              <div className="flex items-center gap-2 mb-2">
+              <div
+                className="
+                  mb-2
+                  flex
+                  items-center
+                  gap-2
+                "
+              >
                 <span
                   className="
-                    w-2.5
                     h-2.5
+                    w-2.5
                     rounded-full
                     shadow-sm
                   "
                   style={{
-                    backgroundColor: currentColor,
+                    backgroundColor:
+                      currentColor,
                   }}
                 />
 
                 <span
-                  className="text-sm md:text-base font-bold"
+                  className="
+                    text-sm
+                    font-bold
+                    md:text-base
+                  "
                   style={{
-                    color: currentColor,
+                    color:
+                      currentColor,
                   }}
                 >
                   {t(
@@ -810,17 +1151,16 @@ const Home = () => {
                 </span>
               </div>
 
-              {/* Main Title */}
               <h1
                 className="
                   text-2xl
-                  md:text-3xl
-                  lg:text-4xl
                   font-extrabold
-                  tracking-tight
                   leading-tight
+                  tracking-tight
                   text-slate-900
                   dark:text-white
+                  md:text-3xl
+                  lg:text-4xl
                 "
               >
                 {t(
@@ -829,72 +1169,101 @@ const Home = () => {
                 )}
               </h1>
 
-              {/* Accent Line */}
-              <div className="flex items-center gap-1.5 mt-4">
+              <div
+                className="
+                  mt-4
+                  flex
+                  items-center
+                  gap-1.5
+                "
+              >
                 <span
-                  className="h-1 w-14 rounded-full"
+                  className="
+                    h-1
+                    w-14
+                    rounded-full
+                  "
                   style={{
-                    backgroundColor: currentColor,
+                    backgroundColor:
+                      currentColor,
                   }}
                 />
 
                 <span
-                  className="h-1 w-6 rounded-full opacity-60"
+                  className="
+                    h-1
+                    w-6
+                    rounded-full
+                    opacity-60
+                  "
                   style={{
-                    backgroundColor: currentColor,
+                    backgroundColor:
+                      currentColor,
                   }}
                 />
 
                 <span
-                  className="h-1 w-2 rounded-full opacity-30"
+                  className="
+                    h-1
+                    w-2
+                    rounded-full
+                    opacity-30
+                  "
                   style={{
-                    backgroundColor: currentColor,
+                    backgroundColor:
+                      currentColor,
                   }}
                 />
               </div>
             </div>
 
-            {/* Refresh Button */}
             <button
               type="button"
               onClick={refreshData}
-              disabled={loading}
+              disabled={
+                loading
+                || detailsLoading
+              }
               style={{
-                backgroundColor: currentColor,
+                backgroundColor:
+                  currentColor,
               }}
               className="
-                w-full
-                sm:w-auto
-                px-5
-                py-2.5
-                md:px-6
-                md:py-3
-                text-white
-                rounded-xl
-                text-sm
-                font-bold
                 flex
+                w-full
                 items-center
                 justify-center
                 gap-2
+                rounded-xl
+                px-5
+                py-2.5
+                text-sm
+                font-bold
+                text-white
                 shadow-md
-                hover:shadow-lg
-                hover:opacity-90
-                active:scale-95
-                disabled:opacity-60
-                disabled:cursor-not-allowed
                 transition-all
                 duration-200
+                hover:opacity-90
+                hover:shadow-lg
+                active:scale-95
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+                sm:w-auto
+                md:px-6
+                md:py-3
               "
             >
-              {loading ? (
+              {(
+                loading
+                || detailsLoading
+              ) ? (
                 <>
                   <span
                     className="
-                      animate-spin
-                      rounded-full
                       h-4
                       w-4
+                      animate-spin
+                      rounded-full
                       border-2
                       border-white/40
                       border-b-white
@@ -908,7 +1277,12 @@ const Home = () => {
                 </>
               ) : (
                 <>
-                  <span className="text-xl leading-none">
+                  <span
+                    className="
+                      text-xl
+                      leading-none
+                    "
+                  >
                     ↻
                   </span>
 
@@ -923,27 +1297,30 @@ const Home = () => {
         </div>
       </div>
 
-      {/* ============================================
-          ERROR / PARTIAL FAILURE MESSAGE
-      ============================================ */}
       {error && (
-        <div className="flex justify-center mb-5">
+        <div
+          className="
+            mb-5
+            flex
+            justify-center
+          "
+        >
           <div
             className="
               relative
               w-full
               max-w-3xl
-              bg-amber-50
-              dark:bg-amber-900/20
+              rounded-xl
               border
               border-amber-200
-              dark:border-amber-800
-              text-amber-800
-              dark:text-amber-300
+              bg-amber-50
               px-5
               py-4
-              rounded-xl
+              text-amber-800
               shadow-sm
+              dark:border-amber-800
+              dark:bg-amber-900/20
+              dark:text-amber-300
             "
             role="alert"
           >
@@ -962,20 +1339,20 @@ const Home = () => {
 
             <button
               type="button"
-              onClick={handleErrorClose}
+              onClick={() => setError(null)}
               className="
                 absolute
-                top-2
                 end-2
-                w-7
-                h-7
-                rounded-lg
+                top-2
                 flex
+                h-7
+                w-7
                 items-center
                 justify-center
+                rounded-lg
+                transition
                 hover:bg-amber-100
                 dark:hover:bg-amber-800/40
-                transition
               "
             >
               ×
@@ -984,87 +1361,97 @@ const Home = () => {
         </div>
       )}
 
-      {/* ============================================
-          DASHBOARD CARDS
-      ============================================ */}
       <div className="flex justify-center">
         <div
           className="
             grid
-            grid-cols-2
-            md:grid-cols-3
-            xl:grid-cols-4
-            gap-3
-            md:gap-5
             w-full
             max-w-7xl
+            grid-cols-2
+            gap-3
+            md:grid-cols-3
+            md:gap-5
+            xl:grid-cols-4
           "
         >
-          {updatedEarningData.map((item) => {
-            const titleKey = item.title
-              .toLowerCase()
-              .replace(/\s+/g, "");
-
-            const count = getCountForTitle(titleKey);
-
-            const priorityLevel = getPriorityLevel(count);
-
-            const priorityClass = getPriorityClass(
-              priorityLevel,
-            );
-
-            const metricFailed = Boolean(
-              item.hasError,
-            );
-
-            return (
-              <Link
-                key={item.title}
-                to={`/${item.title
+          {updatedEarningData.map(
+            (item) => {
+              const titleKey =
+                item.title
                   .toLowerCase()
-                  .replace(/\s+/g, "-")}`}
-                className="
-                  block
-                  relative
-                  min-w-0
-                  w-full
-                  h-full
-                  bg-white
-                  dark:bg-secondary-dark-bg
-                  dark:text-gray-200
-                  p-4
-                  md:p-6
-                  rounded-2xl
-                  border
-                  border-gray-100
-                  dark:border-gray-700
-                  shadow-sm
-                  hover:shadow-lg
-                  hover:-translate-y-1
-                  transition-all
-                  duration-200
-                "
-              >
-                {!item.title
-                  .toLowerCase()
-                  .includes("revenue") && (
+                  .replace(
+                    /\s+/g,
+                    "",
+                  );
+
+              const count =
+                getCountForTitle(
+                  titleKey,
+                );
+
+              const priorityLevel =
+                getPriorityLevel(
+                  count,
+                );
+
+              const priorityClass =
+                getPriorityClass(
+                  priorityLevel,
+                );
+
+              const metricFailed =
+                Boolean(
+                  item.hasError,
+                );
+
+              return (
+                <Link
+                  key={item.title}
+                  to={`/${item.title
+                    .toLowerCase()
+                    .replace(
+                      /\s+/g,
+                      "-",
+                    )}`}
+                  className="
+                    relative
+                    block
+                    h-full
+                    min-w-0
+                    w-full
+                    rounded-2xl
+                    border
+                    border-gray-100
+                    bg-white
+                    p-4
+                    shadow-sm
+                    transition-all
+                    duration-200
+                    hover:-translate-y-1
+                    hover:shadow-lg
+                    dark:border-gray-700
+                    dark:bg-secondary-dark-bg
+                    dark:text-gray-200
+                    md:p-6
+                  "
+                >
                   <div
                     className="
-                      flex
-                      justify-between
-                      items-start
-                      gap-2
                       mb-4
+                      flex
+                      items-start
+                      justify-between
+                      gap-2
                     "
                   >
                     <span
                       className={`
+                        rounded-lg
                         px-2.5
                         py-1
-                        rounded-lg
                         text-[10px]
-                        md:text-xs
                         font-semibold
+                        md:text-xs
                         ${
                           metricFailed
                             ? "bg-red-100 text-red-800"
@@ -1083,162 +1470,174 @@ const Home = () => {
                           )}
                     </span>
 
-                    {!metricFailed && count > 0 && (
+                    {(
+                      !metricFailed
+                      && count > 0
+                    ) && (
                       <span
                         className="
+                          flex-shrink-0
+                          rounded-full
                           bg-red-500
-                          text-white
-                          text-[10px]
-                          md:text-xs
-                          font-bold
                           px-2
                           py-1
-                          rounded-full
-                          flex-shrink-0
+                          text-[10px]
+                          font-bold
+                          text-white
+                          md:text-xs
                         "
                       >
                         {t(
                           "overview.status.pendingCount",
                           {
                             count,
+
+                            defaultValue:
+                              `${count} pending`,
                           },
                         )}
                       </span>
                     )}
                   </div>
-                )}
 
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-3
-                    mb-4
-                  "
-                >
-                  {/* Text */}
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="
-                        text-xl
-                        md:text-3xl
-                        font-extrabold
-                        text-slate-900
-                        dark:text-white
-                        truncate
-                      "
-                    >
-                      {item.amount}
-
-                      {loading && (
-                        <span className="text-xs text-blue-500 ms-2">
-                          ⟳
-                        </span>
-                      )}
-                    </p>
-
-                    <p
-                      className="
-                        text-xs
-                        md:text-base
-                        text-gray-700
-                        dark:text-gray-300
-                        mt-1
-                        md:mt-2
-                        font-bold
-                        truncate
-                      "
-                    >
-                      {t(
-                        `overview.cards.${item.name}.title`,
-                        item.title,
-                      )}
-                    </p>
-
-                    <p
-                      className="
-                        text-[10px]
-                        md:text-xs
-                        text-gray-400
-                        dark:text-gray-500
-                        mt-1
-                        line-clamp-2
-                        md:line-clamp-none
-                      "
-                    >
-                      {item.description}
-                    </p>
-                  </div>
-
-                  {/* Icon */}
                   <div
                     className="
+                      mb-4
                       flex
                       items-center
-                      justify-center
-                      w-11
-                      h-11
-                      md:w-16
-                      md:h-16
-                      rounded-2xl
-                      ms-2
-                      md:ms-4
-                      flex-shrink-0
+                      justify-between
+                      gap-3
                     "
-                    style={{
-                      backgroundColor: item.iconBg,
-                    }}
                   >
-                    <span
-                      style={{
-                        color: item.iconColor,
-                      }}
-                      className="text-lg md:text-2xl"
+                    <div
+                      className="
+                        min-w-0
+                        flex-1
+                      "
                     >
-                      {item.icon}
-                    </span>
-                  </div>
-                </div>
+                      <p
+                        className="
+                          truncate
+                          text-xl
+                          font-extrabold
+                          text-slate-900
+                          dark:text-white
+                          md:text-3xl
+                        "
+                      >
+                        {item.amount}
+                      </p>
 
-                {!item.title
-                  .toLowerCase()
-                  .includes("revenue") && (
+                      <p
+                        className="
+                          mt-1
+                          truncate
+                          text-xs
+                          font-bold
+                          text-gray-700
+                          dark:text-gray-300
+                          md:mt-2
+                          md:text-base
+                        "
+                      >
+                        {t(
+                          `overview.cards.${item.name}.title`,
+                          item.title,
+                        )}
+                      </p>
+
+                      <p
+                        className="
+                          mt-1
+                          line-clamp-2
+                          text-[10px]
+                          text-gray-400
+                          dark:text-gray-500
+                          md:line-clamp-none
+                          md:text-xs
+                        "
+                      >
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <div
+                      className="
+                        ms-2
+                        flex
+                        h-11
+                        w-11
+                        flex-shrink-0
+                        items-center
+                        justify-center
+                        rounded-2xl
+                        md:ms-4
+                        md:h-16
+                        md:w-16
+                      "
+                      style={{
+                        backgroundColor:
+                          item.iconBg,
+                      }}
+                    >
+                      <span
+                        className="
+                          text-lg
+                          md:text-2xl
+                        "
+                        style={{
+                          color:
+                            item.iconColor,
+                        }}
+                      >
+                        {item.icon}
+                      </span>
+                    </div>
+                  </div>
+
                   <div
                     className="
+                      mt-auto
                       flex
                       items-center
                       justify-between
                       border-t
                       border-gray-100
-                      dark:border-gray-700
                       pt-3
-                      mt-auto
+                      dark:border-gray-700
                     "
                   >
-                    <div className="flex items-center min-w-0">
+                    <div
+                      className="
+                        flex
+                        min-w-0
+                        items-center
+                      "
+                    >
                       <div
                         className={`
-                          w-2.5
-                          h-2.5
-                          rounded-full
                           me-1.5
+                          h-2.5
+                          w-2.5
                           flex-shrink-0
+                          rounded-full
                           ${
                             metricFailed
                               ? "bg-red-500"
-                              : getStatusColor(count)
+                              : getStatusColor(
+                                  count,
+                                )
                           }
                         `}
                       />
 
                       <span
                         className="
+                          truncate
                           text-[10px]
-                          md:text-xs
                           text-gray-500
                           dark:text-gray-400
-                          truncate
+                          md:text-xs
                         "
                       >
                         {metricFailed
@@ -1251,24 +1650,29 @@ const Home = () => {
                                 "overview.status.needsAttention",
                                 {
                                   count,
+
+                                  defaultValue:
+                                    "Needs attention",
                                 },
                               )
                             : t(
                                 "overview.status.allCaughtUp",
+                                "All caught up",
                               )}
                       </span>
                     </div>
 
                     <div
                       className="
+                        flex-shrink-0
                         text-[10px]
                         text-gray-400
-                        flex-shrink-0
                       "
                     >
                       {loading
                         ? t(
                             "overview.status.updating",
+                            "Updating",
                           )
                         : metricFailed
                           ? t(
@@ -1277,69 +1681,63 @@ const Home = () => {
                             )
                           : t(
                               "overview.status.live",
+                              "Live",
                             )}
                     </div>
                   </div>
-                )}
-              </Link>
-            );
-          })}
+                </Link>
+              );
+            },
+          )}
         </div>
       </div>
 
-      {/* ============================================
-          BOTTOM SECTION
-      ============================================ */}
       <div
         className="
+          mx-auto
+          mt-8
           flex
+          w-full
+          max-w-7xl
+          flex-wrap
+          justify-center
           gap-4
           md:gap-6
-          flex-wrap
           xl:flex-nowrap
-          justify-center
-          mt-8
-          max-w-7xl
-          mx-auto
-          w-full
         "
       >
-        {/* ============================================
-            REVENUE ANALYTICS
-        ============================================ */}
         <div
           className="
-            bg-white
-            dark:text-gray-200
-            dark:bg-secondary-dark-bg
+            w-full
+            min-w-0
+            rounded-2xl
             border
             border-gray-100
-            dark:border-gray-700
-            shadow-sm
+            bg-white
             p-4
+            shadow-sm
+            dark:border-gray-700
+            dark:bg-secondary-dark-bg
+            dark:text-gray-200
             md:p-6
-            rounded-2xl
-            w-full
             xl:flex-1
-            min-w-0
           "
         >
-          {/* Revenue Header */}
           <div
             className="
-              flex
-              justify-between
-              items-center
               mb-6
+              flex
               flex-wrap
+              items-center
+              justify-between
               gap-4
             "
           >
             <div className="text-start">
               <p
                 className="
-                  font-extrabold
                   text-xl
+                  font-extrabold
                   text-slate-900
                   dark:text-white
                 "
@@ -1350,15 +1748,28 @@ const Home = () => {
                 )}
               </p>
 
-              <p className="text-gray-500 text-sm mt-1">
+              <p
+                className="
+                  mt-1
+                  text-sm
+                  text-gray-500
+                "
+              >
                 {t(
                   "overview.revenue.subtitle",
-                  "Real-time financial overview",
+                  "Actual successful purchase revenue from the financial ledger",
                 )}
               </p>
             </div>
 
-            <div className="flex items-center gap-4 flex-wrap">
+            <div
+              className="
+                flex
+                flex-wrap
+                items-center
+                gap-4
+              "
+            >
               <p
                 className="
                   flex
@@ -1368,7 +1779,12 @@ const Home = () => {
                   dark:text-gray-300
                 "
               >
-                <GoPrimitiveDot className="text-blue-500" />
+                <GoPrimitiveDot
+                  style={{
+                    color:
+                      currentColor,
+                  }}
+                />
 
                 <span>
                   {t(
@@ -1383,7 +1799,7 @@ const Home = () => {
                   flex
                   items-center
                   gap-2
-                  text-green-500
+                  text-emerald-500
                 "
               >
                 <GoPrimitiveDot />
@@ -1402,71 +1818,80 @@ const Home = () => {
             className="
               mt-6
               flex
-              gap-8
               flex-wrap
               justify-center
+              gap-8
             "
           >
-            {/* Revenue Stats */}
             <div
               className="
-                border-e-0
-                md:border-e
-                border-gray-200
-                dark:border-gray-700
                 m-4
+                border-e-0
+                border-gray-200
                 pe-0
-                md:pe-8
                 text-center
+                dark:border-gray-700
+                md:border-e
+                md:pe-8
                 md:text-start
               "
             >
               <div className="mb-6">
-                <p>
-                  <span
-                    className="
-                      text-3xl
-                      font-extrabold
-                      text-slate-900
-                      dark:text-white
-                    "
-                  >
-                    {!metricErrors.totalRevenue && "$"}
+                <p
+                  className="
+                    text-xs
+                    font-bold
+                    uppercase
+                    tracking-wide
+                    text-gray-400
+                  "
+                >
+                  {t(
+                    "overview.revenue.total",
+                    "Total Revenue",
+                  )}
+                </p>
 
-                    {metricErrors.totalRevenue
-                      ? "—"
-                      : stats.totalRevenue.toLocaleString(
-                          undefined,
-                          {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          },
-                        )}
-                  </span>
+                <p
+                  dir="ltr"
+                  className="
+                    mt-2
+                    text-3xl
+                    font-extrabold
+                    text-slate-900
+                    dark:text-white
+                  "
+                >
+                  {revenueUsdText}
+                </p>
 
-                  <span
+                <p
+                  dir="ltr"
+                  className="
+                    mt-2
+                    text-lg
+                    font-bold
+                    text-emerald-500
+                  "
+                >
+                  {revenueSypText}
+                </p>
+
+                {metricErrors.totalRevenue && (
+                  <p
                     className="
-                      p-1.5
-                      rounded-full
-                      text-white
-                      bg-green-400
-                      ms-3
+                      mt-2
                       text-xs
+                      font-semibold
+                      text-red-500
                     "
                   >
                     {t(
-                      "overview.revenue.total",
-                      "Total",
+                      "overview.revenue.loadFailed",
+                      "Financial totals could not be loaded.",
                     )}
-                  </span>
-                </p>
-
-                <p className="text-gray-500 mt-1">
-                  {t(
-                    "overview.revenue.pending",
-                    "Pending Revenue",
-                  )}
-                </p>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1483,7 +1908,12 @@ const Home = () => {
                     : stats.totalUsers}
                 </p>
 
-                <p className="text-gray-500 mt-1">
+                <p
+                  className="
+                    mt-1
+                    text-gray-500
+                  "
+                >
                   {t(
                     "overview.revenue.registeredUsers",
                     "Registered Users",
@@ -1492,17 +1922,16 @@ const Home = () => {
               </div>
             </div>
 
-            {/* Chart */}
             <div
               className="
-                flex-1
+                flex
+                min-h-[300px]
                 w-full
                 max-w-full
-                overflow-hidden
-                min-h-[300px]
-                flex
+                flex-1
                 items-center
                 justify-center
+                overflow-hidden
               "
             >
               {detailsLoading ? (
@@ -1516,122 +1945,83 @@ const Home = () => {
                 >
                   <div
                     className="
-                      animate-spin
-                      rounded-full
+                      mb-2
                       h-8
                       w-8
+                      animate-spin
+                      rounded-full
                       border-b-2
                       border-blue-500
-                      mb-2
                     "
                   />
 
-                  <span className="text-gray-500 text-sm">
+                  <span
+                    className="
+                      text-sm
+                      text-gray-500
+                    "
+                  >
                     {t(
                       "overview.status.loading",
                       "Loading chart data...",
                     )}
                   </span>
                 </div>
-              ) : (
-                metricErrors.pending
-                && metricErrors.inProgress
-                && metricErrors.objection
-              ) ? (
-                <div className="text-red-500 text-sm text-center">
-                  {t(
-                    "overview.status.failedToLoadData",
-                    "Failed to load chart data",
-                  )}
-                </div>
-              ) : !chartData.hasEnoughData ? (
+              ) : metricErrors.financialChart ? (
                 <div
                   className="
-                    flex
-                    flex-col
-                    items-center
-                    justify-center
-                    p-6
-                    border-2
-                    border-dashed
-                    border-gray-200
-                    dark:border-gray-700
-                    rounded-xl
                     text-center
-                    w-full
+                    text-sm
+                    text-red-500
                   "
                 >
-                  <span className="text-4xl mb-2">
-                    📊
-                  </span>
-
-                  <p
-                    className="
-                      text-gray-600
-                      dark:text-gray-400
-                      font-semibold
-                    "
-                  >
-                    {t(
-                      "overview.revenue.noChartData",
-                      "No Sufficient Historical Data",
-                    )}
-                  </p>
-
-                  <p
-                    className="
-                      text-xs
-                      text-gray-400
-                      dark:text-gray-500
-                      max-w-[250px]
-                      mt-1
-                      mx-auto
-                    "
-                  >
-                    {t(
-                      "overview.revenue.noChartDataDesc",
-                      "At least 3 months of transaction history are required to generate the chart.",
-                    )}
-                  </p>
+                  {t(
+                    "overview.status.failedToLoadData",
+                    "Failed to load financial chart data",
+                  )}
                 </div>
               ) : (
-                <Stacked
-                  currentMode={currentMode}
-                  width="100%"
-                  height="300px"
-                  salesData={chartData.salesData}
-                  customersData={chartData.customersData}
+                <RevenueChart
+                  rows={
+                    monthlyRevenue
+                  }
+                  currentColor={
+                    currentColor
+                  }
+                  t={t}
                 />
               )}
             </div>
           </div>
         </div>
 
-        {/* ============================================
-            QUICK SUMMARY
-        ============================================ */}
         <div
           className="
-            bg-white
-            dark:text-gray-200
-            dark:bg-secondary-dark-bg
+            w-full
+            flex-shrink-0
+            rounded-2xl
             border
             border-gray-100
-            dark:border-gray-700
-            shadow-sm
+            bg-white
             p-4
+            shadow-sm
+            dark:border-gray-700
+            dark:bg-secondary-dark-bg
+            dark:text-gray-200
             md:p-6
-            rounded-2xl
-            w-full
             xl:w-96
-            flex-shrink-0
           "
         >
-          <div className="mb-6 text-start">
+          <div
+            className="
+              mb-6
+              text-start
+            "
+          >
             <p
               className="
-                font-extrabold
                 text-xl
+                font-extrabold
                 text-slate-900
                 dark:text-white
               "
@@ -1642,7 +2032,13 @@ const Home = () => {
               )}
             </p>
 
-            <p className="text-gray-500 text-sm mt-1">
+            <p
+              className="
+                mt-1
+                text-sm
+                text-gray-500
+              "
+            >
               {t(
                 "overview.summary.subtitle",
                 "Request overview",
@@ -1651,24 +2047,22 @@ const Home = () => {
           </div>
 
           <div className="space-y-4">
-
-            {/* Shipping */}
             <div
               className="
                 flex
-                justify-between
                 items-center
-                p-3
-                bg-blue-50
-                dark:bg-blue-900/20
+                justify-between
                 rounded-xl
+                bg-blue-50
+                p-3
+                dark:bg-blue-900/20
               "
             >
               <span
                 className="
+                  font-medium
                   text-blue-600
                   dark:text-blue-300
-                  font-medium
                 "
               >
                 {t(
@@ -1679,15 +2073,15 @@ const Home = () => {
 
               <span
                 className="
+                  rounded-lg
                   bg-blue-100
-                  dark:bg-blue-800
-                  text-blue-800
-                  dark:text-blue-200
                   px-2.5
                   py-1
-                  rounded-lg
                   text-sm
                   font-bold
+                  text-blue-800
+                  dark:bg-blue-800
+                  dark:text-blue-200
                 "
               >
                 {metricErrors.shipping
@@ -1696,23 +2090,22 @@ const Home = () => {
               </span>
             </div>
 
-            {/* Pending */}
             <div
               className="
                 flex
-                justify-between
                 items-center
-                p-3
-                bg-yellow-50
-                dark:bg-yellow-900/20
+                justify-between
                 rounded-xl
+                bg-yellow-50
+                p-3
+                dark:bg-yellow-900/20
               "
             >
               <span
                 className="
+                  font-medium
                   text-yellow-600
                   dark:text-yellow-300
-                  font-medium
                 "
               >
                 {t(
@@ -1723,15 +2116,15 @@ const Home = () => {
 
               <span
                 className="
+                  rounded-lg
                   bg-yellow-100
-                  dark:bg-yellow-800
-                  text-yellow-800
-                  dark:text-yellow-200
                   px-2.5
                   py-1
-                  rounded-lg
                   text-sm
                   font-bold
+                  text-yellow-800
+                  dark:bg-yellow-800
+                  dark:text-yellow-200
                 "
               >
                 {metricErrors.pending
@@ -1740,23 +2133,22 @@ const Home = () => {
               </span>
             </div>
 
-            {/* In Progress */}
             <div
               className="
                 flex
-                justify-between
                 items-center
-                p-3
-                bg-green-50
-                dark:bg-green-900/20
+                justify-between
                 rounded-xl
+                bg-green-50
+                p-3
+                dark:bg-green-900/20
               "
             >
               <span
                 className="
+                  font-medium
                   text-green-600
                   dark:text-green-300
-                  font-medium
                 "
               >
                 {t(
@@ -1767,15 +2159,15 @@ const Home = () => {
 
               <span
                 className="
+                  rounded-lg
                   bg-green-100
-                  dark:bg-green-800
-                  text-green-800
-                  dark:text-green-200
                   px-2.5
                   py-1
-                  rounded-lg
                   text-sm
                   font-bold
+                  text-green-800
+                  dark:bg-green-800
+                  dark:text-green-200
                 "
               >
                 {metricErrors.inProgress
@@ -1784,23 +2176,22 @@ const Home = () => {
               </span>
             </div>
 
-            {/* Objections */}
             <div
               className="
                 flex
-                justify-between
                 items-center
-                p-3
-                bg-orange-50
-                dark:bg-orange-900/20
+                justify-between
                 rounded-xl
+                bg-orange-50
+                p-3
+                dark:bg-orange-900/20
               "
             >
               <span
                 className="
+                  font-medium
                   text-orange-600
                   dark:text-orange-300
-                  font-medium
                 "
               >
                 {t(
@@ -1811,15 +2202,15 @@ const Home = () => {
 
               <span
                 className="
+                  rounded-lg
                   bg-orange-100
-                  dark:bg-orange-800
-                  text-orange-800
-                  dark:text-orange-200
                   px-2.5
                   py-1
-                  rounded-lg
                   text-sm
                   font-bold
+                  text-orange-800
+                  dark:bg-orange-800
+                  dark:text-orange-200
                 "
               >
                 {metricErrors.objection

@@ -1,81 +1,171 @@
-import { Stack, usePathname, useRouter, useSegments } from "expo-router";
+import {
+  Stack,
+  usePathname,
+  useRouter,
+  useSegments,
+} from "expo-router";
+
 import { useFonts } from "expo-font";
-import { useCallback, useEffect, useRef, useState } from "react";
+import * as SplashScreen from "expo-splash-screen";
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import { StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import AuthProvider, { useAuth } from "../src/context/AuthProvider";
+
+import AuthProvider, {
+  useAuth,
+} from "../src/context/AuthProvider";
+
 import { CurrencyProvider } from "../src/context/CurrencyProvider";
 import { initI18n } from "../src/i18n";
-import { APP_ROUTES, AUTH_ROUTES, LEGACY_AUTH_PATHS, ROOT_ROUTES } from "../src/shared/navigation/routes";
-import { AppLoadingState } from "../src/shared/ui/primitives";
+
+import {
+  APP_ROUTES,
+  AUTH_ROUTES,
+  LEGACY_AUTH_PATHS,
+  ROOT_ROUTES,
+} from "../src/shared/navigation/routes";
+
 import { loadSavedLanguage } from "../src/utils/lang";
+
+
+// نخلي Splash الحقيقي ظاهر أثناء تجهيز التطبيق
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 
 function RootLayoutNav() {
   const { user, booting } = useAuth();
+
   const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
-  const lastRedirectRef = useRef({ path: '', time: 0 });
 
-  const safeReplace = useCallback((to: string) => {
-    const now = Date.now();
-    const currentPath = pathname || segments.join('/');
-    if (to === currentPath && now - lastRedirectRef.current.time < 1000) {
-      return;
-    }
-    lastRedirectRef.current = { path: to, time: now };
-    router.replace(to as any);
-  }, [pathname, router, segments]);
+  const lastRedirectRef = useRef({
+    path: "",
+    time: 0,
+  });
+
+
+  const safeReplace = useCallback(
+    (to: string) => {
+      const now = Date.now();
+
+      const currentPath =
+        pathname || segments.join("/");
+
+      if (
+        to === currentPath
+        && now - lastRedirectRef.current.time < 1000
+      ) {
+        return;
+      }
+
+      lastRedirectRef.current = {
+        path: to,
+        time: now,
+      };
+
+      router.replace(to as any);
+    },
+    [
+      pathname,
+      router,
+      segments,
+    ],
+  );
+
 
   useEffect(() => {
     if (booting) return;
 
-    const currentPath = pathname || `/${segments.join("/")}`;
-    // التحقق من أننا في مجموعة auth سواء بالمسار الكامل أو المختصر
-    const inAuthGroup = segments[0] === '(auth)' ||
-      currentPath.startsWith("/(auth)/") ||
-      LEGACY_AUTH_PATHS.some(p => currentPath.startsWith(p));
+    const currentPath =
+      pathname || `/${segments.join("/")}`;
 
-    const inAppGroup = segments[0] === '(app)' || currentPath.startsWith("/(app)/");
-    const inFirstPage = currentPath === "/first-page";
-    const inOnboarding = currentPath === "/onboarding";
-    const inResetPassword = currentPath === AUTH_ROUTES.ResetPassword || currentPath === "/reset-password";
+    const inAuthGroup =
+      segments[0] === "(auth)"
+      || currentPath.startsWith("/(auth)/")
+      || LEGACY_AUTH_PATHS.some(
+        (path) => currentPath.startsWith(path),
+      );
 
-    // إذا كان المستخدم في first-page أو onboarding، لا نتدخل - نتركهم يتحكمون
-    if (inFirstPage || inOnboarding) {
+    const inFirstPage =
+      currentPath === "/first-page";
+
+    const inOnboarding =
+      currentPath === "/onboarding";
+
+    const inResetPassword =
+      currentPath === AUTH_ROUTES.ResetPassword
+      || currentPath === "/reset-password";
+
+
+    if (
+      inFirstPage
+      || inOnboarding
+    ) {
       return;
     }
 
-    // DEBUG LOGGING
-    if (__DEV__) console.log(`[Layout] Path: ${currentPath}, User: ${!!user}, InAuth: ${inAuthGroup}`);
 
-    // إذا المستخدم يحاول الدخول لصفحات الـ auth (مثل signup)، لا نتدخل ونتركه يكمل
     if (inAuthGroup) {
-      // فقط إذا كان مسجل دخول، نمنعه من دخول auth ونوجهه لـ home
-      if (user && !inResetPassword) {
-        if (__DEV__) console.log("[Layout] Redirecting to home because user && inAuthGroup");
-        safeReplace(APP_ROUTES.Home);
+      if (
+        user
+        && !inResetPassword
+      ) {
+        safeReplace(
+          APP_ROUTES.Home,
+        );
       }
+
       return;
     }
 
-    // إذا لا يوجد مستخدم ولا هو في auth group
+
     if (!user) {
-      if (__DEV__) console.log("[Layout] Redirecting to login because !user && !inAuthGroup");
-      safeReplace(AUTH_ROUTES.Login);
+      safeReplace(
+        AUTH_ROUTES.Login,
+      );
+
       return;
     }
 
-    // إذا المستخدم في root path
-    if (currentPath === "/" || currentPath === "") {
-      safeReplace(ROOT_ROUTES.FirstPage);
-    }
-  }, [user, booting, segments, pathname, safeReplace]);
 
+    if (
+      currentPath === "/"
+      || currentPath === ""
+    ) {
+      safeReplace(
+        ROOT_ROUTES.FirstPage,
+      );
+    }
+  }, [
+    user,
+    booting,
+    segments,
+    pathname,
+    safeReplace,
+  ]);
+
+
+  useEffect(() => {
+    if (booting) return;
+
+    // الجلسة صارت جاهزة، نخفي Splash
+    void SplashScreen.hideAsync().catch(() => {});
+  }, [booting]);
+
+
+  // ما عاد نظهر AppLoadingState
   if (booting) {
-    return <AppLoadingState style={undefined} />;
+    return null;
   }
+
 
   return (
     <Stack
@@ -86,53 +176,87 @@ function RootLayoutNav() {
   );
 }
 
+
 export default function RootLayout() {
-  const [i18nReady, setI18nReady] = useState(false);
-  const [fontsLoaded, fontError] = useFonts({
-    "Almarai-Regular": require("../assets/fonts/Almarai-Regular.ttf"),
-    "Almarai-Light": require("../assets/fonts/Almarai-Light.ttf"),
-    "Almarai-Bold": require("../assets/fonts/Almarai-Bold.ttf"),
-    "Almarai-ExtraBold": require("../assets/fonts/Almarai-ExtraBold.ttf"),
+  const [
+    i18nReady,
+    setI18nReady,
+  ] = useState(false);
+
+
+  const [
+    fontsLoaded,
+    fontError,
+  ] = useFonts({
+    "Almarai-Regular":
+      require("../assets/fonts/Almarai-Regular.ttf"),
+
+    "Almarai-Light":
+      require("../assets/fonts/Almarai-Light.ttf"),
+
+    "Almarai-Bold":
+      require("../assets/fonts/Almarai-Bold.ttf"),
+
+    "Almarai-ExtraBold":
+      require("../assets/fonts/Almarai-ExtraBold.ttf"),
   });
 
+
   useEffect(() => {
-    // تهيئة i18n عند بدء التطبيق
     (async () => {
       try {
-        // تهيئة i18n باللغة الافتراضية
         initI18n("ar");
-        // تحميل اللغة المحفوظة (دائماً عربية)
-        const { needsReload } = await loadSavedLanguage();
 
-        if (needsReload) {
-          // يمكن إضافة إعادة تشغيل هنا إذا لزم الأمر، لكن Expo Router عادة يتعامل مع التغيير
-          // Updates.reloadAsync();
-        }
+        await loadSavedLanguage();
 
         setI18nReady(true);
       } catch (error) {
-        console.warn("Failed to initialize i18n:", error);
-        setI18nReady(true); // نكمل حتى لو فشل
+        console.warn(
+          "Failed to initialize i18n:",
+          error,
+        );
+
+        setI18nReady(true);
       }
     })();
   }, []);
 
+
   useEffect(() => {
     if (fontError) {
-      console.warn("Failed to load app fonts:", fontError);
+      console.warn(
+        "Failed to load app fonts:",
+        fontError,
+      );
     }
   }, [fontError]);
 
-  if (!i18nReady || (!fontsLoaded && !fontError)) {
-    return <AppLoadingState style={undefined} />;
+
+  // خلي Splash الحقيقي ظاهر بدل الكرت الأبيض
+  if (
+    !i18nReady
+    || (
+      !fontsLoaded
+      && !fontError
+    )
+  ) {
+    return null;
   }
+
 
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <CurrencyProvider>
-          <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
+          <StatusBar
+            barStyle="dark-content"
+            backgroundColor="transparent"
+            translucent
+          />
+
           <RootLayoutNav />
+
         </CurrencyProvider>
       </AuthProvider>
     </SafeAreaProvider>
