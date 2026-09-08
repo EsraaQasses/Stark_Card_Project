@@ -64,6 +64,47 @@ const getApiError = (error, fallback) => (
   || fallback
 );
 
+const normalizeCustomizationOptions = (value) => (
+  String(value || '')
+    .replace(/،/g, ',')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(',')
+);
+
+const getProviderCustomizationOptions = (product) => {
+  const rawOptions = (
+    product?.quantity_options
+    ?? product?.customization_options
+    ?? product?.external_data?.quantity_options
+    ?? product?.external_data?.original_data?.quantity_options
+    ?? product?.original_data?.quantity_options
+  );
+
+  if (Array.isArray(rawOptions)) {
+    return rawOptions
+      .map((item) => {
+        if (item && typeof item === 'object') {
+          return (
+            item.value
+            ?? item.quantity
+            ?? item.amount
+            ?? item.units
+            ?? ''
+          );
+        }
+
+        return item;
+      })
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean)
+      .join(',');
+  }
+
+  return normalizeCustomizationOptions(rawOptions);
+};
+
 const AddProduct = () => {
   const navigate = useNavigate();
   const { i18n } = useTranslation();
@@ -104,13 +145,16 @@ const AddProduct = () => {
     currency: isArabic ? 'العملة' : 'Currency',
     productType: isArabic ? 'نوع التسعير' : 'Pricing type',
     amountBased: isArabic ? 'حسب الكمية' : 'Amount based',
-    customizationBased: isArabic ? 'حسب التخصيص' : 'Customization based',
+    customizationBased: isArabic ? 'خيارات مخصصة' : 'Custom options',
     basePrice: isArabic ? 'سعر البيع' : 'Base selling price',
+    unitPrice: isArabic ? 'سعر الوحدة' : 'Unit price',
     minAmount: isArabic ? 'الحد الأدنى للكمية' : 'Minimum amount',
     maxAmount: isArabic ? 'الحد الأعلى للكمية' : 'Maximum amount',
     minAmountPrice: isArabic ? 'سعر الحد الأدنى' : 'Minimum amount price',
     customOptions: isArabic ? 'خيارات التخصيص' : 'Customization options',
-    customPrices: isArabic ? 'أسعار التخصيص' : 'Customization prices',
+    customOptionsHint: isArabic
+      ? 'أدخل القيم مفصولة بفاصلة، مثال: 10,25,50,100'
+      : 'Enter comma-separated values, e.g. 10,25,50,100',
     integration: isArabic ? 'ربط مزود API' : 'API Provider Integration',
     provider: isArabic ? 'المزود' : 'Provider',
     noProvider: isArabic ? 'بدون مزود API' : 'No API provider',
@@ -147,6 +191,12 @@ const AddProduct = () => {
     requiredName: isArabic ? 'الاسم العربي والإنجليزي مطلوبان.' : 'Arabic and English names are required.',
     requiredSection: isArabic ? 'اختر قسم المنتج.' : 'Select a product section.',
     invalidPrice: isArabic ? 'سعر البيع يجب أن يكون صفراً أو أكبر.' : 'Base price must be zero or greater.',
+    requiredCustomOptions: isArabic
+      ? 'أدخل خيار تخصيص واحد على الأقل.'
+      : 'Enter at least one customization option.',
+    invalidCustomOptions: isArabic
+      ? 'خيارات التخصيص يجب أن تكون أرقاماً أكبر من صفر ومفصولة بفواصل.'
+      : 'Customization options must be positive numbers separated by commas.',
   }), [isArabic]);
 
   const [sections, setSections] = useState([]);
@@ -187,7 +237,6 @@ const AddProduct = () => {
     max_amount: 0,
     min_amount_price: 0,
     customization_options: '',
-    customization_prices: '',
     image: null,
     is_active: true,
     requirements: [],
@@ -381,6 +430,8 @@ const AddProduct = () => {
       })
       : [];
 
+    const providerOptions = getProviderCustomizationOptions(selected);
+
     setNewProduct((previous) => ({
       ...previous,
       external_product: selected.id,
@@ -389,6 +440,10 @@ const AddProduct = () => {
       description_en: selected.description || previous.description_en,
       description_ar: selected.description || previous.description_ar,
       base_price: Number(selected.base_price || previous.base_price || 0),
+      customization_options: (
+        providerOptions
+        || previous.customization_options
+      ),
       requirements: requirements.length
         ? requirements
         : previous.requirements,
@@ -478,6 +533,35 @@ const AddProduct = () => {
       return false;
     }
 
+    if (newProduct.product_type === 'customization_based') {
+      const normalizedOptions = normalizeCustomizationOptions(
+        newProduct.customization_options,
+      );
+
+      if (!normalizedOptions) {
+        setNotice({
+          type: 'error',
+          message: labels.requiredCustomOptions,
+        });
+        return false;
+      }
+
+      const optionValues = normalizedOptions.split(',');
+
+      if (
+        optionValues.some((value) => (
+          Number.isNaN(Number(value))
+          || Number(value) <= 0
+        ))
+      ) {
+        setNotice({
+          type: 'error',
+          message: labels.invalidCustomOptions,
+        });
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -524,11 +608,9 @@ const AddProduct = () => {
       if (newProduct.product_type === 'customization_based') {
         formData.append(
           'customization_options',
-          newProduct.customization_options,
-        );
-        formData.append(
-          'customization_prices',
-          newProduct.customization_prices,
+          normalizeCustomizationOptions(
+            newProduct.customization_options,
+          ),
         );
       }
 
@@ -833,7 +915,9 @@ const AddProduct = () => {
 
                   <label className="block">
                     <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
-                      {labels.basePrice} *
+                      {newProduct.product_type === 'customization_based'
+                        ? labels.unitPrice
+                        : labels.basePrice} *
                     </span>
                     <input
                       type="number"
@@ -893,31 +977,24 @@ const AddProduct = () => {
                 )}
 
                 {newProduct.product_type === 'customization_based' && (
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
-                        {labels.customOptions}
-                      </span>
-                      <textarea
-                        rows="4"
-                        value={newProduct.customization_options}
-                        onChange={(event) => updateProduct('customization_options', event.target.value)}
-                        className={`${inputClass} resize-none`}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
-                        {labels.customPrices}
-                      </span>
-                      <textarea
-                        rows="4"
-                        value={newProduct.customization_prices}
-                        onChange={(event) => updateProduct('customization_prices', event.target.value)}
-                        className={`${inputClass} resize-none`}
-                      />
-                    </label>
-                  </div>
+                  <label className="mt-4 block">
+                    <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                      {labels.customOptions} *
+                    </span>
+                    <textarea
+                      rows="5"
+                      value={newProduct.customization_options}
+                      onChange={(event) => updateProduct(
+                        'customization_options',
+                        event.target.value,
+                      )}
+                      className={`${inputClass} resize-none`}
+                      placeholder="10,25,50,100"
+                    />
+                    <p className="mt-2 text-xs font-semibold text-slate-400">
+                      {labels.customOptionsHint}
+                    </p>
+                  </label>
                 )}
               </section>
 

@@ -29,6 +29,19 @@ import { useAuth } from '../contexts/AuthContext';
 import { useStateContext } from '../contexts/ContextProvider';
 
 const PAGE_SIZE = 12;
+const PROFIT_SUMMARY_START_DATE = '1970-01-01';
+
+const toApiDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, '0');
+  const day = String(
+    date.getDate(),
+  ).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
 
 const normalizeList = (data) => {
   if (Array.isArray(data)) {
@@ -134,6 +147,26 @@ const FullPayments = () => {
     failed: isArabic
       ? 'فاشلة / ملغاة'
       : 'Failed / Cancelled',
+
+    profitSummary: isArabic
+      ? 'ملخص الأرباح'
+      : 'Profit summary',
+
+    totalPrice: isArabic
+      ? 'إجمالي السعر'
+      : 'Total price',
+
+    netProfit: isArabic
+      ? 'صافي الربح (بدون ربح الوكلاء)'
+      : 'Net profit (excluding agent profit)',
+
+    agentProfit: isArabic
+      ? 'ربح الوكلاء'
+      : 'Agent profit',
+
+    profitSummaryLoadFailed: isArabic
+      ? 'تعذر تحميل ملخص الأرباح.'
+      : 'Failed to load profit summary.',
 
     searchPlaceholder: isArabic
       ? 'ابحث بالمستخدم أو المنتج أو رقم الدفع...'
@@ -281,6 +314,9 @@ const FullPayments = () => {
   }), [isArabic]);
 
   const [payments, setPayments] = useState([]);
+  const [profitSummary, setProfitSummary] = useState(null);
+  const [profitSummaryLoading, setProfitSummaryLoading] = useState(true);
+  const [profitSummaryError, setProfitSummaryError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -335,9 +371,52 @@ const FullPayments = () => {
     [labels.loadFailed],
   );
 
+  const fetchProfitSummary = useCallback(
+    async () => {
+      setProfitSummaryLoading(true);
+      setProfitSummaryError('');
+
+      try {
+        const response = await axiosInstance.get(
+          'transactions/financial/summary/',
+          {
+            params: {
+              period: 'custom',
+              start_date: PROFIT_SUMMARY_START_DATE,
+              end_date: toApiDate(new Date()),
+            },
+          },
+        );
+
+        setProfitSummary(
+          response.data || null,
+        );
+      } catch (fetchError) {
+        console.error(
+          'Error fetching profit summary:',
+          fetchError,
+        );
+
+        setProfitSummaryError(
+          getApiError(
+            fetchError,
+            labels.profitSummaryLoadFailed,
+          ),
+        );
+      } finally {
+        setProfitSummaryLoading(false);
+      }
+    },
+    [labels.profitSummaryLoadFailed],
+  );
+
   useEffect(() => {
     fetchAllPayments();
-  }, [fetchAllPayments]);
+    fetchProfitSummary();
+  }, [
+    fetchAllPayments,
+    fetchProfitSummary,
+  ]);
 
   useEffect(() => {
     setPage(1);
@@ -352,6 +431,31 @@ const FullPayments = () => {
       ),
     ]
   ), [payments]);
+
+  const profitSummaryCurrencies = useMemo(() => {
+    const totals = profitSummary?.totals || {};
+
+    const values = new Set([
+      ...Object.keys(totals.revenue || {}),
+      ...Object.keys(totals.net_profit || {}),
+      ...Object.keys(totals.agent_commission || {}),
+    ]);
+
+    if (values.size === 0) {
+      return ['USD'];
+    }
+
+    const order = {
+      USD: 0,
+      SYP: 1,
+    };
+
+    return [...values].sort((a, b) => (
+      (order[a] ?? 99)
+      - (order[b] ?? 99)
+      || a.localeCompare(b)
+    ));
+  }, [profitSummary]);
 
   const stats = useMemo(() => {
     const successful = payments.filter(
@@ -814,11 +918,12 @@ const FullPayments = () => {
               <button
                 type="button"
                 disabled={refreshing}
-                onClick={() => (
+                onClick={() => {
                   fetchAllPayments({
                     background: true,
-                  })
-                )}
+                  });
+                  fetchProfitSummary();
+                }}
                 className="
                   flex
                   items-center
@@ -1863,6 +1968,216 @@ const FullPayments = () => {
               </div>
             </section>
           )}
+
+          <section
+            className="
+              rounded-3xl
+              border
+              border-slate-100
+              bg-white
+              p-4
+              shadow-sm
+              dark:border-slate-800
+              dark:bg-secondary-dark-bg
+              sm:p-5
+            "
+          >
+            <div
+              className="
+                mb-4
+                flex
+                items-center
+                justify-between
+                gap-3
+              "
+            >
+              <div className="text-start">
+                <h2
+                  className="
+                    text-lg
+                    font-black
+                    text-slate-900
+                    dark:text-white
+                  "
+                >
+                  {labels.profitSummary}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                disabled={profitSummaryLoading}
+                onClick={fetchProfitSummary}
+                className="
+                  flex
+                  h-10
+                  w-10
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-slate-200
+                  bg-white
+                  text-slate-500
+                  transition
+                  hover:bg-slate-50
+                  disabled:opacity-50
+                  dark:border-slate-700
+                  dark:bg-slate-900
+                  dark:text-slate-300
+                "
+                aria-label={labels.refresh}
+                title={labels.refresh}
+              >
+                <FiRefreshCw
+                  className={
+                    profitSummaryLoading
+                      ? 'animate-spin'
+                      : ''
+                  }
+                />
+              </button>
+            </div>
+
+            {profitSummaryError && (
+              <div
+                className="
+                  mb-4
+                  rounded-2xl
+                  border
+                  border-red-200
+                  bg-red-50
+                  px-4
+                  py-3
+                  text-sm
+                  font-bold
+                  text-red-700
+                  dark:border-red-900/40
+                  dark:bg-red-950/30
+                  dark:text-red-300
+                "
+              >
+                {profitSummaryError}
+              </div>
+            )}
+
+            <div
+              className="
+                grid
+                gap-4
+                md:grid-cols-3
+              "
+            >
+              {[
+                {
+                  label: labels.totalPrice,
+                  metric: 'revenue',
+                  icon: <FiCreditCard />,
+                },
+                {
+                  label: labels.netProfit,
+                  metric: 'net_profit',
+                  icon: <FiDollarSign />,
+                },
+                {
+                  label: labels.agentProfit,
+                  metric: 'agent_commission',
+                  icon: <FiUser />,
+                },
+              ].map((item) => (
+                <article
+                  key={item.metric}
+                  className="
+                    rounded-2xl
+                    border
+                    border-slate-100
+                    bg-slate-50/70
+                    p-5
+                    dark:border-slate-800
+                    dark:bg-slate-900/50
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                    "
+                  >
+                    <div
+                      className="
+                        flex
+                        h-11
+                        w-11
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        text-lg
+                      "
+                      style={{
+                        backgroundColor: `${accentColor}14`,
+                        color: accentColor,
+                      }}
+                    >
+                      {item.icon}
+                    </div>
+
+                    <p
+                      className="
+                        text-sm
+                        font-black
+                        leading-6
+                        text-slate-600
+                        dark:text-slate-300
+                      "
+                    >
+                      {item.label}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {profitSummaryLoading ? (
+                      <div
+                        className="
+                          h-8
+                          w-32
+                          animate-pulse
+                          rounded-lg
+                          bg-slate-200
+                          dark:bg-slate-700
+                        "
+                      />
+                    ) : (
+                      profitSummaryCurrencies.map((currency) => (
+                        <p
+                          key={`${item.metric}-${currency}`}
+                          dir="ltr"
+                          className="
+                            text-start
+                            text-xl
+                            font-black
+                            tracking-tight
+                            text-slate-950
+                            dark:text-white
+                            sm:text-2xl
+                          "
+                        >
+                          {formatMoney(
+                            profitSummary
+                              ?.totals
+                              ?.[item.metric]
+                              ?.[currency] || 0,
+                            currency,
+                          )}
+                        </p>
+                      ))
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
 
