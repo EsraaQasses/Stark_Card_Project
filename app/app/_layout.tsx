@@ -34,6 +34,8 @@ import {
 
 import { loadSavedLanguage } from "../src/utils/lang";
 
+import PushNotificationsBootstrap from "../src/components/PushNotificationsBootstrap";
+
 
 // نخلي Splash الحقيقي ظاهر أثناء تجهيز التطبيق
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -247,17 +249,18 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <CurrencyProvider>
+        <PushNotificationsBootstrap />
+          <CurrencyProvider>
 
-          <StatusBar
-            barStyle="dark-content"
-            backgroundColor="transparent"
-            translucent
-          />
+            <StatusBar
+              barStyle="dark-content"
+              backgroundColor="transparent"
+              translucent
+            />
 
-          <RootLayoutNav />
+            <RootLayoutNav />
 
-        </CurrencyProvider>
+          </CurrencyProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
