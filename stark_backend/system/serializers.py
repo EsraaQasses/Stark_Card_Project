@@ -1,6 +1,35 @@
 from rest_framework import serializers
-from .models import LastAction, Notification, Ad, SystemLog
+from .models import LastAction, Notification, Ad, SystemLog, PushDeviceToken
 import re
+
+
+class PushDeviceTokenSerializer(serializers.ModelSerializer):
+    # Registration intentionally upserts an existing token, so the model's
+    # UniqueValidator must not reject the second registration request.
+    token = serializers.CharField(max_length=255, validators=[])
+
+    class Meta:
+        model = PushDeviceToken
+        fields = ["token", "platform"]
+
+    def validate_token(self, value):
+        token = value.strip()
+        if not token.startswith(("ExpoPushToken[", "ExponentPushToken[")) or not token.endswith("]"):
+            raise serializers.ValidationError("A valid Expo push token is required.")
+        return token
+
+    def validate_platform(self, value):
+        return value.lower()
+
+
+class PushDeviceTokenUnregisterSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=255, validators=[])
+
+    def validate_token(self, value):
+        token = value.strip()
+        if not token.startswith(("ExpoPushToken[", "ExponentPushToken[")) or not token.endswith("]"):
+            raise serializers.ValidationError("A valid Expo push token is required.")
+        return token
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification

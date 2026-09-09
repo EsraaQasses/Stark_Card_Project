@@ -25,6 +25,31 @@ class Notification(models.Model):
         return f"[{self.recipient}] {self.title}"
 
 
+class PushDeviceToken(models.Model):
+    PLATFORM_ANDROID = "android"
+    PLATFORM_IOS = "ios"
+    PLATFORM_CHOICES = (
+        (PLATFORM_ANDROID, "Android"),
+        (PLATFORM_IOS, "iOS"),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="push_device_tokens")
+    token = models.CharField(max_length=255, unique=True)
+    platform = models.CharField(max_length=10, choices=PLATFORM_CHOICES)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} / {self.platform} / {self.token}"
+
+
 #--------------الإعلانات---------------
 TEXT_COLOR_CHOICES = (
     ('white', 'أبيض'),

@@ -1,6 +1,6 @@
 # In admin.py
 from django.contrib import admin
-from .models import Ad, Notification, LastAction, SystemLog
+from .models import Ad, Notification, LastAction, PushDeviceToken, SystemLog
 
 @admin.register(Ad)
 class AdAdmin(admin.ModelAdmin):
@@ -33,6 +33,14 @@ class NotificationAdmin(admin.ModelAdmin):
     list_display = ['title', 'recipient', 'is_read', 'created_at']
     list_filter = ['is_read', 'created_at']
     search_fields = ['title', 'message', 'recipient__email']
+
+
+@admin.register(PushDeviceToken)
+class PushDeviceTokenAdmin(admin.ModelAdmin):
+    list_display = ['user', 'platform', 'is_active', 'updated_at']
+    list_filter = ['platform', 'is_active', 'updated_at']
+    search_fields = ['user__email', 'token']
+    readonly_fields = ['created_at', 'updated_at']
 
 @admin.register(LastAction)
 class LastActionAdmin(admin.ModelAdmin):

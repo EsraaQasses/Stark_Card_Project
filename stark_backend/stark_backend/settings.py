@@ -102,6 +102,7 @@ def validate_secret_value(name, value, minimum_length=32):
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env_value('SECRET_KEY', required=True)
 THIRD_PARTY_API_FERNET_KEY = env_value('THIRD_PARTY_API_FERNET_KEY', required=True)
+EXPO_ACCESS_TOKEN = env_value('EXPO_ACCESS_TOKEN', default='')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', default=(DJANGO_ENV == "development"))

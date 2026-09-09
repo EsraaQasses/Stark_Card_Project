@@ -1,11 +1,13 @@
 from rest_framework import viewsets, generics
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.db import transaction
 
 from system.models import Notification
 from .models import PaymentMethod
 from .serializers import PaymentMethodSerializer, PaymentMethodCreateSerializer, PaymentMethodFieldSerializer
 from users.permissions import IsAdminUser, IsRegularUser
 from users.models import User
+from system.services.push_notifications import send_push_to_user
 
 class PaymentMethodAdminViewSet(viewsets.ModelViewSet):
     queryset = PaymentMethod.objects.all()
@@ -32,6 +34,17 @@ class PaymentMethodAdminViewSet(viewsets.ModelViewSet):
             for u in users
         ]
         Notification.objects.bulk_create(notifications, ignore_conflicts=True)
+        # bulk_create does not emit post_save signals, so dispatch these pushes explicitly.
+        for notification in notifications:
+            transaction.on_commit(
+                lambda notification=notification: send_push_to_user(
+                    user_id=notification.recipient_id,
+                    title=notification.title,
+                    body=notification.message,
+                    data={"notification_id": notification.id, "type": notification.type},
+                    notification_id=notification.id,
+                )
+            )
         # ✅ إضافة إشعار بعد تعديل وسيلة دفع
     def perform_update(self, serializer):
         serializer.save()

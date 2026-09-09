@@ -4,8 +4,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from .models import Ad, LastAction, Notification, SystemLog
-from .serializers import AdSerializer, LastActionSerializer, NotificationSerializer, SystemLogSerializer
+from .models import Ad, LastAction, Notification, PushDeviceToken, SystemLog
+from .serializers import (
+    AdSerializer,
+    LastActionSerializer,
+    NotificationSerializer,
+    PushDeviceTokenSerializer,
+    PushDeviceTokenUnregisterSerializer,
+    SystemLogSerializer,
+)
 from users.permissions import IsAdminUser
 from system.models import log_admin_action
 
@@ -25,7 +32,10 @@ class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
         return Notification.objects.filter(recipient=self.request.user).order_by('-created_at', '-id')
 
     def perform_update(self, serializer):
-        serializer.save(is_read=bool(serializer.validated_data.get("is_read", False)))
+        if "is_read" in serializer.validated_data:
+            serializer.save(is_read=serializer.validated_data["is_read"])
+        else:
+            serializer.save()
 
     @action(detail=False, methods=["get"], url_path="unread-count")
     def unread_count(self, request):
@@ -36,6 +46,48 @@ class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
     def mark_all_read(self, request):
         updated = Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
         return Response({"updated": updated})
+
+
+class PushTokenRegisterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PushDeviceTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data["token"]
+        platform = serializer.validated_data["platform"]
+
+        device, created = PushDeviceToken.objects.update_or_create(
+            token=token,
+            defaults={
+                "user": request.user,
+                "platform": platform,
+                "is_active": True,
+            },
+        )
+        return Response(
+            {
+                "registered": True,
+                "created": created,
+                "token": device.token,
+                "platform": device.platform,
+                "is_active": device.is_active,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class PushTokenUnregisterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PushDeviceTokenUnregisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updated = PushDeviceToken.objects.filter(
+            user=request.user,
+            token=serializer.validated_data["token"],
+        ).update(is_active=False)
+        return Response({"unregistered": True, "updated": updated})
 
 
 # تحكم بالإعلانات (للأدمن فقط)
