@@ -50,16 +50,16 @@ class Payment(models.Model):
     store_product = models.ForeignKey('store.StoreProduct', on_delete=models.CASCADE, related_name='payments')
     
     # Payment details
-    base_price = models.DecimalField(max_digits=10, decimal_places=2)
+    base_price = models.DecimalField(max_digits=24, decimal_places=12)
     profit_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    final_price = models.DecimalField(max_digits=10, decimal_places=2)
+    final_price = models.DecimalField(max_digits=24, decimal_places=12)
     currency = models.CharField(
         max_length=3,
         choices=(("USD", "US Dollar"), ("SYP", "Syrian Pound")),
         default="USD"
     )
-    amount_usd = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
-    amount_syp = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    amount_usd = models.DecimalField(max_digits=24, decimal_places=12, null=True, blank=True)
+    amount_syp = models.DecimalField(max_digits=24, decimal_places=12, null=True, blank=True)
     exchange_rate_used = models.DecimalField(max_digits=16, decimal_places=6, null=True, blank=True)
     exchange_rate_quote = models.ForeignKey(
         'wallets.ExchangeRateQuote', on_delete=models.PROTECT,
@@ -74,9 +74,9 @@ class Payment(models.Model):
         ),
         null=True, blank=True,
     )
-    source_amount = models.DecimalField(max_digits=20, decimal_places=8, null=True, blank=True)
+    source_amount = models.DecimalField(max_digits=24, decimal_places=12, null=True, blank=True)
     source_currency = models.CharField(max_length=3, null=True, blank=True)
-    target_amount = models.DecimalField(max_digits=20, decimal_places=8, null=True, blank=True)
+    target_amount = models.DecimalField(max_digits=24, decimal_places=12, null=True, blank=True)
     target_currency = models.CharField(max_length=3, null=True, blank=True)
     rounding_mode = models.CharField(max_length=64, null=True, blank=True)
     operation_context = models.JSONField(default=dict, blank=True)

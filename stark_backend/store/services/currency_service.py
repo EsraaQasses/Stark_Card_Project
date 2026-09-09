@@ -156,7 +156,7 @@ class CurrencyService:
         if min_amount_decimal <= 0:
             return Decimal('0')
         
-        return (min_price_decimal / min_amount_decimal).quantize(Decimal('0.00000001'))
+        return (min_price_decimal / min_amount_decimal).quantize(Decimal('0.000000000001'))
     
     @staticmethod
     def calculate_amount_based_price(amount, price_per_unit, min_amount=None, max_amount=None):
@@ -191,4 +191,4 @@ class CurrencyService:
             if amount_decimal > max_amount_decimal:
                 raise ValueError(f"Amount must be at most {max_amount}")
         
-        return (amount_decimal * price_per_unit_decimal).quantize(Decimal('0.00000001'))
+        return (amount_decimal * price_per_unit_decimal).quantize(Decimal('0.000000000001'))

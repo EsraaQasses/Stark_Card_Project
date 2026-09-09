@@ -13,10 +13,10 @@ from wallets.rate_quotes import ExchangeRateQuoteService
 from agents.services.commission_policy import CommissionPolicy, EffectiveCommissionRate
 
 
-PRICING_POLICY_VERSION = "1.5"
+PRICING_POLICY_VERSION = "1.6"
 ZERO = Decimal("0")
 PERCENT = Decimal("100")
-PRICE_QUANTUM = Decimal("0.00000001")
+PRICE_QUANTUM = Decimal("0.000000000001")
 
 
 @dataclass(frozen=True)

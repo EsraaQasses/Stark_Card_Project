@@ -58,8 +58,8 @@ class PaymentSerializer(serializers.ModelSerializer):
     store_product_name = serializers.CharField(source='store_product.name', read_only=True)
     store_product_price = serializers.DecimalField(
         source='store_product.price', 
-        max_digits=10, 
-        decimal_places=2, 
+        max_digits=24, 
+        decimal_places=12, 
         read_only=True
     )
     store_product_currency = serializers.CharField(source='store_product.currency', read_only=True)

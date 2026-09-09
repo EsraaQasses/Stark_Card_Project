@@ -206,8 +206,8 @@ class Product(models.Model):
     )
     
     base_price = models.DecimalField(
-        max_digits=20, 
-        decimal_places=8,
+        max_digits=24, 
+        decimal_places=12,
         verbose_name="Base Price",
         help_text="Price per unit for amount-based and customization-based products."
     )
@@ -567,8 +567,8 @@ class ExternalProduct(models.Model):
     description = models.TextField(blank=True, null=True, verbose_name="Description")
     
     base_price = models.DecimalField(
-        max_digits=20, 
-        decimal_places=8,
+        max_digits=24, 
+        decimal_places=12,
         verbose_name="Base Price",
         help_text="Price from the external API"
     )
@@ -679,8 +679,8 @@ class StoreProduct(models.Model):
     )
     
     price = models.DecimalField(
-        max_digits=20, 
-        decimal_places=8,
+        max_digits=24, 
+        decimal_places=12,
         verbose_name="Price",
         help_text="Custom price for this product"
     )
