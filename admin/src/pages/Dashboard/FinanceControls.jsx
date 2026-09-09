@@ -5,6 +5,8 @@ import React, {
   useState,
 } from 'react';
 
+import FinanceReportCharts from '../../components/FinanceReportCharts';
+
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -3120,6 +3122,17 @@ const FinanceControls = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Financial Charts */}
+
+                <FinanceReportCharts
+                  report={report}
+                  locale={locale}
+                  accentColor={accentColor}
+                  isArabic={isArabic}
+                  metricLabel={metricLabel}
+                  statusLabel={statusLabel}
+                />
 
                 {/* Accounting Totals */}
 

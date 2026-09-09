@@ -439,8 +439,7 @@ const AddProduct = () => {
       name_ar: selected.name || previous.name_ar,
       description_en: selected.description || previous.description_en,
       description_ar: selected.description || previous.description_ar,
-      base_price: Number(selected.base_price || previous.base_price || 0),
-      customization_options: (
+      base_price: selected.base_price ?? previous.base_price ?? '0',      customization_options: (
         providerOptions
         || previous.customization_options
       ),
@@ -921,7 +920,7 @@ const AddProduct = () => {
                     </span>
                     <input
                       type="number"
-                      step="0.0001"
+                      step="0.000000000001"
                       min="0"
                       value={newProduct.base_price}
                       onChange={(event) => updateProduct('base_price', event.target.value)}

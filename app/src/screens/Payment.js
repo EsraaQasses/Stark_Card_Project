@@ -1055,7 +1055,7 @@ export default function Payment({ route, navigation }) {
     )
       ? +(
           +backendTotalRaw
-        ).toFixed(4)
+        ).toFixed(12)
       : 0;
 
   const currency =
@@ -1076,7 +1076,7 @@ export default function Payment({ route, navigation }) {
         ? +(
             total /
             safeQty
-          ).toFixed(4)
+          ).toFixed(12)
         : total
       : 0;
 

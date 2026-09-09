@@ -454,7 +454,7 @@ const ProductsPage = () => {
       external_product: product.external_product || '',
       product_type: product.product_type || 'amount_based',
       currency: product.currency || 'USD',
-      base_price: Number(product.base_price || 0),
+      base_price: product.base_price ?? '0',
       min_amount: Number(product.min_amount || 0),
       max_amount: Number(product.max_amount || 0),
       min_amount_price: Number(product.min_amount_price || 0),
@@ -591,7 +591,7 @@ const ProductsPage = () => {
       name_ar: externalProduct.name || previous.name_ar,
       description_en: externalProduct.description || previous.description_en,
       description_ar: externalProduct.description || previous.description_ar,
-      base_price: Number(externalProduct.base_price || previous.base_price || 0),
+      base_price: externalProduct.base_price ?? previous.base_price ?? '0',
       requirements: mappedRequirements.length
         ? mappedRequirements
         : previous.requirements,
@@ -1460,7 +1460,7 @@ const ProductsPage = () => {
                     </span>
                     <input
                       type="number"
-                      step="0.0001"
+                      step="0.000000000001"
                       min="0"
                       value={newProduct.base_price}
                       onChange={(event) => setNewProduct((previous) => ({
