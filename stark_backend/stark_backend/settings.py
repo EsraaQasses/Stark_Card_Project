@@ -257,7 +257,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/day",
-        "user": "1000/day",
+        "user": "3000/hour",
         "password_reset_request": "10/hour",
         "password_reset_verify": "30/hour",
         "password_reset_resend": "10/hour",
