@@ -205,6 +205,7 @@ const ProductsPage = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   const fetchData = useCallback(async ({
     background = false,
@@ -261,11 +262,35 @@ const ProductsPage = () => {
     try {
       const response = await axiosInstance.get(
         'store/admin/products/',
+        {
+          params: {
+            page: currentPage,
+            page_size: pageSize,
+            search: searchQuery || undefined,
+            section_id:
+              filters.section !== 'All'
+                ? filters.section
+                : undefined,
+            is_active:
+              filters.status === 'Active'
+                ? true
+                : filters.status === 'Inactive'
+                  ? false
+                  : undefined,
+            currency:
+              filters.currency !== 'All'
+                ? filters.currency
+                : undefined,
+            product_type:
+              filters.product_type !== 'All'
+                ? filters.product_type
+                : undefined,
+          },
+        },
       );
 
-      setProducts(
-        normalizeList(response.data),
-      );
+      setProducts(normalizeList(response.data));
+      setTotalProducts(Number(response.data?.count ?? 0));
     } catch (fetchError) {
       setProducts([]);
 
@@ -278,7 +303,13 @@ const ProductsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [labels.loadFailed]);
+  }, [
+    currentPage,
+    filters,
+    labels.loadFailed,
+    pageSize,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     fetchData();
@@ -289,7 +320,7 @@ const ProductsPage = () => {
   }, [filters, pageSize, searchQuery]);
 
   const stats = useMemo(() => ({
-    total: products.length,
+    total: totalProducts,
     active: products.filter((item) => item.is_active).length,
     usd: products.filter((item) => item.currency === 'USD').length,
     syp: products.filter((item) => item.currency === 'SYP').length,
@@ -299,7 +330,7 @@ const ProductsPage = () => {
     customization: products.filter(
       (item) => item.product_type === 'customization_based',
     ).length,
-  }), [products]);
+  }), [products, totalProducts]);
 
   const filteredProducts = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
@@ -381,7 +412,7 @@ const ProductsPage = () => {
     return copy;
   }, [filteredProducts, isArabic, sortBy, sortOrder]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize));
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -389,10 +420,7 @@ const ProductsPage = () => {
     }
   }, [currentPage, totalPages]);
 
-  const paginatedProducts = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sortedProducts.slice(start, start + pageSize);
-  }, [currentPage, pageSize, sortedProducts]);
+  const paginatedProducts = sortedProducts;
 
   const getImageUrl = (image) => {
     if (!image) {
@@ -1246,8 +1274,8 @@ const ProductsPage = () => {
               <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs font-bold text-slate-400">
                   {isArabic
-                    ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min(currentPage * pageSize, sortedProducts.length)} من ${sortedProducts.length}`
-                    : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, sortedProducts.length)} of ${sortedProducts.length}`}
+                    ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min((currentPage - 1) * pageSize + paginatedProducts.length, totalProducts)} من ${totalProducts}`
+                    : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min((currentPage - 1) * pageSize + paginatedProducts.length, totalProducts)} of ${totalProducts}`}
                 </p>
 
                 <div className="flex items-center gap-2">
