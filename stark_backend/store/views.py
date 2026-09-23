@@ -609,7 +609,6 @@ class UserProductPagination(PageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 50
 
-
 class UserProductListView(viewsets.ReadOnlyModelViewSet):
     """
     User view for browsing products.
@@ -617,17 +616,18 @@ class UserProductListView(viewsets.ReadOnlyModelViewSet):
     """
     permission_classes = [IsRegularUser]
     serializer_class = UserProductSerializer
+
     pagination_class = UserProductPagination
 
     def paginate_queryset(self, queryset):
-        if (
-            "page" not in self.request.query_params
-            and "page_size" not in self.request.query_params
-        ):
-            return None
+      if (
+        "page" not in self.request.query_params
+        and "page_size" not in self.request.query_params
+      ):
+        return None
 
-        return super().paginate_queryset(queryset)
-    
+      return super().paginate_queryset(queryset)
+
     def get_queryset(self):
         """
         Get products with efficient filtering.
@@ -1553,6 +1553,11 @@ class PurchaseViewSet(viewsets.ViewSet):
         serializer = PurchaseSerializer(data=request.data)
         
         if not serializer.is_valid():
+            logger.warning(
+                "[Purchase Validation FAILED] data=%s errors=%s",
+                request.data,
+                serializer.errors,
+            )
             payload = {
                 "success": False,
                 "error": "Validation failed",
@@ -1565,7 +1570,7 @@ class PurchaseViewSet(viewsets.ViewSet):
                 payload,
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         store_product_id = serializer.validated_data['store_product_id']
         user_inputs = serializer.validated_data['user_inputs']
         wallet_currency = serializer.validated_data.get('wallet_currency')
