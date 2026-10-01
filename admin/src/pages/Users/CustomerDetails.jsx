@@ -34,8 +34,11 @@ import {
   FiRefreshCw,
   FiShield,
   FiShoppingBag,
+  FiTrash2,
   FiTruck,
   FiUser,
+  FiUserCheck,
+  FiUserX,
   FiUsers,
   FiX,
 } from 'react-icons/fi';
@@ -530,6 +533,37 @@ const CustomerDetails = () => {
     assignedAt: isArabic ? 'تاريخ التعيين' : 'Assigned at',
     assignedBy: isArabic ? 'تم التعيين بواسطة' : 'Assigned by',
     notes: isArabic ? 'الملاحظات' : 'Notes',
+
+    accountActions: isArabic ? 'إدارة الحساب' : 'Account Management',
+    accountActionsHint: isArabic
+      ? 'يمكنك تفعيل أو تعطيل الحساب، حظره أو فك الحظر عنه، أو حذفه نهائياً.'
+      : 'Activate or deactivate the account, ban or unban it, or permanently delete it.',
+    activateAccount: isArabic ? 'تفعيل الحساب' : 'Activate account',
+    deactivateAccount: isArabic ? 'تعطيل الحساب' : 'Deactivate account',
+    banAccount: isArabic ? 'حظر الحساب' : 'Ban account',
+    unbanAccount: isArabic ? 'فك حظر الحساب' : 'Unban account',
+    deleteAccount: isArabic ? 'حذف الحساب' : 'Delete account',
+    actionWorking: isArabic ? 'جاري التنفيذ...' : 'Working...',
+    actionFailed: isArabic ? 'تعذر تنفيذ الإجراء.' : 'Failed to perform the action.',
+    activatedSuccess: isArabic ? 'تم تفعيل الحساب بنجاح.' : 'Account activated successfully.',
+    deactivatedSuccess: isArabic ? 'تم تعطيل الحساب بنجاح.' : 'Account deactivated successfully.',
+    bannedSuccess: isArabic ? 'تم حظر الحساب بنجاح.' : 'Account banned successfully.',
+    unbannedSuccess: isArabic ? 'تم فك حظر الحساب بنجاح.' : 'Account unbanned successfully.',
+    confirmActivate: isArabic
+      ? 'هل أنت متأكد من تفعيل هذا الحساب؟'
+      : 'Are you sure you want to activate this account?',
+    confirmDeactivate: isArabic
+      ? 'هل أنت متأكد من تعطيل هذا الحساب؟ لن يتمكن المستخدم من استخدام الحساب حتى إعادة تفعيله.'
+      : 'Are you sure you want to deactivate this account? The user will not be able to use it until it is activated again.',
+    confirmBan: isArabic
+      ? 'هل أنت متأكد من حظر هذا الحساب؟'
+      : 'Are you sure you want to ban this account?',
+    confirmUnban: isArabic
+      ? 'هل أنت متأكد من فك الحظر عن هذا الحساب؟'
+      : 'Are you sure you want to unban this account?',
+    confirmDelete: isArabic
+      ? 'تحذير: سيتم حذف الحساب نهائياً. هذا الإجراء لا يمكن التراجع عنه. هل تريد المتابعة؟'
+      : 'Warning: this account will be permanently deleted. This action cannot be undone. Continue?',
   }), [isArabic]);
 
   const [aggregate, setAggregate] = useState(null);
@@ -546,6 +580,7 @@ const CustomerDetails = () => {
   });
   const [adjustmentError, setAdjustmentError] = useState('');
   const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
+  const [accountActionLoading, setAccountActionLoading] = useState('');
 
   const customer = aggregate?.profile || null;
   const wallets = aggregate?.wallets || [];
@@ -613,6 +648,63 @@ const CustomerDetails = () => {
   useEffect(() => {
     loadCustomer();
   }, [loadCustomer]);
+
+  const runAccountAction = async (action) => {
+    if (!customer || accountActionLoading) {
+      return;
+    }
+
+    const confirmMessages = {
+      activate: labels.confirmActivate,
+      deactivate: labels.confirmDeactivate,
+      ban: labels.confirmBan,
+      unban: labels.confirmUnban,
+      delete: labels.confirmDelete,
+    };
+
+    if (!window.confirm(confirmMessages[action] || 'Confirm action?')) {
+      return;
+    }
+
+    setAccountActionLoading(action);
+    setNotice(null);
+
+    try {
+      if (action === 'delete') {
+        await axiosInstance.delete(`/users/delete/${customerId}/`);
+        navigate('/customers', { replace: true });
+        return;
+      }
+
+      await axiosInstance.post(
+        `/users/admin/customers/${customerId}/${action}/`,
+        {
+          reason: `Admin action from customer profile: ${action}`,
+        },
+      );
+
+      const successMessages = {
+        activate: labels.activatedSuccess,
+        deactivate: labels.deactivatedSuccess,
+        ban: labels.bannedSuccess,
+        unban: labels.unbannedSuccess,
+      };
+
+      setNotice({
+        type: 'success',
+        message: successMessages[action] || labels.activatedSuccess,
+      });
+
+      await loadCustomer({ background: true });
+    } catch (actionError) {
+      setNotice({
+        type: 'error',
+        message: getApiError(actionError, labels.actionFailed),
+      });
+    } finally {
+      setAccountActionLoading('');
+    }
+  };
 
   const formatDate = useCallback(
     (value) => {
@@ -1493,6 +1585,96 @@ const CustomerDetails = () => {
                   icon={<FiClipboard />}
                   accentColor={accentColor}
                 />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[24px] border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="text-start">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="flex h-9 w-9 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${accentColor}14`,
+                      color: accentColor,
+                    }}
+                  >
+                    <FiShield />
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-black text-slate-900 dark:text-white md:text-base">
+                      {labels.accountActions}
+                    </h2>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-400">
+                      {labels.accountActionsHint}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[560px]">
+                <button
+                  type="button"
+                  disabled={Boolean(accountActionLoading)}
+                  onClick={() => runAccountAction(
+                    customer.is_active ? 'deactivate' : 'activate',
+                  )}
+                  className={`
+                    flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-black transition
+                    disabled:cursor-not-allowed disabled:opacity-50
+                    ${customer.is_active
+                      ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300'}
+                  `}
+                >
+                  {accountActionLoading === (customer.is_active ? 'deactivate' : 'activate')
+                    ? <FiRefreshCw className="animate-spin" />
+                    : (customer.is_active ? <FiUserX /> : <FiUserCheck />)}
+                  {accountActionLoading === (customer.is_active ? 'deactivate' : 'activate')
+                    ? labels.actionWorking
+                    : (customer.is_active
+                      ? labels.deactivateAccount
+                      : labels.activateAccount)}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={Boolean(accountActionLoading)}
+                  onClick={() => runAccountAction(
+                    customer.is_banned ? 'unban' : 'ban',
+                  )}
+                  className={`
+                    flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-black transition
+                    disabled:cursor-not-allowed disabled:opacity-50
+                    ${customer.is_banned
+                      ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-300'
+                      : 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-300'}
+                  `}
+                >
+                  {accountActionLoading === (customer.is_banned ? 'unban' : 'ban')
+                    ? <FiRefreshCw className="animate-spin" />
+                    : (customer.is_banned ? <FiCheck /> : <FiShield />)}
+                  {accountActionLoading === (customer.is_banned ? 'unban' : 'ban')
+                    ? labels.actionWorking
+                    : (customer.is_banned
+                      ? labels.unbanAccount
+                      : labels.banAccount)}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={Boolean(accountActionLoading)}
+                  onClick={() => runAccountAction('delete')}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                >
+                  {accountActionLoading === 'delete'
+                    ? <FiRefreshCw className="animate-spin" />
+                    : <FiTrash2 />}
+                  {accountActionLoading === 'delete'
+                    ? labels.actionWorking
+                    : labels.deleteAccount}
+                </button>
               </div>
             </div>
           </section>
