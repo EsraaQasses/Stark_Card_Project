@@ -16,6 +16,8 @@ import {
   FiKey,
   FiLink,
   FiPackage,
+  FiPower,
+  FiTrash2,
   FiPlus,
   FiRefreshCw,
   FiSearch,
@@ -199,6 +201,9 @@ const ApiCard = ({
   onSync,
   onLogs,
   onChangeToken,
+  onToggle,
+  onDelete,
+  updating,
 }) => {
   const providerName = getProviderName(api.provider, isArabic);
 
@@ -239,14 +244,6 @@ const ApiCard = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge active={Boolean(api.is_active)} isArabic={isArabic} />
-            <ConnectionBadge
-              connected={Boolean(api.is_connected)}
-              isArabic={isArabic}
-              accentColor={accentColor}
-            />
-          </div>
         </div>
       </div>
 
@@ -334,6 +331,29 @@ const ApiCard = ({
             {syncing
               ? (isArabic ? 'جاري المزامنة...' : 'Syncing...')
               : (isArabic ? 'مزامنة المنتجات' : 'Sync products')}
+          </button>
+
+          <button
+            type="button"
+            disabled={updating}
+            onClick={onToggle}
+            className="inline-flex min-h-[42px] items-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
+          >
+            <FiPower />
+            {updating
+              ? (isArabic ? 'جاري التحديث...' : 'Updating...')
+              : api.is_active
+                ? (isArabic ? 'تعطيل API' : 'Disable API')
+                : (isArabic ? 'تفعيل API' : 'Enable API')}
+          </button>
+
+          <button
+            type="button"
+            onClick={onDelete}
+            className="inline-flex min-h-[42px] items-center gap-2 rounded-xl border border-red-200 px-4 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400"
+          >
+            <FiTrash2 />
+            {isArabic ? 'حذف API' : 'Delete API'}
           </button>
 
           <button
@@ -734,6 +754,10 @@ const Api = () => {
   const [tokenApi, setTokenApi] = useState(null);
   const [newToken, setNewToken] = useState('');
   const [savingToken, setSavingToken] = useState(false);
+  const [updatingApi, setUpdatingApi] = useState(null);
+  const [deleteApi, setDeleteApi] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deletingApi, setDeletingApi] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [providerFilter, setProviderFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -908,6 +932,67 @@ const Api = () => {
       );
     } finally {
       if (mountedRef.current) setSavingToken(false);
+    }
+  };
+
+  const handleToggleApi = async (api) => {
+    if (updatingApi !== null) return;
+
+    setUpdatingApi(api.id);
+    setNotice(null);
+
+    try {
+      await axiosInstance.patch(`third_party_apis/apis/${api.id}/`, {
+        is_active: !api.is_active,
+      });
+
+      showNotice(
+        'success',
+        isArabic ? 'تم تحديث حالة المزوّد.' : 'API status updated.',
+      );
+
+      await fetchApis({ background: true });
+    } catch (error) {
+      showNotice(
+        'error',
+        isArabic ? 'فشل تحديث حالة المزوّد.' : 'Failed to update API status.',
+        getApiError(error, 'Update failed'),
+      );
+    } finally {
+      if (mountedRef.current) setUpdatingApi(null);
+    }
+  };
+
+  const handleDeleteApi = async (event) => {
+    event.preventDefault();
+
+    if (!deleteApi || deletingApi || deleteConfirm !== deleteApi.name) return;
+
+    setDeletingApi(true);
+    setNotice(null);
+
+    try {
+      await axiosInstance.delete(`third_party_apis/apis/${deleteApi.id}/`);
+
+      setDeleteApi(null);
+      setDeleteConfirm('');
+
+      showNotice(
+        'success',
+        isArabic ? 'تم حذف المزوّد.' : 'API deleted.',
+      );
+
+      await fetchApis({ background: true });
+    } catch (error) {
+      showNotice(
+        'error',
+        isArabic
+          ? 'تعذر الحذف. قد يكون المزوّد مرتبطاً بمنتجات أو معاملات.'
+          : 'Cannot delete an API with linked records.',
+        getApiError(error, 'Delete failed'),
+      );
+    } finally {
+      if (mountedRef.current) setDeletingApi(false);
     }
   };
 
@@ -1345,6 +1430,12 @@ const Api = () => {
                   onTest={() => handleTestConnection(api)}
                   onSync={() => handleSyncProducts(api)}
                   onLogs={() => openLogs(api)}
+                  updating={updatingApi === api.id}
+                  onToggle={() => handleToggleApi(api)}
+                  onDelete={() => {
+                    setDeleteConfirm('');
+                    setDeleteApi(api);
+                  }}
                   onChangeToken={() => {
                     setNewToken('');
                     setTokenApi(api);
@@ -1402,6 +1493,67 @@ const Api = () => {
               {savingToken
                 ? (isArabic ? 'جاري الحفظ...' : 'Saving...')
                 : (isArabic ? 'حفظ التوكن' : 'Save token')}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      <ModalShell
+        open={Boolean(deleteApi)}
+        title={isArabic ? 'تأكيد حذف API' : 'Confirm API deletion'}
+        subtitle={deleteApi?.name || ''}
+        onClose={() => {
+          if (!deletingApi) {
+            setDeleteApi(null);
+            setDeleteConfirm('');
+          }
+        }}
+        busy={deletingApi}
+        accentColor={accentColor}
+      >
+        <form onSubmit={handleDeleteApi} className="space-y-4">
+          <p className="text-sm font-semibold text-red-600">
+            {isArabic
+              ? 'الحذف نهائي. إذا كان المزوّد مرتبطاً بمنتجات أو سجلات، سيتم رفض الحذف لحماية البيانات.'
+              : 'Deletion is permanent. Linked records prevent deletion.'}
+          </p>
+
+          <label className="block">
+            <FieldLabel>
+              {isArabic ? 'اكتب اسم المزوّد للتأكيد' : 'Type API name to confirm'}
+            </FieldLabel>
+            <input
+              type="text"
+              value={deleteConfirm}
+              onChange={(event) => setDeleteConfirm(event.target.value)}
+              placeholder={deleteApi?.name || ''}
+              className={fieldClassName}
+              autoComplete="off"
+              required
+            />
+          </label>
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={deletingApi}
+              onClick={() => {
+                setDeleteApi(null);
+                setDeleteConfirm('');
+              }}
+              className="rounded-xl border border-slate-200 px-5 py-2.5 font-bold dark:border-slate-700"
+            >
+              {isArabic ? 'إلغاء' : 'Cancel'}
+            </button>
+
+            <button
+              type="submit"
+              disabled={deletingApi || deleteConfirm !== deleteApi?.name}
+              className="rounded-xl bg-red-600 px-5 py-2.5 font-bold text-white disabled:opacity-40"
+            >
+              {deletingApi
+                ? (isArabic ? 'جاري الحذف...' : 'Deleting...')
+                : (isArabic ? 'تأكيد الحذف' : 'Confirm delete')}
             </button>
           </div>
         </form>
