@@ -45,11 +45,16 @@ class ThirdPartyAPICreateSerializer(ThirdPartyAPISerializer):
     
     def update(self, instance, validated_data):
         api_key = validated_data.pop('api_key', None)
-        instance = super().update(instance, validated_data)
-        if api_key is not None:
-            instance.set_api_key(api_key or None)
-            instance.save()
-        return instance
+
+        if api_key is not None and api_key.strip():
+            try:
+                instance.set_api_key(api_key)
+            except ValueError:
+                raise serializers.ValidationError({
+                    "api_key": "Unable to securely save the new API token."
+                })
+
+        return super().update(instance, validated_data)
 
 class APITransactionSerializer(serializers.ModelSerializer):
     api_name = serializers.CharField(source='api_config.name', read_only=True)

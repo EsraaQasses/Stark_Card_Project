@@ -49,10 +49,14 @@ class ThirdPartyAPI(models.Model):
         return f"{self.name} ({self.provider})"
     
     def set_api_key(self, plain_api_key: str):
-        if plain_api_key is None:
-            self.encrypted_api_key = None
-        else:
-            self.encrypted_api_key = encrypt_text(plain_api_key)
+        if not isinstance(plain_api_key, str) or not plain_api_key.strip():
+            raise ValueError("A non-empty API token is required.")
+
+        encrypted = encrypt_text(plain_api_key.strip())
+        if not encrypted:
+            raise ValueError("API token encryption failed.")
+
+        self.encrypted_api_key = encrypted
     
     def get_api_key(self) -> str | None:
         if not self.encrypted_api_key:

@@ -708,45 +708,36 @@ class APIService:
     
     @staticmethod
     def test_api_connection(api_id: int) -> Dict[str, Any]:
-        """Test connection to a specific API with detailed info"""
+        """Test provider authentication without making purchases."""
         try:
             api_config = ThirdPartyAPI.objects.get(id=api_id)
             connector = ConnectorFactory.get_connector(api_config)
-            
-            # Test balance endpoint
-            balance_result = connector.get_balance()
-            balance_success = balance_result.get('success', False)
-            balance_data = balance_result.get('data', {})
-            
-            # Test products endpoint
-            products_result = connector.get_products()
-            products_success = products_result is not None
-            products_count = len(products_result) if products_result else 0
-            
-            is_connected = balance_success and products_success
-            
+
+            connected = bool(connector.test_connection())
+
             return {
-                'success': True,
-                'connected': is_connected,
-                'api_name': api_config.name,
-                'provider': api_config.provider,
-                'balance_test': {
-                    'success': balance_success,
-                    'balance': balance_data.get('balance') if balance_success else None,
-                    'error': balance_result.get('error') if not balance_success else None
-                },
-                'products_test': {
-                    'success': products_success,
-                    'products_count': products_count
-                },
-                'details': f"Balance: {'OK' if balance_success else 'FAIL'}, Products: {products_count} found"
+                "success": connected,
+                "connected": connected,
+                "api_name": api_config.name,
+                "provider": api_config.provider,
+                "details": (
+                    "Provider authentication succeeded"
+                    if connected
+                    else "Provider authentication failed"
+                ),
             }
-        except Exception as e:
-            logger.error(f"Connection test failed for API {api_id}: {e}")
+        except ThirdPartyAPI.DoesNotExist:
             return {
-                'success': False,
-                'connected': False,
-                'error': str(e)
+                "success": False,
+                "connected": False,
+                "error": "API configuration not found",
+            }
+        except Exception:
+            logger.exception("Connection test failed for API %s", api_id)
+            return {
+                "success": False,
+                "connected": False,
+                "error": "Provider connection test failed",
             }
 
     @staticmethod

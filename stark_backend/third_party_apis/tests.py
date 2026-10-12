@@ -61,8 +61,7 @@ class APIConnectionTests(TestCase):
         )
 
         dummy_connector = MagicMock()
-        dummy_connector.get_balance.return_value = {"success": True, "data": {"balance": 100}}
-        dummy_connector.get_products.return_value = [{"external_id": "1"}]
+        dummy_connector.test_connection.return_value = True
 
         with patch("third_party_apis.services.api_service.ConnectorFactory.get_connector", return_value=dummy_connector):
             result = APIService.test_api_connection(api.id)
@@ -79,8 +78,7 @@ class APIConnectionTests(TestCase):
         )
 
         dummy_connector = MagicMock()
-        dummy_connector.get_balance.return_value = {"success": True, "data": {"balance": 200}}
-        dummy_connector.get_products.return_value = [{"external_id": "2"}]
+        dummy_connector.test_connection.return_value = True
 
         with patch("third_party_apis.services.api_service.ConnectorFactory.get_connector", return_value=dummy_connector):
             result = APIService.test_api_connection(api.id)
