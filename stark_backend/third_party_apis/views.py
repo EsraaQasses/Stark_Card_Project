@@ -31,6 +31,31 @@ class ThirdPartyAPIViewSet(viewsets.ModelViewSet):
             return ThirdPartyAPICreateSerializer
         return ThirdPartyAPISerializer
     
+    def destroy(self, request, *args, **kwargs):
+        api = self.get_object()
+
+        from store.models import Product, ExternalProduct
+        from .models import ProductSyncRun
+
+        linked = {
+            "products": Product.objects.filter(api_config=api).exists(),
+            "external_products": ExternalProduct.objects.filter(api_config=api).exists(),
+            "transactions": api.transactions.exists(),
+            "sync_runs": ProductSyncRun.objects.filter(api_config=api).exists(),
+        }
+
+        if any(linked.values()):
+            return Response(
+                {
+                    "error": "Cannot delete API with linked data.",
+                    "linked": linked,
+                    "suggestion": "Disable this API instead.",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=['post'])
     def test_connection(self, request, pk=None):
         """Test connection to external API"""

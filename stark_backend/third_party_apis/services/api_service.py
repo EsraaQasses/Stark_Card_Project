@@ -408,6 +408,13 @@ class APIService:
         """Process payment through external API - FIXED CIRCULAR IMPORT"""
         try:
             api_config = ThirdPartyAPI.objects.get(id=api_id)
+
+            if not api_config.is_active:
+                return {
+                    'success': False,
+                    'error_code': 'API_PROVIDER_DISABLED',
+                    'error': 'External API provider is disabled',
+                }
             
             # Avoid direct import - use apps.get_model
             StoreProduct = apps.get_model('store', 'StoreProduct')
