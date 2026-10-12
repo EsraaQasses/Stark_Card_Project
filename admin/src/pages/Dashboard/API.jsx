@@ -198,6 +198,7 @@ const ApiCard = ({
   onTest,
   onSync,
   onLogs,
+  onChangeToken,
 }) => {
   const providerName = getProviderName(api.provider, isArabic);
 
@@ -306,6 +307,17 @@ const ApiCard = ({
               ? (isArabic ? 'جاري الاختبار...' : 'Testing...')
               : (isArabic ? 'اختبار الاتصال' : 'Test connection')}
           </button>
+
+          {api.provider === 'alaaeddin' && (
+            <button
+              type="button"
+              onClick={onChangeToken}
+              className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <FiKey />
+              {isArabic ? 'تغيير التوكن' : 'Change token'}
+            </button>
+          )}
 
           <button
             type="button"
@@ -719,6 +731,9 @@ const Api = () => {
   const [syncingProducts, setSyncingProducts] = useState(null);
   const [syncingAll, setSyncingAll] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [tokenApi, setTokenApi] = useState(null);
+  const [newToken, setNewToken] = useState('');
+  const [savingToken, setSavingToken] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [providerFilter, setProviderFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -854,6 +869,45 @@ const Api = () => {
       if (mountedRef.current) {
         setAdding(false);
       }
+    }
+  };
+
+  const closeTokenModal = () => {
+    if (savingToken) return;
+    setNewToken('');
+    setTokenApi(null);
+  };
+
+  const handleSaveToken = async (event) => {
+    event.preventDefault();
+    if (!tokenApi || savingToken || !newToken.trim()) return;
+
+    setSavingToken(true);
+    setNotice(null);
+
+    try {
+      await axiosInstance.patch(
+        `third_party_apis/apis/${tokenApi.id}/`,
+        { api_key: newToken.trim() },
+      );
+
+      setNewToken('');
+      setTokenApi(null);
+      showNotice(
+        'success',
+        isArabic
+          ? 'تم تحديث التوكن. استخدم اختبار الاتصال للتحقق من صلاحيته.'
+          : 'Token updated. Use Test connection to verify it.',
+      );
+      await fetchApis({ background: true });
+    } catch (saveError) {
+      showNotice(
+        'error',
+        isArabic ? 'تعذر تحديث التوكن.' : 'Failed to update token.',
+        getApiError(saveError, isArabic ? 'فشل الحفظ.' : 'Save failed.'),
+      );
+    } finally {
+      if (mountedRef.current) setSavingToken(false);
     }
   };
 
@@ -1291,12 +1345,67 @@ const Api = () => {
                   onTest={() => handleTestConnection(api)}
                   onSync={() => handleSyncProducts(api)}
                   onLogs={() => openLogs(api)}
+                  onChangeToken={() => {
+                    setNewToken('');
+                    setTokenApi(api);
+                  }}
                 />
               ))}
             </div>
           )}
         </div>
       </div>
+
+      <ModalShell
+        open={Boolean(tokenApi)}
+        title={isArabic ? 'تغيير توكن علاء الدين' : 'Change Alaaeddin token'}
+        subtitle={tokenApi?.name || ''}
+        onClose={closeTokenModal}
+        busy={savingToken}
+        accentColor={accentColor}
+      >
+        <form onSubmit={handleSaveToken} className="space-y-4">
+          <label className="block">
+            <FieldLabel>
+              {isArabic ? 'التوكن الجديد' : 'New API token'}
+            </FieldLabel>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={newToken}
+              onChange={(event) => setNewToken(event.target.value)}
+              placeholder={isArabic ? 'أدخل التوكن الجديد' : 'Enter new token'}
+              className={fieldClassName}
+              required
+            />
+          </label>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {isArabic
+              ? 'لن يتم إظهار التوكن القديم. بعد الحفظ اختبر الاتصال للتأكد من صلاحية الجديد.'
+              : 'The existing token is never displayed. Test the connection after saving.'}
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              disabled={savingToken}
+              onClick={closeTokenModal}
+              className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold dark:border-slate-700"
+            >
+              {isArabic ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              type="submit"
+              disabled={savingToken || !newToken.trim()}
+              className="rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              style={{ backgroundColor: accentColor }}
+            >
+              {savingToken
+                ? (isArabic ? 'جاري الحفظ...' : 'Saving...')
+                : (isArabic ? 'حفظ التوكن' : 'Save token')}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
 
       <AddApiModal
         open={showAddModal}
