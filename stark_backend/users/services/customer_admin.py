@@ -86,14 +86,34 @@ class CustomerAdministrationService:
     def set_active(cls, actor, user_id, active, reason, request=None):
         cls._require_admin(actor)
         target = cls._target(user_id)
+
         if target.id == actor.id or (target.role == "admin" and not actor.is_superuser):
             raise PermissionDenied("This administrator cannot modify that account.")
+
         previous = target.is_active
+        verified_by_admin = False
+
         target.is_active = bool(active)
         target.save(update_fields=["is_active"])
+
+        if active:
+            identity = target.identities.order_by("id").first()
+
+            if identity and not identity.is_verified:
+                identity.is_verified = True
+                identity.save(update_fields=["is_verified"])
+                verified_by_admin = True
+
+            target.otps.filter(is_used=False).update(is_used=True)
+
         cls._audit(actor, "CUSTOMER_ADMIN_ACTION", target, {
-            "command": "activate" if active else "deactivate", "reason": reason or "", "before": previous, "after": target.is_active,
+            "command": "activate" if active else "deactivate",
+            "reason": reason or "",
+            "before": previous,
+            "after": target.is_active,
+            "verified_by_admin": verified_by_admin,
         }, request)
+
         return target
 
     @classmethod

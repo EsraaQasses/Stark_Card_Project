@@ -122,9 +122,36 @@ class UserAdmin(BaseUserAdmin):
     unban_users.short_description = "Unban selected users"
     
     def activate_users(self, request, queryset):
-        updated = queryset.update(is_active=True)
-        self.message_user(request, f'{updated} users have been activated.')
-    activate_users.short_description = "Activate selected users"
+        activated = 0
+        skipped = 0
+
+        for user in queryset:
+            identity = user.identities.order_by("id").first()
+
+            if not identity:
+                skipped += 1
+                continue
+
+            if not identity.is_verified:
+                identity.is_verified = True
+                identity.save(update_fields=["is_verified"])
+
+            if not user.is_active:
+                user.is_active = True
+                user.save(update_fields=["is_active"])
+
+            user.otps.filter(is_used=False).update(is_used=True)
+
+            activated += 1
+
+        message = f"{activated} users have been verified and activated."
+
+        if skipped:
+            message += f" {skipped} users were skipped because no identity was found."
+
+        self.message_user(request, message)
+
+    activate_users.short_description = "Verify and activate selected users"
     
     def deactivate_users(self, request, queryset):
         updated = queryset.update(is_active=False)
