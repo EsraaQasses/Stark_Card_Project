@@ -12,7 +12,7 @@ from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 
 from transactions.models import Transaction
-
+from wallets.models import Wallet
 
 class ReportPeriodError(ValueError):
     code = "INVALID_REPORT_PERIOD"
@@ -20,6 +20,55 @@ class ReportPeriodError(ValueError):
 
 class FinancialReportService:
     """Build accounting totals without re-converting historical operations."""
+
+    
+    @classmethod
+    def current_negative_balances(cls):
+        """
+        Live snapshot of negative wallet exposure by currency.
+        Pending reservations may be included.
+        """
+        totals = {
+            "USD": Decimal("0"),
+            "SYP": Decimal("0"),
+        }
+        debtor_ids = set()
+        wallet_count = 0
+
+        negative_wallets = (
+            Wallet.objects
+            .filter(
+                currency__in=["USD", "SYP"],
+                available_balance__lt=0,
+                user__role__in=["user", "agent"],
+            )
+            .values(
+                "user_id",
+                "currency",
+                "available_balance",
+            )
+            .iterator()
+        )
+
+        for wallet in negative_wallets:
+            currency = wallet["currency"]
+            balance = Decimal(wallet["available_balance"])
+
+            totals[currency] += abs(balance)
+            debtor_ids.add(wallet["user_id"])
+            wallet_count += 1
+
+        return {
+            "as_of": timezone.now().isoformat(),
+            "amounts": {
+                currency: str(amount.quantize(Decimal("0.00000001")))
+                for currency, amount in totals.items()
+            },
+            "debtor_count": len(debtor_ids),
+            "negative_wallet_count": wallet_count,
+            "includes_pending_reservations": True,
+            "is_confirmed_receivable": False,
+        }
 
     PERIODS = {"daily", "weekly", "monthly", "custom"}
 
@@ -238,12 +287,74 @@ class FinancialReportService:
         }
 
     @classmethod
+    def negative_balances_excluding_pending(cls):
+        """
+        Negative wallet exposure excluding pending outgoing debits.
+        This is an estimate, not a settled accounts-receivable ledger.
+        """
+        from django.db.models import Sum
+
+        wallets = list(
+            Wallet.objects.filter(
+                currency__in=["USD", "SYP"],
+                available_balance__lt=0,
+                user__role__in=["user", "agent"],
+            ).values("id", "user_id", "currency", "available_balance")
+        )
+
+        pending_rows = (
+            Transaction.objects.filter(
+                wallet_id__in=[wallet["id"] for wallet in wallets],
+                status="pending",
+                amount__lt=0,
+            )
+            .values("wallet_id")
+            .annotate(total=Sum("amount"))
+        )
+
+        pending_by_wallet = {
+            row["wallet_id"]: abs(Decimal(row["total"]))
+            for row in pending_rows
+        }
+
+        totals = {"USD": Decimal("0"), "SYP": Decimal("0")}
+        debtor_ids = set()
+
+        for wallet in wallets:
+            available = Decimal(wallet["available_balance"])
+            reserved = pending_by_wallet.get(wallet["id"], Decimal("0"))
+            adjusted_balance = available + reserved
+
+            if adjusted_balance < 0:
+                totals[wallet["currency"]] += abs(adjusted_balance)
+                debtor_ids.add(wallet["user_id"])
+
+        return {
+            "as_of": timezone.now().isoformat(),
+            "amounts": {
+                currency: str(amount.quantize(Decimal("0.00000001")))
+                for currency, amount in totals.items()
+            },
+            "debtor_count": len(debtor_ids),
+            "excludes_pending_debits": True,
+            "is_confirmed_receivable": False,
+        }
+
+    @classmethod
     def build(cls, *, period="daily", anchor=None, start_date=None, end_date=None):
         start, end = cls.boundaries(
             period=period, anchor=anchor, start_date=start_date, end_date=end_date
         )
-        return cls._build_database_report(start, end, period)
+        report = cls._build_database_report(start, end, period)
 
+        report["current_negative_balances"] = (
+            cls.current_negative_balances()
+        )
+        report["negative_balances_excluding_pending"] = (
+            cls.negative_balances_excluding_pending()
+        )
+
+        return report
         rows = Transaction.objects.filter(
             created_at__gte=start.astimezone(dt_timezone.utc),
             created_at__lt=end.astimezone(dt_timezone.utc),

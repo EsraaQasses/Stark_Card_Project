@@ -295,6 +295,63 @@ class CustomerAdministrationService:
         return adjustment
 
     @classmethod
+    @transaction.atomic
+    def set_overdraft_limit(cls, actor, user_id, currency, limit, request=None):
+        """Set one customer's wallet overdraft allowance in its own currency."""
+        cls._require_superuser(actor)
+
+        currency = str(currency or "").strip().upper()
+        if currency not in {"USD", "SYP"}:
+            raise ValidationError("Unsupported currency. Use USD or SYP.")
+
+        try:
+            new_limit = Decimal(str(limit))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValidationError("Invalid overdraft limit.") from exc
+
+        if not new_limit.is_finite():
+            raise ValidationError("Limit must be a finite number.")
+        if new_limit < 0:
+            raise ValidationError("Overdraft limit cannot be negative.")
+        if new_limit.as_tuple().exponent < -8:
+            raise ValidationError("Maximum 8 decimal places allowed.")
+        if new_limit >= Decimal("1000000000000"):
+            raise ValidationError("Overdraft limit exceeds allowed precision.")
+
+        target = cls._target(user_id)
+        if target.role == "admin":
+            raise CustomerAdminError(
+                "Cannot modify an administrator overdraft limit."
+            )
+
+        wallet = Wallet.objects.select_for_update().get(
+            user=target, currency=currency
+        )
+        if wallet.available_balance < -new_limit:
+            raise ValidationError(
+                "New limit cannot be below existing negative balance."
+            )
+
+        old_limit = wallet.overdraft_limit
+        wallet.overdraft_limit = new_limit
+        wallet.full_clean()
+        wallet.save(update_fields=["overdraft_limit", "updated_at"])
+
+        cls._audit(
+            actor,
+            "CUSTOMER_ADMIN_ACTION",
+            target,
+            {
+                "command": "set_overdraft_limit",
+                "currency": currency,
+                "old_limit": str(old_limit),
+                "new_limit": str(new_limit),
+            },
+            request,
+        )
+        return wallet
+
+    @classmethod
     def aggregate(cls, actor, user_id, limit=25):
         cls._require_admin(actor)
         limit = max(1, min(int(limit or 25), 100))
@@ -313,7 +370,7 @@ class CustomerAdministrationService:
                         "role": user.role, "is_active": user.is_active, "is_banned": user.is_banned, "date_joined": user.date_joined,
                         "last_login": user.last_login},
             "wallets": [{"id": w.id, "currency": w.currency, "available": str(w.available_balance), "pending": str(w.pending_balance),
-                         "total": str(w.total_balance)} for w in wallets],
+                         "total": str(w.total_balance),"overdraft_limit": str(w.overdraft_limit)} for w in wallets],
             "recent_transactions": [{"id": tx.id, "type": tx.transaction_type, "status": tx.status, "amount": str(tx.amount),
                                       "currency": tx.currency, "created_at": tx.created_at, "operation_context": tx.operation_context} for tx in transactions],
             "purchases": [{"id": p.id, "status": p.status, "final_price": str(p.final_price), "currency": p.currency,

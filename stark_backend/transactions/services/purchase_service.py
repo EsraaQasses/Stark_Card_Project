@@ -194,10 +194,12 @@ class PurchaseService:
                 return cls._existing_result(existing)
 
             wallet = Wallet.objects.select_for_update().get(pk=context.wallet_id)
-            if wallet.available_balance < context.customer_charge:
+            overdraft_limit = max(wallet.overdraft_limit, Decimal("0"))
+            available_to_spend = wallet.available_balance + overdraft_limit
+            if available_to_spend < context.customer_charge:
                 return {
                     "success": False,
-                    "error": f"Insufficient balance. Need: {context.customer_charge}, Have: {wallet.available_balance}",
+                    "error": "Insufficient balance or overdraft limit exceeded.",
                     "error_code": "INSUFFICIENT_BALANCE",
                 }
 
@@ -212,6 +214,8 @@ class PurchaseService:
             tx = FinanceService.withdraw(
                 wallet_id=wallet.id,
                 amount=context.customer_charge,
+                allow_overdraft=True,
+                overdraft_limit=overdraft_limit,
                 transaction_type=transaction_type,
                 note=f"Purchase: {store_product.name}",
                 idempotency_key=context.operation_key,

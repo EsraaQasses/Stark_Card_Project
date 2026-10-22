@@ -7,7 +7,7 @@ from django.db.models.functions import Abs
 import logging
 from model_utils import FieldTracker
 from django.core.exceptions import ValidationError
-
+from django.core.validators import MinValueValidator
 
 logger = logging.getLogger(__name__)
 User = settings.AUTH_USER_MODEL
@@ -170,9 +170,18 @@ class Wallet(models.Model):
         default=0.00,
         verbose_name="Pending Balance"
     )
+    overdraft_limit = models.DecimalField(
+        max_digits=20,
+        decimal_places=8,
+        default=Decimal("0"),
+        validators=[MinValueValidator(Decimal("0"))],
+        verbose_name="Overdraft Limit",
+        help_text="Maximum negative balance allowed for this wallet",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     tracker = FieldTracker(fields=['available_balance', 'pending_balance'])
+
 
     class Meta:
         verbose_name = "Wallet"
