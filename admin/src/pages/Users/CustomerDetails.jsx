@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   useNavigate,
@@ -394,6 +395,234 @@ const ModalShell = ({
         </div>
       </div>
     </div>
+  );
+};
+
+
+const OverdraftLimitEditor = ({
+  wallet,
+  customerId,
+  isArabic,
+  onSaved,
+  onNotice,
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmedLimit, setConfirmedLimit] = useState('');
+
+  const currency = String(wallet.currency || '').toUpperCase();
+  const currentLimit = String(wallet.overdraft_limit ?? '0');
+
+  const startEditing = () => {
+    setValue(currentLimit);
+    setError('');
+    setConfirmOpen(false);
+    setEditing(true);
+  };
+
+  const requestConfirmation = () => {
+    const nextLimit = value.trim();
+
+    if (
+      !/^\d{1,12}(\.\d{1,8})?$/.test(nextLimit)
+      || Number(nextLimit) >= 1000000000000
+    ) {
+      setError(
+        isArabic
+          ? 'أدخل حداً موجباً أو صفراً، بحد أقصى 8 خانات عشرية.'
+          : 'Enter zero or a positive limit with up to 8 decimal places.'
+      );
+      return;
+    }
+
+    setError('');
+    setConfirmedLimit(nextLimit);
+    setConfirmOpen(true);
+  };
+
+  const saveLimit = async () => {
+    if (!confirmOpen || saving) return;
+
+    setSaving(true);
+    setError('');
+
+    try {
+      await axiosInstance.post(
+        `/users/admin/customers/${customerId}/overdraft-limit/`,
+        {
+          currency,
+          overdraft_limit: confirmedLimit,
+        }
+      );
+
+      setConfirmOpen(false);
+      setEditing(false);
+      onNotice({
+        type: 'success',
+        message: isArabic
+          ? `تم تحديث الحد السالب لمحفظة ${currency} بنجاح.`
+          : `${currency} overdraft limit updated successfully.`,
+      });
+      await onSaved();
+    } catch (saveError) {
+      setConfirmOpen(false);
+      setError(getApiError(
+        saveError,
+        isArabic
+          ? 'تعذر تعديل الحد السالب.'
+          : 'Failed to update overdraft limit.'
+      ));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={startEditing}
+        className="mt-3 w-full rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-black text-amber-700 transition hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/30"
+      >
+        {isArabic ? 'تعديل الحد السالب' : 'Edit overdraft limit'}
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <div className="mt-3 space-y-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+        <label className="block text-xs font-black text-slate-700 dark:text-slate-200">
+          {isArabic ? 'الحد السالب الجديد' : 'New overdraft limit'} ({currency})
+        </label>
+
+        <input
+          type="text"
+          inputMode="decimal"
+          dir="ltr"
+          value={value}
+          onChange={(event) => { setValue(event.target.value); setError(''); }}
+          disabled={saving || confirmOpen}
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-start text-sm font-bold text-slate-900 outline-none focus:border-cyan-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+        />
+
+        {error && (
+          <p className="text-xs font-bold text-red-600 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={saving || confirmOpen}
+            onClick={() => { setEditing(false); setError(''); }}
+            className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
+          >
+            {isArabic ? 'إلغاء' : 'Cancel'}
+          </button>
+
+          <button
+            type="button"
+            disabled={saving || confirmOpen}
+            onClick={requestConfirmation}
+            className="rounded-xl bg-cyan-500 px-3 py-2 text-sm font-black text-white transition hover:bg-cyan-600 disabled:opacity-50"
+          >
+            {isArabic ? 'مراجعة وحفظ الحد' : 'Review & save limit'}
+          </button>
+        </div>
+      </div>
+
+      {confirmOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          dir={isArabic ? 'rtl' : 'ltr'}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`overdraft-confirm-${wallet.id}`}
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+          >
+            <div className="border-b border-slate-100 p-5 dark:border-slate-800 sm:p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-300">
+                  <FiShield className="text-xl" />
+                </div>
+                <div>
+                  <h3 id={`overdraft-confirm-${wallet.id}`} className="text-lg font-black text-slate-900 dark:text-white">
+                    {isArabic ? 'تأكيد تعديل الحد السالب' : 'Confirm overdraft limit change'}
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {isArabic ? 'راجع القيم قبل اعتماد التغيير' : 'Review the values before confirming'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-5 sm:p-6">
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                {isArabic ? 'العميل' : 'Customer'} #{customerId} · {isArabic ? 'محفظة' : 'Wallet'} {currency}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {isArabic ? 'الحد الحالي' : 'Current limit'}
+                  </p>
+                  <p dir="ltr" className="mt-2 break-all text-lg font-black text-slate-900 dark:text-white">
+                    {currentLimit} {currency}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-900 dark:bg-cyan-950/30">
+                  <p className="text-xs font-bold text-cyan-700 dark:text-cyan-300">
+                    {isArabic ? 'الحد الجديد' : 'New limit'}
+                  </p>
+                  <p dir="ltr" className="mt-2 break-all text-lg font-black text-slate-900 dark:text-white">
+                    {confirmedLimit} {currency}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                {isArabic
+                  ? `بعد التعديل، يمكن أن يصل الرصيد إلى -${confirmedLimit} ${currency}.`
+                  : `After the change, the balance may reach -${confirmedLimit} ${currency}.`}
+              </p>
+              {Number(confirmedLimit) > Number(currentLimit) && (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                  {isArabic
+                    ? 'تنبيه: رفع الحد يسمح للعميل بالشراء بدين أكبر.'
+                    : 'Warning: Increasing the limit allows the customer to incur more debt.'}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setConfirmOpen(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                >
+                  {isArabic ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={saveLimit}
+                  className="rounded-xl bg-cyan-500 px-4 py-3 text-sm font-black text-white transition hover:bg-cyan-600 disabled:opacity-50"
+                >
+                  {saving
+                    ? (isArabic ? 'جاري الحفظ...' : 'Saving...')
+                    : (isArabic ? 'تأكيد التعديل' : 'Confirm change')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };
 
@@ -1939,6 +2168,29 @@ const CustomerDetails = () => {
                                 </p>
                               </div>
                             </div>
+                            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+                              <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                {isArabic ? 'الحد السالب المسموح' : 'Overdraft limit'}
+                              </p>
+
+                              <p
+                                dir="ltr"
+                                className="mt-1 text-lg font-black text-slate-900 dark:text-white"
+                              >
+                                {wallet.overdraft_limit == null
+                                  ? '—'
+                                  : `${formatAmount(wallet.overdraft_limit)} ${currency}`}
+                              </p>
+                            </div>
+                            {canAdjust && customer.role !== 'admin' && (
+                              <OverdraftLimitEditor
+                                wallet={wallet}
+                                customerId={customerId}
+                                isArabic={isArabic}
+                                onSaved={() => loadCustomer({ background: true })}
+                                onNotice={setNotice}
+                              />
+                            )}
 
                             {canAdjust && (
                               <div className="mt-5 grid grid-cols-2 gap-3">

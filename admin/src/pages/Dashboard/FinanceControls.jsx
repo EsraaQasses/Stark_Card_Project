@@ -266,6 +266,7 @@ const RateCard = ({
   </div>
 );
 
+
 // ======================================================
 // Finance Controls
 // ======================================================
@@ -3122,6 +3123,75 @@ const FinanceControls = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Negative Balances Excluding Pending Debits */}
+                {report.negative_balances_excluding_pending && (
+                  <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-6">
+                    <div className="mb-5 flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300">
+                        <FiDollarSign className="text-xl" />
+                      </div>
+
+                      <div>
+                        <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                          {isArabic
+                            ? 'المبالغ المستحقة على العملاء'
+                            : 'Customer Outstanding Balances'}
+                        </h2>
+
+                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          {isArabic
+                            ? 'مبالغ الأرصدة المدينة بعد استبعاد الطلبات المعلّقة. الرقم تقديري حتى اكتمال التدقيق المحاسبي.'
+                            : 'Negative wallet exposure excluding pending orders. Estimated until accounting reconciliation is complete.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {['USD', 'SYP'].map((currency) => (
+                        <div
+                          key={currency}
+                          className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50"
+                        >
+                          <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                            {isArabic
+                              ? 'الرصيد المدين غير المسدد'
+                              : 'Outstanding debit balance'}
+                            {' · '}
+                            {currency}
+                          </p>
+
+                          <p
+                            dir="ltr"
+                            className="mt-3 text-2xl font-black text-slate-900 dark:text-white"
+                          >
+                            {money(
+                              report.negative_balances_excluding_pending.amounts?.[currency] ?? '0'
+                            )}{' '}
+                            <span className="text-sm">{currency}</span>
+                          </p>
+                        </div>
+                      ))}
+
+                      <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                          {isArabic
+                            ? 'عدد العملاء ذوي الأرصدة المدينة'
+                            : 'Customers with outstanding debit balances'}
+                        </p>
+
+                        <p className="mt-3 text-2xl font-black text-slate-900 dark:text-white">
+                          {report.negative_balances_excluding_pending.debtor_count ?? 0}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 text-xs font-semibold text-slate-400">
+                      {isArabic ? 'آخر تحديث: ' : 'Updated: '}
+                      {formatDate(report.negative_balances_excluding_pending.as_of)}
+                    </p>
+                  </section>
+                )}
 
                 {/* Financial Charts */}
 
