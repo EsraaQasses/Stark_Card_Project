@@ -94,15 +94,32 @@ const compactNumber = (
   );
 };
 
-const getResponseCount = (response) => (
-  Number(
-    response?.data?.count
-    ?? (
-      Array.isArray(response?.data)
-        ? response.data.length
-        : 0
-    ),
-  ) || 0
+// A missing/invalid API count is not the same as zero requests.
+const getResponseCount = (response) => {
+  const data = response?.data;
+  const rawCount = data?.count ?? (
+    Array.isArray(data) ? data.length : null
+  );
+  const count = Number(rawCount);
+  return rawCount !== null
+    && rawCount !== undefined
+    && Number.isSafeInteger(count)
+    && count >= 0
+      ? count
+      : null;
+};
+
+const validCount = (value) => (
+  value !== null
+  && value !== undefined
+  && value !== ''
+  && Number.isSafeInteger(Number(value))
+  && Number(value) >= 0
+);
+
+const allRequestStatsValid = (data) => (
+  data && ['pending', 'in_progress', 'objection', 'completed']
+    .every((key) => validCount(data[key]))
 );
 
 const RevenueChart = ({
@@ -342,6 +359,8 @@ const Home = () => {
     "common",
   ]);
 
+  const isArabic = (i18n.resolvedLanguage || i18n.language || "ar").startsWith("ar");
+
   const locale = (
     i18n.resolvedLanguage
     || i18n.language
@@ -353,6 +372,8 @@ const Home = () => {
     pending: 0,
     inProgress: 0,
     objection: 0,
+    completed: 0,
+    todayRequests: 0,
     totalUsers: 0,
     revenueUsd: 0,
     revenueSyp: 0,
@@ -440,7 +461,9 @@ const Home = () => {
         ) {
           const report =
             totalResult.value.data || {};
-
+          if (!report?.totals?.revenue) {
+            setMetricErrors((previous) => ({ ...previous, totalRevenue: true }));
+          } else {
           setStats(
             (previous) => ({
               ...previous,
@@ -467,6 +490,7 @@ const Home = () => {
               totalRevenue: false,
             }),
           );
+          }
         } else {
           setMetricErrors(
             (previous) => ({
@@ -528,17 +552,15 @@ const Home = () => {
           monthRows,
         );
 
-        const everyMonthFailed =
-          monthRows.every(
-            (item) => item.failed,
-          );
+        const anyMonthFailed =
+          monthRows.some((item) => item.failed);
 
         setMetricErrors(
           (previous) => ({
             ...previous,
 
             financialChart:
-              everyMonthFailed,
+              anyMonthFailed,
           }),
         );
       } catch (loadError) {
@@ -569,7 +591,7 @@ const Home = () => {
       try {
         const results =
           await Promise.allSettled([
-            Promise.all([
+            Promise.allSettled([
               axiosInstance.get(
                 "/shipping/standard/",
                 {
@@ -598,51 +620,64 @@ const Home = () => {
             axiosInstance.get(
               "/users/stats/",
             ),
+
+            axiosInstance.get(
+              "/all_requests/admin/requests/",
+              {
+                params: {
+                  created_from: toApiDate(new Date()),
+                  created_to: toApiDate(new Date()),
+                  page_size: 1,
+                },
+              },
+            ),
           ]);
 
         const [
           shippingResult,
           requestsStatsResult,
           usersResult,
+          todayRequestsResult,
         ] = results;
 
-        let shippingCount = 0;
-
-        if (
-          shippingResult.status
-          === "fulfilled"
-        ) {
-          shippingCount =
-            shippingResult.value.reduce(
-              (
-                total,
-                response,
-              ) => (
-                total
-                + getResponseCount(
-                  response,
-                )
-              ),
-              0,
-            );
-        }
+        const shippingResponses = (
+          shippingResult.status === "fulfilled"
+            ? shippingResult.value
+            : []
+        );
+        const shippingCounts = shippingResponses.map(
+          (result) => result.status === "fulfilled"
+            ? getResponseCount(result.value)
+            : null
+        );
+        const shippingFailed = (
+          shippingResponses.length !== 2
+          || shippingCounts.some((count) => count === null)
+        );
+        const shippingCount = shippingFailed
+          ? null
+          : shippingCounts.reduce((total, count) => total + count, 0);
 
         const requestStats = (
-          requestsStatsResult.status
-          === "fulfilled"
-            ? requestsStatsResult
-                .value
-                .data
-            : {}
+          requestsStatsResult.status === "fulfilled"
+            ? requestsStatsResult.value.data
+            : null
         );
 
         const userStats = (
-          usersResult.status
-          === "fulfilled"
-            ? usersResult
-                .value
-                .data
-            : {}
+          usersResult.status === "fulfilled"
+            ? usersResult.value.data
+            : null
+        );
+        const requestsFailed = !allRequestStatsValid(requestStats);
+        const todayRequestCount = todayRequestsResult.status === "fulfilled"
+          ? getResponseCount(todayRequestsResult.value)
+          : null;
+        const todayRequestsFailed = todayRequestCount === null;
+        const usersFailed = !(
+          userStats
+          && validCount(userStats.regular_users)
+          && validCount(userStats.agent_users)
         );
 
         setStats(
@@ -650,54 +685,38 @@ const Home = () => {
             ...previous,
 
             shipping:
-              shippingCount,
+              shippingCount ?? previous.shipping,
 
             pending:
-              Number(
-                requestStats.pending
-                ?? previous.pending,
-              ) || 0,
+              requestsFailed ? previous.pending : Number(requestStats.pending),
 
             inProgress:
-              Number(
-                requestStats.in_progress
-                ?? previous.inProgress,
-              ) || 0,
+              requestsFailed ? previous.inProgress : Number(requestStats.in_progress),
 
             objection:
-              Number(
-                requestStats.objection
-                ?? previous.objection,
-              ) || 0,
+              requestsFailed ? previous.objection : Number(requestStats.objection),
+
+            completed:
+              requestsFailed ? previous.completed : Number(requestStats.completed),
+
+            todayRequests:
+              todayRequestsFailed ? previous.todayRequests : todayRequestCount,
 
             totalUsers:
-              Number(
-                userStats.total_users
-                ?? previous.totalUsers,
-              ) || 0,
+              usersFailed
+                ? previous.totalUsers
+                : Number(userStats.regular_users) + Number(userStats.agent_users),
           }),
         );
 
         const failedMetrics = {
-          shipping:
-            shippingResult.status
-            === "rejected",
-
-          pending:
-            requestsStatsResult.status
-            === "rejected",
-
-          inProgress:
-            requestsStatsResult.status
-            === "rejected",
-
-          objection:
-            requestsStatsResult.status
-            === "rejected",
-
-          totalUsers:
-            usersResult.status
-            === "rejected",
+          shipping: shippingFailed,
+          pending: requestsFailed,
+          inProgress: requestsFailed,
+          objection: requestsFailed,
+          completed: requestsFailed,
+          todayRequests: todayRequestsFailed,
+          totalUsers: usersFailed,
         };
 
         setMetricErrors(
@@ -774,7 +793,7 @@ const Home = () => {
   const updatedEarningData =
     useMemo(
       () => (
-        earningData.map(
+        earningData.filter((item) => !["pending", "in-progress"].includes(item.name)).map(
           (item) => {
             const titleKey =
               item.title
@@ -814,76 +833,6 @@ const Home = () => {
 
                       defaultValue:
                         `${stats.shipping} pending shipping requests`,
-                    },
-                  ),
-              };
-            }
-
-            if (
-              titleKey.includes(
-                "pending",
-              )
-            ) {
-              return {
-                ...item,
-
-                amount:
-                  loading
-                    ? "..."
-                    : metricErrors.pending
-                      ? "—"
-                      : stats.pending
-                          .toString(),
-
-                hasError:
-                  Boolean(
-                    metricErrors.pending,
-                  ),
-
-                description:
-                  t(
-                    "overview.cards.pending.desc",
-                    {
-                      count:
-                        stats.pending,
-
-                      defaultValue:
-                        `${stats.pending} pending requests`,
-                    },
-                  ),
-              };
-            }
-
-            if (
-              titleKey.includes(
-                "progress",
-              )
-            ) {
-              return {
-                ...item,
-
-                amount:
-                  loading
-                    ? "..."
-                    : metricErrors.inProgress
-                      ? "—"
-                      : stats.inProgress
-                          .toString(),
-
-                hasError:
-                  Boolean(
-                    metricErrors.inProgress,
-                  ),
-
-                description:
-                  t(
-                    "overview.cards.in-progress.desc",
-                    {
-                      count:
-                        stats.inProgress,
-
-                      defaultValue:
-                        `${stats.inProgress} active requests`,
                     },
                   ),
               };
@@ -999,22 +948,6 @@ const Home = () => {
       )
     ) {
       return stats.shipping;
-    }
-
-    if (
-      titleKey.includes(
-        "pending",
-      )
-    ) {
-      return stats.pending;
-    }
-
-    if (
-      titleKey.includes(
-        "progress",
-      )
-    ) {
-      return stats.inProgress;
     }
 
     if (
@@ -1689,6 +1622,53 @@ const Home = () => {
               );
             },
           )}
+          {[
+            {
+              key: "completed",
+              title: t("overview.cards.completed.title", isArabic ? "الطلبات المكتملة" : "Completed Requests"),
+              description: t("overview.cards.completed.desc", isArabic ? "الطلبات الإدارية المكتملة منذ بداية النظام" : "Completed administrative requests across all dates"),
+              amount: stats.completed,
+              failed: metricErrors.completed,
+              icon: "✓",
+              iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
+              iconColor: "text-emerald-600",
+            },
+            {
+              key: "todayRequests",
+              title: t("overview.cards.today.title", isArabic ? "طلبات اليوم" : "Today's Requests"),
+              description: t("overview.cards.today.desc", isArabic ? "الطلبات الإدارية المنشأة اليوم، وليس عمليات شراء المنتجات" : "Administrative requests created today, not product purchases"),
+              amount: stats.todayRequests,
+              failed: metricErrors.todayRequests,
+              icon: "◷",
+              iconBg: "bg-sky-50 dark:bg-sky-950/40",
+              iconColor: "text-sky-600",
+            },
+          ].map((item) => (
+            <div
+              key={item.key}
+              className="relative flex h-full min-w-0 flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-secondary-dark-bg md:p-6"
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <span className={`rounded-lg px-2.5 py-1 text-[10px] font-bold md:text-xs ${item.failed ? "bg-red-100 text-red-800" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"}`}>
+                  {item.failed
+                    ? t("overview.status.unavailable", "Unavailable")
+                    : t("overview.status.live", "Live")}
+                </span>
+                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl text-2xl ${item.iconBg} ${item.iconColor}`}>
+                  {item.icon}
+                </span>
+              </div>
+              <p className="text-xl font-extrabold text-slate-900 dark:text-white md:text-3xl">
+                {loading ? "..." : item.failed ? "—" : item.amount.toLocaleString(locale)}
+              </p>
+              <h3 className="mt-2 text-sm font-bold text-gray-700 dark:text-gray-200 md:text-base">
+                {item.title}
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-gray-400 dark:text-gray-500">
+                {item.description}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -2047,177 +2027,46 @@ const Home = () => {
           </div>
 
           <div className="space-y-4">
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                rounded-xl
-                bg-blue-50
-                p-3
-                dark:bg-blue-900/20
-              "
-            >
-              <span
-                className="
-                  font-medium
-                  text-blue-600
-                  dark:text-blue-300
-                "
+            {[
+              {
+                key: "shipping",
+                label: t("overview.summary.shipping", "Shipping Requests"),
+                value: stats.shipping,
+                failed: metricErrors.shipping,
+                style: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300",
+              },
+              {
+                key: "completed",
+                label: t("overview.cards.completed.title", isArabic ? "الطلبات المكتملة" : "Completed Requests"),
+                value: stats.completed,
+                failed: metricErrors.completed,
+                style: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
+              },
+              {
+                key: "todayRequests",
+                label: t("overview.cards.today.title", isArabic ? "طلبات اليوم" : "Today's Requests"),
+                value: stats.todayRequests,
+                failed: metricErrors.todayRequests,
+                style: "bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300",
+              },
+              {
+                key: "objection",
+                label: t("overview.summary.objections", "Objections"),
+                value: stats.objection,
+                failed: metricErrors.objection,
+                style: "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300",
+              },
+            ].map((item) => (
+              <div
+                key={item.key}
+                className={`flex items-center justify-between gap-3 rounded-xl p-3 ${item.style}`}
               >
-                {t(
-                  "overview.summary.shipping",
-                  "Shipping Requests",
-                )}
-              </span>
-
-              <span
-                className="
-                  rounded-lg
-                  bg-blue-100
-                  px-2.5
-                  py-1
-                  text-sm
-                  font-bold
-                  text-blue-800
-                  dark:bg-blue-800
-                  dark:text-blue-200
-                "
-              >
-                {metricErrors.shipping
-                  ? "—"
-                  : stats.shipping}
-              </span>
-            </div>
-
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                rounded-xl
-                bg-yellow-50
-                p-3
-                dark:bg-yellow-900/20
-              "
-            >
-              <span
-                className="
-                  font-medium
-                  text-yellow-600
-                  dark:text-yellow-300
-                "
-              >
-                {t(
-                  "overview.summary.pending",
-                  "Pending Reviews",
-                )}
-              </span>
-
-              <span
-                className="
-                  rounded-lg
-                  bg-yellow-100
-                  px-2.5
-                  py-1
-                  text-sm
-                  font-bold
-                  text-yellow-800
-                  dark:bg-yellow-800
-                  dark:text-yellow-200
-                "
-              >
-                {metricErrors.pending
-                  ? "—"
-                  : stats.pending}
-              </span>
-            </div>
-
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                rounded-xl
-                bg-green-50
-                p-3
-                dark:bg-green-900/20
-              "
-            >
-              <span
-                className="
-                  font-medium
-                  text-green-600
-                  dark:text-green-300
-                "
-              >
-                {t(
-                  "overview.summary.inProgress",
-                  "In Progress",
-                )}
-              </span>
-
-              <span
-                className="
-                  rounded-lg
-                  bg-green-100
-                  px-2.5
-                  py-1
-                  text-sm
-                  font-bold
-                  text-green-800
-                  dark:bg-green-800
-                  dark:text-green-200
-                "
-              >
-                {metricErrors.inProgress
-                  ? "—"
-                  : stats.inProgress}
-              </span>
-            </div>
-
-            <div
-              className="
-                flex
-                items-center
-                justify-between
-                rounded-xl
-                bg-orange-50
-                p-3
-                dark:bg-orange-900/20
-              "
-            >
-              <span
-                className="
-                  font-medium
-                  text-orange-600
-                  dark:text-orange-300
-                "
-              >
-                {t(
-                  "overview.summary.objections",
-                  "Objections",
-                )}
-              </span>
-
-              <span
-                className="
-                  rounded-lg
-                  bg-orange-100
-                  px-2.5
-                  py-1
-                  text-sm
-                  font-bold
-                  text-orange-800
-                  dark:bg-orange-800
-                  dark:text-orange-200
-                "
-              >
-                {metricErrors.objection
-                  ? "—"
-                  : stats.objection}
-              </span>
-            </div>
+                <span className="font-semibold">{item.label}</span>
+                <span className="rounded-lg bg-white/70 px-2.5 py-1 text-sm font-extrabold text-slate-900 dark:bg-slate-800 dark:text-white">
+                  {loading ? "..." : item.failed ? "—" : item.value.toLocaleString(locale)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
