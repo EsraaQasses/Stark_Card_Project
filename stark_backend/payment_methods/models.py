@@ -37,3 +37,17 @@ class PaymentMethodField(models.Model):
 
     def __str__(self):
         return f"{self.payment_method.title} - {self.field_name}"
+
+
+# stark-payment-gallery-v1: additional payment instruction images
+class PaymentMethodImage(models.Model):
+    payment_method = models.ForeignKey(PaymentMethod, on_delete=models.CASCADE, related_name='additional_images')
+    image = models.ImageField(upload_to='payment_methods/gallery/')
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return f'Payment method {self.payment_method_id} image {self.pk}'

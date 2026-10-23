@@ -56,6 +56,81 @@ class ThirdPartyAPIViewSet(viewsets.ModelViewSet):
 
         return super().destroy(request, *args, **kwargs)
 
+    @action(detail=True, methods=['get'], url_path='deletion-preview')
+    def deletion_preview(self, request, pk=None):
+        """Read-only snapshot of provider products and historic links."""
+        from store.models import Product, ExternalProduct, StoreProduct
+        from .models import ProductSyncRun
+        api = self.get_object()
+        products = list(Product.objects.filter(api_config=api).values('id', 'name_ar', 'name_en', 'is_active'))
+        external = list(ExternalProduct.objects.filter(api_config=api).values('id', 'name', 'is_active'))
+        store = list(StoreProduct.objects.filter(external_product__api_config=api).values('id', 'name', 'is_active'))
+        return Response({
+            'api_id': api.id,
+            'products': [{'kind': 'product', 'id': p['id'], 'name': p['name_ar'] or p['name_en'], 'active': p['is_active']} for p in products],
+            'external_products': [{'kind': 'external', 'id': p['id'], 'name': p['name'], 'active': p['is_active']} for p in external],
+            'store_products': [{'kind': 'store', 'id': p['id'], 'name': p['name'], 'active': p['is_active']} for p in store],
+            'historical': {
+                'api_transactions': api.transactions.count(),
+                'sync_runs': ProductSyncRun.objects.filter(api_config=api).count(),
+            },
+        })
+
+    @action(detail=True, methods=['post'], url_path='retire')
+    def retire(self, request, pk=None):
+        """Atomically disable API + hide products, preserving orders and audit history.
+
+        Selected items are flagged removed; other products are only hidden.
+        No physical product rows are deleted, even when not referenced by orders.
+        """
+        from django.db import transaction
+        from rest_framework.exceptions import ValidationError
+        from store.models import Product, ExternalProduct, StoreProduct
+        from .models import ProductSyncRun
+
+        raw = request.data.get('selected', [])
+        if not isinstance(raw, list) or len(raw) > 10000:
+            raise ValidationError({'selected': 'Expected a list of at most 10000 products.'})
+        selected = {'product': set(), 'external': set(), 'store': set()}
+        for item in raw:
+            if not isinstance(item, dict) or item.get('kind') not in selected:
+                raise ValidationError({'selected': 'Invalid product entry.'})
+            value = item.get('id')
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValidationError({'selected': 'Invalid product ID.'})
+            selected[item['kind']].add(value)
+
+        with transaction.atomic():
+            api = ThirdPartyAPI.objects.select_for_update().get(pk=self.get_object().pk)
+            product_qs = Product.objects.filter(api_config=api)
+            external_qs = ExternalProduct.objects.filter(api_config=api)
+            store_qs = StoreProduct.objects.filter(external_product__api_config=api)
+            valid = {
+                'product': set(product_qs.values_list('id', flat=True)),
+                'external': set(external_qs.values_list('id', flat=True)),
+                'store': set(store_qs.values_list('id', flat=True)),
+            }
+            for kind, ids in selected.items():
+                if not ids.issubset(valid[kind]):
+                    raise ValidationError({'selected': 'Products changed; reload the deletion preview.'})
+
+            # Hide every related product before switching off the provider.
+            store_qs.update(is_active=False)
+            product_qs.update(is_active=False)
+            external_qs.update(is_active=False)
+            for kind, ids in selected.items():
+                if not ids:
+                    continue
+                {'product': product_qs, 'external': external_qs, 'store': store_qs}[kind].filter(id__in=ids).update(
+                    provider_status='removed', administrator_disabled=True,
+                ) if kind != 'external' else external_qs.filter(id__in=ids).update(provider_status='removed')
+            api.is_active = False
+            api.save(update_fields=['is_active'])
+
+        return Response({'success': True, 'action': 'retired', 'api_id': api.pk,
+                         'selected_count': sum(len(ids) for ids in selected.values()),
+                         'message': 'API disabled and products hidden. Historical records retained.'})
+
     @action(detail=True, methods=['post'])
     def test_connection(self, request, pk=None):
         """Test connection to external API"""
