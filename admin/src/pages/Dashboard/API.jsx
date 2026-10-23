@@ -758,6 +758,9 @@ const Api = () => {
   const [deleteApi, setDeleteApi] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deletingApi, setDeletingApi] = useState(false);
+  const [deletePreview, setDeletePreview] = useState(null);
+  const [deletePreviewLoading, setDeletePreviewLoading] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [providerFilter, setProviderFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -972,7 +975,20 @@ const Api = () => {
     setNotice(null);
 
     try {
-      await axiosInstance.delete(`third_party_apis/apis/${deleteApi.id}/`);
+      if (!deletePreview) throw new Error(isArabic ? 'بيانات المنتجات غير جاهزة.' : 'Product preview is not ready.');
+      const hasLinks = [...(deletePreview.products || []), ...(deletePreview.external_products || []), ...(deletePreview.store_products || [])].length > 0
+        || Number(deletePreview.historical?.api_transactions || 0) > 0
+        || Number(deletePreview.historical?.sync_runs || 0) > 0;
+      if (hasLinks) {
+        await axiosInstance.post(`third_party_apis/apis/${deleteApi.id}/retire/`, {
+          selected: selectedProducts.map((key) => {
+            const [kind, id] = key.split(':');
+            return { kind, id: Number(id) };
+          }),
+        });
+      } else {
+        await axiosInstance.delete(`third_party_apis/apis/${deleteApi.id}/`);
+      }
 
       setDeleteApi(null);
       setDeleteConfirm('');
@@ -1432,9 +1448,21 @@ const Api = () => {
                   onLogs={() => openLogs(api)}
                   updating={updatingApi === api.id}
                   onToggle={() => handleToggleApi(api)}
-                  onDelete={() => {
+                  onDelete={async () => {
                     setDeleteConfirm('');
+                    setDeletePreview(null);
+                    setSelectedProducts([]);
                     setDeleteApi(api);
+                    setDeletePreviewLoading(true);
+                    try {
+                      const response = await axiosInstance.get(`third_party_apis/apis/${api.id}/deletion-preview/`);
+                      if (!mountedRef.current) return;
+                      setDeletePreview(response.data);
+                    } catch (error) {
+                      showNotice('error', isArabic ? 'تعذر جلب المنتجات المرتبطة.' : 'Could not load linked products.', getApiError(error, 'Preview failed'));
+                    } finally {
+                      if (mountedRef.current) setDeletePreviewLoading(false);
+                    }
                   }}
                   onChangeToken={() => {
                     setNewToken('');
@@ -1514,9 +1542,27 @@ const Api = () => {
         <form onSubmit={handleDeleteApi} className="space-y-4">
           <p className="text-sm font-semibold text-red-600">
             {isArabic
-              ? 'الحذف نهائي. إذا كان المزوّد مرتبطاً بمنتجات أو سجلات، سيتم رفض الحذف لحماية البيانات.'
-              : 'Deletion is permanent. Linked records prevent deletion.'}
+              ? 'إذا فيه منتجات أو سجلات مرتبطة، رح يتم تعطيل المزود وإخفاء كل منتجاته بأمان؛ المحددة رح تتعلّم محذوفة من العرض. أما المزود الفارغ بينحذف نهائياً.'
+              : 'Linked providers will be disabled and their products hidden; selected items marked removed. Only empty providers are permanently deleted.'}
           </p>
+
+          {deletePreviewLoading && <p className="text-sm text-slate-500">{isArabic ? 'جاري جلب المنتجات...' : 'Loading products...'}</p>}
+          {deletePreview && (
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+              <p className="mb-2 text-sm font-black">{isArabic ? 'المنتجات المرتبطة — اختر ما تريد إزالته من العرض نهائياً' : 'Linked products — select items to mark removed'}</p>
+              {[...(deletePreview.products || []), ...(deletePreview.external_products || []), ...(deletePreview.store_products || [])].map((product) => {
+                const key = `${product.kind}:${product.id}`;
+                return (
+                  <label key={key} className="flex items-center gap-2 border-b border-slate-100 py-2 text-sm dark:border-slate-800">
+                    <input type="checkbox" checked={selectedProducts.includes(key)} onChange={(event) => setSelectedProducts((old) => event.target.checked ? [...old, key] : old.filter((item) => item !== key))} />
+                    <span>{product.name} (#{product.id}) — {product.kind}</span>
+                  </label>
+                );
+              })}
+              <p className="mt-2 text-xs text-slate-500">{isArabic ? 'غير المحددة كمان بتنخفى مؤقتاً بسبب تعطيل المزود. المعاملات وسجل المزامنة محفوظين.' : 'Unselected products will also be hidden while the provider is disabled. Transactions and sync history stay intact.'}</p>
+              <p className="mt-2 text-xs text-slate-500">{isArabic ? 'معاملات سابقة:' : 'Past transactions:'} {deletePreview.historical?.api_transactions || 0}</p>
+            </div>
+          )}
 
           <label className="block">
             <FieldLabel>
@@ -1548,7 +1594,7 @@ const Api = () => {
 
             <button
               type="submit"
-              disabled={deletingApi || deleteConfirm !== deleteApi?.name}
+              disabled={deletingApi || deletePreviewLoading || !deletePreview || deleteConfirm !== deleteApi?.name}
               className="rounded-xl bg-red-600 px-5 py-2.5 font-bold text-white disabled:opacity-40"
             >
               {deletingApi

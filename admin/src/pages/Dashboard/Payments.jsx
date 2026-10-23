@@ -116,7 +116,7 @@ const PaymentMethods = () => {
     methodTitle: isArabic ? 'عنوان طريقة الدفع' : 'Method title',
     uniqueName: isArabic ? 'الاسم الداخلي' : 'Internal name',
     currency: isArabic ? 'العملة' : 'Currency',
-    iconUrl: isArabic ? 'رابط الأيقونة' : 'Icon URL',
+    iconUrl: isArabic ? 'صورة طريقة الدفع / QR' : 'Payment image / QR',
     description: isArabic ? 'الوصف' : 'Description',
     note: isArabic ? 'ملاحظة' : 'Note',
     formFields: isArabic ? 'حقول نموذج الدفع' : 'Payment form fields',
@@ -157,6 +157,60 @@ const PaymentMethods = () => {
   const [searchText, setSearchText] = useState('');
   const [formFields, setFormFields] = useState([]);
   const [showInstructions, setShowInstructions] = useState({});
+  // stark-payment-gallery-v1
+  const [galleryFiles, setGalleryFiles] = useState([]);
+  const [galleryRemoved, setGalleryRemoved] = useState([]);
+  const [galleryOrder, setGalleryOrder] = useState([]);
+  const [galleryMessage, setGalleryMessage] = useState('');
+  const maxGallery = 20;
+
+  const pickGallery = (selectedFiles) => {
+    const picked = Array.from(selectedFiles || []);
+    if (picked.some((item) => !['image/jpeg','image/png','image/webp'].includes(item.type) || item.size > 5 * 1024 * 1024)) {
+      setGalleryMessage(isArabic ? 'مسموح PNG وJPG وWEBP حتى 5 ميغابايت للصورة.' : 'PNG/JPG/WEBP only, 5 MB per image.');
+      return;
+    }
+    if (galleryFiles.length + picked.length + galleryOrder.length > maxGallery) {
+      setGalleryMessage(isArabic ? 'الحد الأقصى 20 صورة إضافية.' : 'Maximum 20 additional images.');
+      return;
+    }
+    setGalleryMessage('');
+    setGalleryFiles((prev) => [...prev, ...picked]);
+  };
+  const resetGallery = (method = null) => {
+    setGalleryFiles([]);
+    setGalleryRemoved([]);
+    setGalleryOrder(method?.additional_images || []);
+    setGalleryMessage('');
+  };
+
+  // stark-image-upload-v1
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [removeImage, setRemoveImage] = useState(false);
+  const [imageError, setImageError] = useState('');
+
+  useEffect(() => () => {
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+  }, [imagePreview]);
+
+  const selectImage = (file) => {
+    setImageError('');
+    if (!file) { setImageFile(null); setImagePreview(''); return; }
+    const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setImageFile(null);
+      setImagePreview('');
+      setImageError(isArabic
+        ? 'الصور المسموحة PNG / JPG / WEBP وبحجم لا يتجاوز 5 MB.'
+        : 'Use PNG / JPG / WEBP, max 5 MB.');
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setRemoveImage(false);
+  };
+
 
   const fetchPaymentMethods = useCallback(async ({ background = false } = {}) => {
     if (!background) {
@@ -218,12 +272,22 @@ const PaymentMethods = () => {
   }, [methods, searchText]);
 
   const openAddModal = () => {
+    resetGallery();
     setEditingMethod(null);
     setFormFields([]);
+    setImageFile(null);
+    setImagePreview('');
+    setRemoveImage(false);
+    setImageError('');
     setShowModal(true);
   };
 
   const openEditModal = (method) => {
+    resetGallery(method);
+    setImageFile(null);
+    setImagePreview('');
+    setRemoveImage(false);
+    setImageError('');
     setEditingMethod(method);
     setFormFields(
       Array.isArray(method.fields)
@@ -241,6 +305,7 @@ const PaymentMethods = () => {
   };
 
   const closeModal = () => {
+    resetGallery();
     if (saving) {
       return;
     }
@@ -248,6 +313,10 @@ const PaymentMethods = () => {
     setShowModal(false);
     setEditingMethod(null);
     setFormFields([]);
+    setImageFile(null);
+    setImagePreview('');
+    setRemoveImage(false);
+    setImageError('');
   };
 
   const addFormField = () => {
@@ -290,6 +359,25 @@ const PaymentMethods = () => {
     ));
   };
 
+  const saveGalleryChanges = async (methodId) => {
+    if (!methodId) throw new Error('Missing payment method ID for gallery.');
+    const base = `/payment-methods/admin/payment-methods/${methodId}/`;
+    for (const removedId of galleryRemoved) {
+      await axiosInstance.delete(`${base}gallery/${removedId}/`);
+    }
+    const savedImages = galleryOrder.filter((entry) => !galleryRemoved.includes(entry.id));
+    if (editingMethod && savedImages.length > 0 && galleryOrder.some((entry, i) => entry.id !== (editingMethod.additional_images || [])[i]?.id)) {
+      await axiosInstance.post(`${base}gallery-order/`, {ids: savedImages.map((item) => item.id)});
+    }
+    if (galleryFiles.length) {
+      for (let i = 0; i < galleryFiles.length; i += 10) {
+        const imageData = new FormData();
+        galleryFiles.slice(i, i + 10).forEach((file) => imageData.append('images', file));
+        await axiosInstance.post(`${base}gallery/`, imageData, {headers: {'Content-Type': 'multipart/form-data'}});
+      }
+    }
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -301,7 +389,6 @@ const PaymentMethods = () => {
       title: formData.get('title'),
       name: formData.get('name'),
       currency: formData.get('currency'),
-      icon_url: formData.get('icon_url') || '',
       account_details: formData.get('account_details'),
       instructions: formData.get('instructions'),
       description: formData.get('description') || '',
@@ -317,19 +404,37 @@ const PaymentMethods = () => {
       })),
     };
 
+    if (imageError) {
+      setSaving(false);
+      return;
+    }
+
+    // Multipart accepts real image bytes; existing images are preserved unless removed.
+    const requestData = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      requestData.append(key, key === 'fields' ? JSON.stringify(value) : String(value ?? ''));
+    });
+    if (imageFile) requestData.append('icon_url', imageFile);
+    else if (removeImage) requestData.append('icon_url', '');
+
     try {
+      let savedMethodId = editingMethod?.id;
       if (editingMethod) {
         await axiosInstance.put(
           `/payment-methods/admin/payment-methods/${editingMethod.id}/`,
-          payload,
+          requestData,
+          { headers: { 'Content-Type': 'multipart/form-data' } },
         );
       } else {
-        await axiosInstance.post(
+        const createResponse = await axiosInstance.post(
           '/payment-methods/admin/payment-methods/',
-          payload,
+          requestData,
+          { headers: { 'Content-Type': 'multipart/form-data' } },
         );
+        savedMethodId = createResponse.data?.id;
       }
 
+      await saveGalleryChanges(savedMethodId);
       setShowModal(false);
       setEditingMethod(null);
       setFormFields([]);
@@ -411,7 +516,7 @@ const PaymentMethods = () => {
     <>
       <div
         dir={isArabic ? 'rtl' : 'ltr'}
-        className="mt-20 px-3 py-4 sm:px-5 md:mt-4 md:px-8 md:py-6"
+        className={showModal ? 'hidden' : 'mt-20 px-3 py-4 sm:px-5 md:mt-4 md:px-8 md:py-6'}
       >
         <div className="mx-auto w-full max-w-7xl space-y-5">
           <section className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-7">
@@ -642,6 +747,18 @@ const PaymentMethods = () => {
                     </div>
 
                     <div className="space-y-3 p-5">
+                      {method.additional_images?.length > 0 && (
+                        <div className="rounded-2xl border border-slate-100 p-3 dark:border-slate-800">
+                          <p className="mb-3 text-xs font-extrabold text-slate-500">{isArabic ? 'الصور الإضافية' : 'Additional images'}</p>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            {method.additional_images.map((item) => (
+                              <a key={item.id} href={item.image} target="_blank" rel="noreferrer">
+                                <img src={item.image} alt="Payment" className="h-32 w-full rounded-xl object-contain" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/40">
                           <p className="text-xs font-extrabold text-slate-400">
@@ -728,12 +845,13 @@ const PaymentMethods = () => {
       {showModal && (
         <div
           dir={isArabic ? 'rtl' : 'ltr'}
-          className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+          className="mt-20 px-3 py-4 sm:px-5 md:mt-4 md:px-8 md:py-6" data-stark-payment-full-page-v1="true"
         >
-          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white/10 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white/95 p-5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 md:p-6">
+          <div className="mx-auto w-full max-w-7xl space-y-5">
+            <div className="relative flex flex-col items-start justify-between gap-4 overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg sm:flex-row sm:items-center md:p-8">
               <div className="text-start">
-                <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                <p className="mb-2 text-xs font-black tracking-widest text-cyan-600">{isArabic ? 'إدارة طرق الدفع' : 'PAYMENT MANAGEMENT'}</p>
+                <h2 className="text-2xl font-black text-slate-950 dark:text-white md:text-3xl">
                   {editingMethod ? labels.modalEdit : labels.modalAdd}
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-400">
@@ -747,13 +865,16 @@ const PaymentMethods = () => {
                 type="button"
                 disabled={saving}
                 onClick={closeModal}
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800 dark:hover:text-white"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
               >
                 <FiX />
+                {isArabic ? 'العودة لطرق الدفع' : 'Back to payment methods'}
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-5 p-5 md:p-6">
+            <form onSubmit={handleSave} className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+              <div className="space-y-5 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-7 lg:col-span-8">
+                <h3 className="mb-5 border-b border-slate-100 pb-4 text-lg font-black dark:border-slate-800">{isArabic ? 'المعلومات الأساسية' : 'Basic information'}</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
@@ -797,20 +918,10 @@ const PaymentMethods = () => {
                   </select>
                 </label>
 
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
-                    {labels.iconUrl}
-                  </span>
-                  <input
-                    name="icon_url"
-                    type="url"
-                    dir="ltr"
-                    defaultValue={editingMethod?.icon_url || ''}
-                    placeholder="https://..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                  />
-                </label>
+
               </div>
+
+
 
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
@@ -998,6 +1109,80 @@ const PaymentMethods = () => {
                 </div>
               </label>
 
+              </div>
+              <aside className="space-y-5 lg:col-span-4">
+                <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-6">
+                  <h3 className="mb-4 border-b border-slate-100 pb-4 text-lg font-black dark:border-slate-800">{isArabic ? 'صورة طريقة الدفع' : 'Payment method image'}</h3>
+                <div className="space-y-2">
+                  <span className="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                    {labels.iconUrl}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => selectImage(event.target.files?.[0])}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                  />
+                  <p className="text-xs text-slate-400">PNG, JPG, WEBP · Max 5 MB</p>
+                  {imageError && <p className="text-xs font-bold text-red-600">{imageError}</p>}
+                  {(imagePreview || (!removeImage && editingMethod?.icon_url)) && (
+                    <img
+                      src={imagePreview || editingMethod.icon_url}
+                      alt={isArabic ? 'معاينة صورة الدفع' : 'Payment image preview'}
+                      className="max-h-48 w-auto max-w-full rounded-xl border border-slate-200 object-contain p-2 dark:border-slate-700"
+                    />
+                  )}
+                  {(imageFile || (!removeImage && editingMethod?.icon_url)) && (
+                    <button
+                      type="button"
+                      className="text-sm font-bold text-red-600"
+                      onClick={() => { setRemoveImage(true); setImageFile(null); setImagePreview(''); setImageError(''); }}
+                    >
+                      {isArabic ? 'حذف الصورة' : 'Remove image'}
+                    </button>
+                  )}
+                </div>
+                </section>
+                <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-6">
+                  <h3 className="mb-4 border-b border-slate-100 pb-4 text-lg font-black dark:border-slate-800">{isArabic ? 'معرض الصور الإضافية' : 'Additional images gallery'}</h3>
+              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                <p className="mb-2 text-sm font-black text-slate-800 dark:text-white">
+                  {isArabic ? 'صور إضافية لطريقة الدفع (اختياري)' : 'Additional payment method images (optional)'}
+                </p>
+                <p className="mb-3 text-xs text-slate-500">
+                  {isArabic ? 'صور شرح خطوات الدفع أو QR إضافي — غير الصورة الرئيسية. حد أقصى 20 صورة.' : 'Instructions, screenshots or extra QR images — separate from the main image. Up to 20.'}
+                </p>
+                <input type="file" accept="image/png,image/jpeg,image/webp" multiple
+                  onChange={(e) => { pickGallery(e.target.files); e.target.value = ''; }}
+                  className="w-full rounded-xl border border-slate-200 p-2 text-sm dark:border-slate-700" />
+                {galleryMessage && <p className="mt-2 text-sm font-bold text-red-600">{galleryMessage}</p>}
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {galleryOrder.map((item, index) => !galleryRemoved.includes(item.id) && (
+                    <div key={item.id} className="rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+                      <img src={item.image} alt="Gallery" className="h-28 w-full rounded-lg object-contain" />
+                      <div className="mt-2 flex justify-between gap-2 text-xs">
+                        <button type="button" disabled={index === 0} onClick={() => setGalleryOrder((old) => { const a = [...old]; [a[index-1],a[index]]=[a[index],a[index-1]]; return a; })}>↑</button>
+                        <button type="button" disabled={index === galleryOrder.length-1} onClick={() => setGalleryOrder((old) => { const a = [...old]; [a[index],a[index+1]]=[a[index+1],a[index]]; return a; })}>↓</button>
+                        <button type="button" className="font-bold text-red-600" onClick={() => setGalleryRemoved((old) => [...old,item.id])}>×</button>
+                      </div>
+                    </div>
+                  ))}
+                  {galleryFiles.map((file,index) => (
+                    <div key={`${file.name}-${index}`} className="rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+                      <img src={URL.createObjectURL(file)} alt={file.name} className="h-28 w-full rounded-lg object-contain"
+                        onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)} />
+                      <button type="button" className="mt-2 text-xs font-bold text-red-600"
+                        onClick={() => setGalleryFiles((old) => old.filter((_,i) => i!==index))}>
+                        {isArabic ? 'إزالة' : 'Remove'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+                </section>
+              </aside>
+
+              <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg lg:col-span-12">
               <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:justify-end">
                 <button
                   type="button"
@@ -1019,6 +1204,7 @@ const PaymentMethods = () => {
                     ? labels.saving
                     : (editingMethod ? labels.update : labels.save)}
                 </button>
+              </div>
               </div>
             </form>
           </div>
