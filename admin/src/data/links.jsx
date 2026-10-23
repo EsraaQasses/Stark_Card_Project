@@ -23,6 +23,10 @@ export const links = [
         icon: <FiCreditCard />,
       },
       {
+        name: 'all-payments',
+        icon: <FiActivity />,
+      },
+      {
         name: 'transition',
         icon: <FiRefreshCw />,
       },
@@ -33,10 +37,6 @@ export const links = [
       {
         name: 'finance-controls',
         icon: <FiDollarSign />,
-      },
-      {
-        name: 'operational-logs',
-        icon: <FiActivity />,
       },
     ],
   },

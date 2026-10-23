@@ -127,10 +127,6 @@ const Ads = lazy(() => (
   import('./pages/Dashboard/AdsPage')
 ));
 
-const OperationalLogs = lazy(() => (
-  import('./pages/Dashboard/OperationalLogs')
-));
-
 const FinanceControls = lazy(() => (
   import('./pages/Dashboard/FinanceControls')
 ));
@@ -734,15 +730,6 @@ const AppContent = () => {
                   element={(
                     <ProtectedRoute>
                       <Ads />
-                    </ProtectedRoute>
-                  )}
-                />
-
-                <Route
-                  path="/operational-logs"
-                  element={(
-                    <ProtectedRoute>
-                      <OperationalLogs />
                     </ProtectedRoute>
                   )}
                 />

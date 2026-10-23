@@ -810,6 +810,12 @@ const CustomerDetails = () => {
   const [adjustmentError, setAdjustmentError] = useState('');
   const [submittingAdjustment, setSubmittingAdjustment] = useState(false);
   const [accountActionLoading, setAccountActionLoading] = useState('');
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
+  const [categorySelection, setCategorySelection] = useState('');
+  const [categoryNote, setCategoryNote] = useState('');
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
 
   const customer = aggregate?.profile || null;
   const wallets = aggregate?.wallets || [];
@@ -877,6 +883,51 @@ const CustomerDetails = () => {
   useEffect(() => {
     loadCustomer();
   }, [loadCustomer]);
+
+  const openCategoryEditor = async () => {
+    setCategoryError('');
+    setCategorySelection(String(customerCategory?.id ?? ''));
+    setCategoryNote('');
+    try {
+      const response = await axiosInstance.get('/users/categories/active_categories/');
+      const items = Array.isArray(response.data)
+        ? response.data : (response.data?.results || []);
+      if (!Array.isArray(items)) throw new Error('Invalid categories response');
+      // Include currently assigned inactive category so current choice is visible.
+      const current = customerCategory?.id && !items.some((x) => String(x.id) === String(customerCategory.id))
+        ? [customerCategory] : [];
+      setCategoryOptions([...current, ...items]);
+      setCategoryEditorOpen(true);
+    } catch (err) {
+      setCategoryError(getApiError(err, isArabic ? 'تعذر تحميل فئات العملاء.' : 'Cannot load customer categories.'));
+    }
+  };
+
+  const saveCustomerCategory = async () => {
+    if (categorySaving || !customer) return;
+    const nextId = categorySelection ? Number(categorySelection) : null;
+    if (categorySelection && !Number.isInteger(nextId)) {
+      setCategoryError(isArabic ? 'فئة غير صالحة.' : 'Invalid category.');
+      return;
+    }
+    if (!window.confirm(isArabic ? 'تأكيد تغيير فئة العميل؟' : 'Confirm customer category change?')) return;
+    setCategorySaving(true);
+    setCategoryError('');
+    try {
+      await axiosInstance.post('/users/assign-category/', {
+        user_id: Number(customerId),
+        category_id: nextId,
+        notes: categoryNote.trim(),
+      });
+      setCategoryEditorOpen(false);
+      setNotice({ type: 'success', message: isArabic ? 'تم تحديث فئة العميل.' : 'Customer category updated.' });
+      await loadCustomer({ background: true });
+    } catch (err) {
+      setCategoryError(getApiError(err, isArabic ? 'تعذر حفظ فئة العميل.' : 'Failed to save category.'));
+    } finally {
+      setCategorySaving(false);
+    }
+  };
 
   const runAccountAction = async (action) => {
     if (!customer || accountActionLoading) {
@@ -2007,6 +2058,52 @@ const CustomerDetails = () => {
                         accentColor={accentColor}
                       />
                     ))}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+                        {labels.customerCategory}
+                      </span>
+                      <button type="button" onClick={openCategoryEditor}
+                        className="rounded-xl border border-cyan-300 px-4 py-2 text-sm font-bold text-cyan-700 dark:text-cyan-300">
+                        {isArabic ? 'تعديل فئة العميل' : 'Edit customer category'}
+                      </button>
+                    </div>
+                    {categoryEditorOpen && (
+                      <div className="mt-4 space-y-3">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
+                          {isArabic ? 'الفئة الجديدة' : 'New category'}
+                          <select value={categorySelection} onChange={(e) => setCategorySelection(e.target.value)}
+                            disabled={categorySaving}
+                            className="mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white">
+                            <option value="">{isArabic ? 'الفئة الافتراضية (إلغاء التخصيص)' : 'Default category (remove assignment)'}</option>
+                            {categoryOptions.map((cat) => (
+                              <option key={cat.id} value={String(cat.id)}>
+                                {cat.display_name || cat.name || `#${cat.id}`}{cat.is_active === false ? (isArabic ? ' (غير نشطة)' : ' (inactive)') : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
+                          {isArabic ? 'ملاحظة التغيير (اختيارية)' : 'Change note (optional)'}
+                          <textarea value={categoryNote} onChange={(e) => setCategoryNote(e.target.value)}
+                            maxLength={500} rows={2} disabled={categorySaving}
+                            className="mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
+                        </label>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={saveCustomerCategory} disabled={categorySaving}
+                            className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+                            {categorySaving ? (isArabic ? 'جاري الحفظ...' : 'Saving...') : (isArabic ? 'تأكيد وحفظ' : 'Confirm & save')}
+                          </button>
+                          <button type="button" onClick={() => { setCategoryEditorOpen(false); setCategoryError(''); }}
+                            disabled={categorySaving} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold dark:text-white">
+                            {labels.cancel}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {categoryError && <p role="alert" className="mt-2 text-sm font-bold text-red-600">{categoryError}</p>}
                   </div>
 
                   {customerCategory && (

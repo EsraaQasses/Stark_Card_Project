@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 
 import { AiOutlineMenu } from 'react-icons/ai';
 import { FaUserShield, FaWallet } from 'react-icons/fa';
-import { BsListCheck } from 'react-icons/bs';
 import {
   RiLogoutBoxRLine,
   RiNotification3Line,
@@ -14,7 +13,6 @@ import { useTranslation } from 'react-i18next';
 import Currencies from './Currencies';
 import LastActions from './LastActions';
 import Notification from './Notification';
-import Payments from './Payments';
 import UserProfile from './UserProfile';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -232,13 +230,6 @@ const Navbar = () => {
     });
   };
 
-  const closePayments = () => {
-    setIsClicked({
-      ...initialState,
-      chat: false,
-    });
-  };
-
   const closeNotifications = () => {
     setIsClicked({
       ...initialState,
@@ -279,27 +270,6 @@ const Navbar = () => {
         {isClicked.cart && (
           <Currencies
             onClose={closeCurrencies}
-          />
-        )}
-      </div>
-
-      <div className="relative">
-        <NavActionButton
-          title={t(
-            'common.payments_log',
-            'Payments Log',
-          )}
-          customFunc={() => (
-            handleClick('chat')
-          )}
-          icon={<BsListCheck />}
-          isActive={isClicked.chat}
-          accentColor={accentColor}
-        />
-
-        {isClicked.chat && (
-          <Payments
-            onClose={closePayments}
           />
         )}
       </div>
