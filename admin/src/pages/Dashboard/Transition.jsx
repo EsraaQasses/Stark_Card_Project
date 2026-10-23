@@ -100,6 +100,7 @@ const Transactions = () => {
     total: isArabic ? 'إجمالي التحويلات' : 'Total transactions',
     approved: isArabic ? 'المقبولة' : 'Approved',
     pending: isArabic ? 'المعلقة' : 'Pending',
+    rejected: isArabic ? 'المرفوضة' : 'Rejected',
     usdVolume: isArabic ? 'حجم الدولار' : 'USD volume',
     sypVolume: isArabic ? 'حجم الليرة' : 'SYP volume',
     search: isArabic
@@ -123,8 +124,8 @@ const Transactions = () => {
     approve: isArabic ? 'موافقة' : 'Approve',
     reject: isArabic ? 'رفض' : 'Reject',
     noActor: isArabic
-      ? 'غير مرجع من الـ API'
-      : 'Not provided by API',
+      ? 'منفّذ العملية غير مسجل'
+      : 'Actor not recorded',
     customer: isArabic ? 'عميل' : 'Customer',
     agent: isArabic ? 'وكيل' : 'Agent',
     admin: isArabic ? 'أدمن' : 'Admin',
@@ -152,9 +153,6 @@ const Transactions = () => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [filters, setFilters] = useState({
-    currency: 'All',
-    status: 'All',
-    type: 'All',
     startDate: '',
     endDate: '',
   });
@@ -178,8 +176,37 @@ const Transactions = () => {
     setError('');
 
     try {
-      const response = await axiosInstance.get('transactions/transactions/');
-      setTransactions(normalizeList(response.data));
+      // Collect all server pages before applying filters and computing totals.
+      // Never present first-page figures as totals for the whole ledger.
+      const list = [];
+      let next = 'transactions/transactions/';
+      let pages = 0;
+      const seen = new Set();
+      while (next) {
+        if (seen.has(next) || pages >= 1000) {
+          throw new Error('Invalid transaction pagination chain');
+        }
+        seen.add(next);
+        pages += 1;
+        const response = await axiosInstance.get(next);
+        const data = response.data;
+        if (!Array.isArray(data) && !Array.isArray(data?.results)) {
+          throw new Error('Unexpected transaction API response');
+        }
+        list.push(...normalizeList(data));
+        // Axios baseURL may already include /api/. Absolute next URLs should
+        // be requested as returned by DRF, not prefixed a second time.
+        next = Array.isArray(data) ? null : (data.next || null);
+        if (next) {
+          const target = new URL(next, window.location.origin);
+          const configured = new URL(axiosInstance.defaults.baseURL || '/', window.location.origin);
+          if (target.origin !== configured.origin) {
+            throw new Error('Unsafe transaction pagination URL');
+          }
+          next = target.href;
+        }
+      }
+      setTransactions(list);
     } catch (fetchError) {
       setTransactions([]);
       setError(getApiError(fetchError, labels.loadFailed));
@@ -194,155 +221,49 @@ const Transactions = () => {
     }
   }, [fetchTransactions, isAuthenticated]);
 
-  const getWalletCurrency = useCallback((wallet) => {
-    if (wallet && typeof wallet === 'object') {
-      return wallet.currency || wallet.currency_code || 'USD';
-    }
-
-    return 'USD';
-  }, []);
-
-  const resolveActor = useCallback((transaction) => {
+  const getWalletCurrency = useCallback((transaction) => {
     const wallet = transaction.wallet && typeof transaction.wallet === 'object'
       ? transaction.wallet
       : null;
+    const currency = String(
+      transaction.currency || transaction.wallet_currency
+      || wallet?.currency || wallet?.currency_code || ''
+    ).toUpperCase();
+    return currency === 'USD' || currency === 'SYP' ? currency : '—';
+  }, []);
 
+  const dateInDamascus = useCallback((value) => {
+    if (!value || Number.isNaN(new Date(value).getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Damascus', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date(value));
+  }, []);
+
+  const resolveActor = useCallback((transaction) => {
+    // Only actor-specific fields identify the performer. The user / wallet
+    // owner is a transaction participant and must not be mislabelled as actor.
     const candidates = [
-      {
-        person: transaction.performed_by,
-        role: transaction.performed_by?.role || '',
-        source: 'performed_by',
-      },
-      {
-        person: transaction.created_by,
-        role: transaction.created_by?.role || '',
-        source: 'created_by',
-      },
-      {
-        person: transaction.initiated_by,
-        role: transaction.initiated_by?.role || '',
-        source: 'initiated_by',
-      },
-      {
-        person: transaction.actor,
-        role: transaction.actor?.role || '',
-        source: 'actor',
-      },
-      {
-        person: transaction.user,
-        role: labels.customer,
-        source: 'user',
-      },
-      {
-        person: transaction.agent,
-        role: labels.agent,
-        source: 'agent',
-      },
-      {
-        person: transaction.admin,
-        role: labels.admin,
-        source: 'admin',
-      },
-      {
-        person: wallet?.user,
-        role: labels.customer,
-        source: 'wallet.user',
-      },
-      {
-        person: wallet?.agent,
-        role: labels.agent,
-        source: 'wallet.agent',
-      },
-      {
-        person: wallet?.admin,
-        role: labels.admin,
-        source: 'wallet.admin',
-      },
-      {
-        person: wallet?.owner,
-        role: wallet?.owner?.role || labels.walletOwner,
-        source: 'wallet.owner',
-      },
-      {
-        person: wallet?.customer,
-        role: labels.customer,
-        source: 'wallet.customer',
-      },
+      transaction.performed_by, transaction.created_by,
+      transaction.initiated_by, transaction.actor,
     ];
-
-    const matched = candidates.find((candidate) => (
-      candidate.person
-      && typeof candidate.person === 'object'
-      && (
-        pickPersonName(candidate.person)
-        || pickPersonId(candidate.person) !== null
-      )
-    ));
-
-    if (matched) {
-      return {
-        name: pickPersonName(matched.person) || `#${pickPersonId(matched.person)}`,
-        id: pickPersonId(matched.person),
-        role: matched.role || matched.person.role || '',
-        source: matched.source,
-        isFallback: false,
-      };
+    for (const person of candidates) {
+      if (person && typeof person === 'object') {
+        const id = pickPersonId(person);
+        const name = pickPersonName(person);
+        if (name || id !== null) {
+          return {name: name || `#${id}`, id, role: person.role || '', isFallback: false};
+        }
+      }
     }
-
-    const flatName = (
-      transaction.performed_by_name
-      || transaction.created_by_name
-      || transaction.actor_name
-      || transaction.user_name
-      || transaction.username
-      || transaction.agent_name
-      || transaction.admin_name
-      || wallet?.user_name
-      || wallet?.owner_name
-      || ''
-    );
-
-    const flatId = (
-      transaction.performed_by_id
-      ?? transaction.created_by_id
-      ?? transaction.actor_id
-      ?? transaction.user_id
-      ?? transaction.agent_id
-      ?? transaction.admin_id
-      ?? wallet?.user_id
-      ?? wallet?.owner_id
-      ?? null
-    );
-
-    if (flatName || flatId !== null) {
-      return {
-        name: flatName || `#${flatId}`,
-        id: flatId,
-        role: (
-          transaction.performed_by_role
-          || transaction.actor_role
-          || transaction.role
-          || ''
-        ),
-        source: 'flat-fields',
-        isFallback: false,
-      };
+    const name = transaction.performed_by_name || transaction.created_by_name
+      || transaction.actor_name || '';
+    const id = transaction.performed_by_id ?? transaction.created_by_id
+      ?? transaction.actor_id ?? null;
+    if (name || id !== null) {
+      return {name: name || `#${id}`, id, role: transaction.actor_role || '', isFallback: false};
     }
-
-    return {
-      name: labels.noActor,
-      id: null,
-      role: '',
-      source: 'missing',
-      isFallback: true,
-    };
-  }, [
-    labels.admin,
-    labels.agent,
-    labels.customer,
-    labels.noActor,
-    labels.walletOwner,
-  ]);
+    return {name: labels.noActor, id: null, role: '', isFallback: true};
+  }, [labels.noActor]);
 
   const getSource = useCallback((transaction, actor) => {
     if (transaction.source && typeof transaction.source === 'object') {
@@ -355,19 +276,12 @@ const Transactions = () => {
       return transaction.source_name;
     }
 
-    if (transaction.transaction_type === 'purchase') {
-      return actor.isFallback ? labels.noActor : actor.name;
+    if (transaction.sender_name) return transaction.sender_name;
+    if (transaction.user_name) return transaction.user_name;
+    if (transaction.user && typeof transaction.user === 'object') {
+      return pickPersonName(transaction.user) || `#${pickPersonId(transaction.user)}`;
     }
-
-    if (
-      transaction.user
-      || transaction.agent
-      || transaction.admin
-      || transaction.wallet
-    ) {
-      return actor.isFallback ? labels.noActor : actor.name;
-    }
-
+    if (transaction.user != null) return `#${transaction.user}`;
     return labels.system;
   }, [labels.noActor, labels.system]);
 
@@ -394,6 +308,11 @@ const Transactions = () => {
     if (transaction.recipient_name) {
       return transaction.recipient_name;
     }
+    if (transaction.recipient != null) {
+      return typeof transaction.recipient === 'object'
+        ? (pickPersonName(transaction.recipient) || `#${pickPersonId(transaction.recipient)}`)
+        : `#${transaction.recipient}`;
+    }
 
     if (transaction.transaction_type === 'purchase') {
       return isArabic ? 'شراء من المتجر' : 'Store purchase';
@@ -419,8 +338,8 @@ const Transactions = () => {
       timestamp: item.created_at,
       type: item.transaction_type,
       statusValue: item.status,
-      amountValue: Number(item.amount || 0),
-      currencyValue: getWalletCurrency(item.wallet),
+      amountValue: item.amount == null ? null : Number(item.amount),
+      currencyValue: getWalletCurrency(item),
       actor,
       sourceValue: getSource(item, actor),
       targetValue: getTarget(item),
@@ -437,40 +356,10 @@ const Transactions = () => {
     const needle = searchText.trim().toLowerCase();
 
     return transformed.filter((item) => {
-      if (
-        filters.currency !== 'All'
-        && item.currencyValue !== filters.currency
-      ) {
-        return false;
-      }
 
-      if (
-        filters.status !== 'All'
-        && item.statusValue !== filters.status
-      ) {
-        return false;
-      }
-
-      if (
-        filters.type !== 'All'
-        && item.type !== filters.type
-      ) {
-        return false;
-      }
-
-      if (
-        filters.startDate
-        && new Date(item.timestamp) < new Date(filters.startDate)
-      ) {
-        return false;
-      }
-
-      if (
-        filters.endDate
-        && new Date(item.timestamp) > new Date(`${filters.endDate}T23:59:59`)
-      ) {
-        return false;
-      }
+      const transactionDate = dateInDamascus(item.timestamp);
+      if (filters.startDate && (!transactionDate || transactionDate < filters.startDate)) return false;
+      if (filters.endDate && (!transactionDate || transactionDate > filters.endDate)) return false;
 
       if (!needle) {
         return true;
@@ -489,26 +378,32 @@ const Transactions = () => {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle));
     });
-  }, [filters, searchText, transformed]);
+  }, [dateInDamascus, filters, searchText, transformed]);
 
   const stats = useMemo(() => {
     const approvedItems = filteredData.filter(
       (item) => item.statusValue === 'approved',
     );
 
+    // Amounts are per ledger row, not exchange-rate equivalents.
+    // A transfer may have both a debit and credit row; their volume is
+    // ledger movement, not necessarily unique transfer value.
     const usdVolume = approvedItems
-      .filter((item) => item.currencyValue === 'USD')
-      .reduce((sum, item) => sum + item.amountValue, 0);
+      .filter((item) => item.currencyValue === 'USD' && Number.isFinite(item.amountValue))
+      .reduce((sum, item) => sum + Math.abs(item.amountValue), 0);
 
     const sypVolume = approvedItems
-      .filter((item) => item.currencyValue === 'SYP')
-      .reduce((sum, item) => sum + item.amountValue, 0);
+      .filter((item) => item.currencyValue === 'SYP' && Number.isFinite(item.amountValue))
+      .reduce((sum, item) => sum + Math.abs(item.amountValue), 0);
 
     return {
       total: filteredData.length,
       approved: approvedItems.length,
       pending: filteredData.filter(
         (item) => item.statusValue === 'pending',
+      ).length,
+      rejected: filteredData.filter(
+        (item) => ['rejected', 'failed', 'cancelled'].includes(item.statusValue),
       ).length,
       usdVolume,
       sypVolume,
@@ -518,15 +413,13 @@ const Transactions = () => {
   const clearFilters = () => {
     setSearchText('');
     setFilters({
-      currency: 'All',
-      status: 'All',
-      type: 'All',
       startDate: '',
       endDate: '',
     });
   };
 
   const formatAmount = (item) => {
+    if (item.amountValue == null || !Number.isFinite(item.amountValue)) return '—';
     if (item.currencyValue === 'USD') {
       return `$${item.amountValue.toLocaleString('en-US', {
         minimumFractionDigits: 2,
@@ -534,6 +427,7 @@ const Transactions = () => {
       })}`;
     }
 
+    if (item.currencyValue !== 'SYP') return '—';
     return `${item.amountValue.toLocaleString(
       isArabic ? 'ar-SY' : 'en-US',
     )} SYP`;
@@ -552,9 +446,12 @@ const Transactions = () => {
       labels.status,
     ];
 
-    const escapeCell = (value) => (
-      `"${String(value ?? '').replace(/"/g, '""')}"`
-    );
+    const escapeCell = (value) => {
+      // Prevent spreadsheet formula execution when CSV is opened.
+      const text = String(value ?? '');
+      const safe = /^[\s]*[=+@-]/.test(text) ? `'${text}` : text;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
 
     const rows = filteredData.map((item) => [
       item.transactionId,
@@ -773,9 +670,9 @@ const Transactions = () => {
               icon={<FiCheck />}
             />
             <StatCard
-              label={labels.pending}
-              value={stats.pending}
-              icon={<FiClock />}
+              label={labels.rejected}
+              value={stats.rejected}
+              icon={<FiX />}
             />
             <StatCard
               label={labels.usdVolume}
@@ -818,8 +715,8 @@ const Transactions = () => {
                 </button>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-                <div className="relative xl:col-span-2">
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="relative">
                   <FiSearch className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="search"
@@ -829,59 +726,6 @@ const Transactions = () => {
                     className="h-11 w-full rounded-xl border border-slate-200 bg-white ps-10 pe-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                   />
                 </div>
-
-                <select
-                  value={filters.currency}
-                  onChange={(event) => setFilters((previous) => ({
-                    ...previous,
-                    currency: event.target.value,
-                  }))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="All">{labels.allCurrencies}</option>
-                  <option value="USD">USD</option>
-                  <option value="SYP">SYP</option>
-                </select>
-
-                <select
-                  value={filters.status}
-                  onChange={(event) => setFilters((previous) => ({
-                    ...previous,
-                    status: event.target.value,
-                  }))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="All">{labels.allStatuses}</option>
-                  <option value="approved">
-                    {transactionValue('status', 'approved', 'status.unknown')}
-                  </option>
-                  <option value="pending">
-                    {transactionValue('status', 'pending', 'status.unknown')}
-                  </option>
-                  <option value="rejected">
-                    {transactionValue('status', 'rejected', 'status.unknown')}
-                  </option>
-                </select>
-
-                <select
-                  value={filters.type}
-                  onChange={(event) => setFilters((previous) => ({
-                    ...previous,
-                    type: event.target.value,
-                  }))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="All">{labels.allTypes}</option>
-                  <option value="deposit">
-                    {transactionValue('type', 'deposit', 'type.other')}
-                  </option>
-                  <option value="transfer">
-                    {transactionValue('type', 'transfer', 'type.other')}
-                  </option>
-                  <option value="purchase">
-                    {transactionValue('type', 'purchase', 'type.other')}
-                  </option>
-                </select>
 
                 <div className="grid grid-cols-2 gap-2">
                   <input
