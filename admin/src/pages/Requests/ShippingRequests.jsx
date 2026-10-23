@@ -62,6 +62,17 @@ const normalizeImageUrl = (url) => {
   return `/${value.replace(/^\/+/, '')}`;
 };
 
+// STARK_SHIPPING_DATE_RANGE_V2 — Gregorian calendar in backend time zone.
+const damascusDateString = (value = Date.now()) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Damascus', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const part = (type) => parts.find((item) => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+};
+
 const ShippingRequests = () => {
   const { i18n } = useTranslation(['requests', 'common']);
   const { currentColor } = useStateContext();
@@ -154,6 +165,11 @@ const ShippingRequests = () => {
   const [actionLoading, setActionLoading] = useState(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  // Inclusive date range; defaults to the current Damascus calendar day.
+  const [dateStart, setDateStart] = useState(() => damascusDateString());
+  const [dateEnd, setDateEnd] = useState(() => damascusDateString());
+
 
   const [detailsRequest, setDetailsRequest] = useState(null);
   const [approveRequest, setApproveRequest] = useState(null);
@@ -264,35 +280,43 @@ const ShippingRequests = () => {
     fetchShippingData();
   }, []);
 
-  const stats = useMemo(() => ({
-    total: rows.length,
-    pending: rows.filter((item) => item.status === 'pending').length,
-    approved: rows.filter((item) => item.status === 'approved').length,
-    rejected: rows.filter((item) => item.status === 'rejected').length,
-  }), [rows]);
-
+  // Date limits include both whole calendar days (Asia/Damascus).
+  // All loaded pages from both shipping sources are filtered before computing totals.
   const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = search.trim().toLocaleLowerCase();
+    return rows.filter((request) => {
+      const status = String(request.status || '').toLowerCase();
+      if (statusFilter !== 'all' && status !== statusFilter) return false;
+      if (dateStart || dateEnd) {
+        const created = damascusDateString(request.created_at);
+        if (!created) return false;
+        if (dateStart && created < dateStart) return false;
+        if (dateEnd && created > dateEnd) return false;
+      }
+      if (!query) return true;
+      return [
+        request.id, request.row_id, request.user_name,
+        request.user_email, request.user_phone, request.agent_name,
+        request.payment_method_title, request.transaction_ref,
+      ].some((value) => String(value ?? '').toLocaleLowerCase().includes(query));
+    });
+  }, [rows, search, statusFilter, dateStart, dateEnd]);
 
-    if (!query) return rows;
+  const stats = useMemo(() => ({
+    total: filteredRows.length,
+    pending: filteredRows.filter((item) => item.status === 'pending').length,
+    approved: filteredRows.filter((item) => item.status === 'approved').length,
+    rejected: filteredRows.filter((item) => item.status === 'rejected').length,
+  }), [filteredRows]);
 
-    return rows.filter((request) => [
-      request.id,
-      request.row_id,
-      request.user_name,
-      request.user_email,
-      request.user_phone,
-      request.amount,
-      request.currency,
-      request.wallet_currency,
-      request.payment_method_title,
-      request.transaction_ref,
-      request.status,
-      request._source_label,
-    ].some((value) => (
-      String(value ?? '').toLowerCase().includes(query)
-    )));
-  }, [rows, search]);
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setDateStart(damascusDateString());
+    setDateEnd(damascusDateString());
+    setSearch('');
+  };
+
+  const invalidDateRange = Boolean(dateStart && dateEnd && dateStart > dateEnd);
 
   const formatDate = (value) => {
     if (!value) return '—';
@@ -443,8 +467,46 @@ const ShippingRequests = () => {
           setSearch={setSearch}
           placeholder={labels.search}
           count={filteredRows.length}
-          total={stats.total}
+          total={rows.length}
         />
+
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="text-sm font-bold text-slate-600 dark:text-slate-300">
+            {isArabic ? 'حالة الطلب' : 'Status'}
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900">
+              <option value="all">{isArabic ? 'جميع الحالات' : 'All statuses'}</option>
+              <option value="approved">{isArabic ? 'مكتملة' : 'Approved'}</option>
+              <option value="rejected">{isArabic ? 'مرفوضة' : 'Rejected'}</option>
+              <option value="pending">{isArabic ? 'معلّقة' : 'Pending'}</option>
+              <option value="processing">{isArabic ? 'قيد المعالجة' : 'Processing'}</option>
+              <option value="failed">{isArabic ? 'فاشلة' : 'Failed'}</option>
+            </select>
+          </label>
+          <label className="text-sm font-bold text-slate-600 dark:text-slate-300">
+            {isArabic ? 'من تاريخ' : 'From date'}
+            <input type="date" value={dateStart} max={dateEnd || undefined}
+              onChange={(event) => setDateStart(event.target.value)}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900" />
+          </label>
+          <label className="text-sm font-bold text-slate-600 dark:text-slate-300">
+            {isArabic ? 'إلى تاريخ (شامل)' : 'Through date (inclusive)'}
+            <input type="date" value={dateEnd} min={dateStart || undefined}
+              onChange={(event) => setDateEnd(event.target.value)}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900" />
+          </label>
+          <div className="flex items-end">
+            <button type="button" onClick={clearFilters}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+              {isArabic ? 'إعادة ضبط الفلاتر' : 'Reset filters'}
+            </button>
+          </div>
+        </div>
+        {invalidDateRange && (
+          <p className="mb-4 text-sm font-bold text-red-600" role="alert">
+            {isArabic ? 'تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.' : 'Start date must not be after end date.'}
+          </p>
+        )}
 
         {error && (
           <ErrorBanner message={error} />
@@ -454,7 +516,7 @@ const ShippingRequests = () => {
           <LoadingState label={labels.loading} />
         ) : filteredRows.length === 0 ? (
           <EmptyState
-            label={search ? labels.noResults : labels.empty}
+            label={rows.length ? labels.noResults : labels.empty}
           />
         ) : (
           <>
