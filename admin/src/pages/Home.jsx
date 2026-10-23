@@ -16,50 +16,35 @@ import axiosInstance from "../utils/axiosConfig";
 const ALL_TIME_START = "1970-01-01";
 const CHART_MONTHS = 7;
 
-const toApiDate = (date) => {
-  const year = date.getFullYear();
+// The backend uses Asia/Damascus. Derive reporting dates from that zone,
+// rather than each administrator's browser time zone.
+const REPORT_TIME_ZONE = "Asia/Damascus";
 
-  const month = String(
-    date.getMonth() + 1,
-  ).padStart(2, "0");
-
-  const day = String(
-    date.getDate(),
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+const datePartsInReportZone = (instant = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: REPORT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const part = (type) => parts.find((item) => item.type === type)?.value;
+  return { year: Number(part("year")), month: Number(part("month")), day: Number(part("day")) };
 };
 
-const startOfMonth = (date) => (
-  new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    1,
-  )
-);
+const pad2 = (number) => String(number).padStart(2, "0");
+const toApiDate = ({ year, month, day }) =>
+  `${year}-${pad2(month)}-${pad2(day)}`;
 
-const buildMonthAnchors = (
-  count = CHART_MONTHS,
-) => {
-  const now = new Date();
-  const result = [];
-
-  for (
-    let offset = count - 1;
-    offset >= 0;
-    offset -= 1
-  ) {
-    result.push(
-      new Date(
-        now.getFullYear(),
-        now.getMonth() - offset,
-        1,
-      ),
-    );
-  }
-
-  return result;
-};
+const buildMonthAnchors = (count = CHART_MONTHS, today = datePartsInReportZone()) =>
+  Array.from({ length: count }, (_, index) => {
+    const month = new Date(Date.UTC(today.year, today.month - count + index + 1, 1, 12));
+    return {
+      year: month.getUTCFullYear(),
+      month: month.getUTCMonth() + 1,
+      day: 1,
+      labelDate: month,
+    };
+  });
 
 const moneyValue = (
   report,
@@ -377,6 +362,8 @@ const Home = () => {
     totalUsers: 0,
     revenueUsd: 0,
     revenueSyp: 0,
+    todayRevenueUsd: 0,
+    todayRevenueSyp: 0,
   });
 
   const [
@@ -409,11 +396,8 @@ const Home = () => {
       setDetailsLoading(true);
 
       try {
-        const monthAnchors =
-          buildMonthAnchors();
-
-        const today =
-          new Date();
+        const today = datePartsInReportZone();
+        const monthAnchors = buildMonthAnchors(CHART_MONTHS, today);
 
         const requests = [
           axiosInstance.get(
@@ -429,6 +413,16 @@ const Home = () => {
             },
           ),
 
+          axiosInstance.get(
+            "/transactions/financial/summary/",
+            {
+              params: {
+                period: "daily",
+                date: toApiDate(today),
+              },
+            },
+          ),
+
           ...monthAnchors.map(
             (anchor) => (
               axiosInstance.get(
@@ -437,9 +431,7 @@ const Home = () => {
                   params: {
                     period: "monthly",
                     date:
-                      toApiDate(
-                        startOfMonth(anchor),
-                      ),
+                      toApiDate(anchor),
                   },
                 },
               )
@@ -500,11 +492,28 @@ const Home = () => {
           );
         }
 
+        const todayResult = results[1];
+        const todayReport = todayResult.status === "fulfilled"
+          ? todayResult.value.data
+          : null;
+        const todayRevenueFailed = !todayReport?.totals?.revenue;
+        if (!todayRevenueFailed) {
+          setStats((previous) => ({
+            ...previous,
+            todayRevenueUsd: moneyValue(todayReport, "revenue", "USD"),
+            todayRevenueSyp: moneyValue(todayReport, "revenue", "SYP"),
+          }));
+        }
+        setMetricErrors((previous) => ({
+          ...previous,
+          todayRevenue: todayRevenueFailed,
+        }));
+
         const monthRows =
           monthAnchors.map(
             (anchor, index) => {
               const result =
-                results[index + 1];
+                results[index + 2];
 
               const report = (
                 result.status
@@ -514,7 +523,7 @@ const Home = () => {
               );
 
               const label =
-                anchor.toLocaleDateString(
+                anchor.labelDate.toLocaleDateString(
                   locale,
                   {
                     month: "short",
@@ -523,7 +532,7 @@ const Home = () => {
 
               return {
                 key:
-                  `${anchor.getFullYear()}-${anchor.getMonth() + 1}`,
+                  `${anchor.year}-${anchor.month}`,
 
                 label,
 
@@ -574,6 +583,7 @@ const Home = () => {
             ...previous,
             totalRevenue: true,
             financialChart: true,
+            todayRevenue: true,
           }),
         );
       } finally {
@@ -625,8 +635,8 @@ const Home = () => {
               "/all_requests/admin/requests/",
               {
                 params: {
-                  created_from: toApiDate(new Date()),
-                  created_to: toApiDate(new Date()),
+                  created_from: toApiDate(datePartsInReportZone()),
+                  created_to: toApiDate(datePartsInReportZone()),
                   page_size: 1,
                 },
               },
@@ -1872,6 +1882,18 @@ const Home = () => {
                     )}
                   </p>
                 )}
+              </div>
+
+              <div className="mb-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+                <p className="mb-2 text-xs font-bold text-gray-400">
+                  {isArabic ? "إيرادات اليوم (بتوقيت دمشق)" : "Today's Revenue (Damascus time)"}
+                </p>
+                <p dir="ltr" className="text-xl font-extrabold text-slate-900 dark:text-white">
+                  {metricErrors.todayRevenue ? "—" : `$${stats.todayRevenueUsd.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </p>
+                <p dir="ltr" className="mt-1 font-bold text-emerald-500">
+                  {metricErrors.todayRevenue ? "—" : `${stats.todayRevenueSyp.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SYP`}
+                </p>
               </div>
 
               <div>

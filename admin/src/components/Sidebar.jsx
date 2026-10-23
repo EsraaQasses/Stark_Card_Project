@@ -59,7 +59,7 @@ const Sidebar = () => {
                     className={({ isActive }) => (isActive ? activeLink : normalLink)}
                   >
                     {link.icon}
-                    <span className="capitalize ">{t('navigation.' + link.name.toLowerCase(), link.name)}</span>
+                    <span className="capitalize ">{t('navigation.' + link.name.toLowerCase(), link.name === 'all-payments' ? (t('common.payments_log', 'Payments Log')) : link.name)}</span>
                   </NavLink>
                 ))}
               </div>
