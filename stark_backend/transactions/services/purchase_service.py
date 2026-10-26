@@ -271,7 +271,15 @@ class PurchaseService:
                 user_inputs=user_inputs or {},
             )
             raw_status = (api_result or {}).get("status") or (api_result or {}).get("message")
-            normalized = APIService._normalize_order_status(raw_status) if api_result and api_result.get("success") else "rejected"
+            provider_status = APIService._normalize_order_status(raw_status)
+            provider_success = bool(api_result and api_result.get("success"))
+
+            if provider_success and provider_status == "approved":
+                normalized = "approved"
+            elif provider_status == "rejected":
+                normalized = "rejected"
+            else:
+                normalized = "pending" if provider_status == "pending" else "unknown"
             external_id = (api_result or {}).get("external_transaction_id") or (api_result or {}).get("order_id")
 
             if normalized == "approved":
