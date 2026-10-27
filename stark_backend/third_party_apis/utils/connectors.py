@@ -223,37 +223,148 @@ class AlaaeddinConnector(BaseConnector):
             'User-Agent': 'StarkApp/1.0'
         }
     
-    def make_request(self, endpoint: str, method: str = 'GET', data: Dict = None,
-                    query_params: Dict = None, timeout: int = None) -> Dict[str, Any]:
-        """Override to ensure all requests use /v2/ path with Alaaeddin-specific timeout.
+    def make_request(self, endpoint, method="GET", data=None,
+                     query_params=None, timeout=None):
+        """ALAADDEIN_IPV4_CURL_V1: provider-only IPv4 transport."""
+        import json
+        import subprocess
+        import tempfile
+        import os
+        from urllib.parse import urlencode
 
-        If the API returns a route-not-found for /v2, retry once with /api/v2/.
-        """
-        # Ensure endpoint starts with /v2/ (per latest API docs)
-        if not endpoint.startswith('/v2/'):
-            if endpoint.startswith('/'):
-                endpoint = f'/v2{endpoint}'
-            else:
-                endpoint = f'/v2/{endpoint}'
+        method = method.upper()
+        if method not in ("GET", "POST"):
+            return {
+                "success": False,
+                "status_code": None,
+                "error": "Unsupported HTTP method",
+            }
 
-        # Use Alaaeddin-specific timeout if not provided
-        if timeout is None:
-            timeout = self.timeout
+        # Use the verified V2 route.
+        if endpoint.startswith("/api/v2/"):
+            path = endpoint
+        elif endpoint.startswith("/v2/"):
+            path = "/api" + endpoint
+        else:
+            path = "/api/v2/" + endpoint.lstrip("/")
 
-        # First attempt with /v2
-        result = super().make_request(endpoint, method, data, query_params, timeout)
+        url = "https://www.alaaeddin.net" + path
+        if query_params:
+            url += "?" + urlencode(query_params)
 
-        # Fallback to /api/v2 if route is not found
-        if result.get('status_code') == 404:
-            error_text = (result.get('error') or '').lower()
-            if 'route' in error_text and 'v2' in error_text:
-                if endpoint.startswith('/v2/'):
-                    fallback_endpoint = '/api' + endpoint
-                else:
-                    fallback_endpoint = f'/api/v2/{endpoint.lstrip("/")}'
-                return super().make_request(fallback_endpoint, method, data, query_params, timeout)
+        token = self.api_config.get_api_key()
+        if not token or any(c in token for c in "\r\n\""):
+            return {
+                "success": False,
+                "status_code": None,
+                "error": "Invalid API token",
+            }
 
-        return result
+        limit = int(timeout or self.timeout)
+        request_file = None
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                output_path = os.path.join(tmp, "response.json")
+
+                args = [
+                    "/usr/bin/curl",
+                    "-4",
+                    "--silent",
+                    "--show-error",
+                    "--max-time", str(limit),
+                    "--connect-timeout", "15",
+                    "--retry", "0",
+                    "--max-redirs", "0",
+                    "--request", method,
+                    "--url", url,
+                    "--output", output_path,
+                    "--write-out", "%{http_code}",
+                    "--config", "-",
+                ]
+
+                if method == "POST":
+                    request_file = os.path.join(tmp, "request.json")
+                    with open(request_file, "w") as f:
+                        json.dump(data if data is not None else {}, f)
+                    args.extend([
+                        "--data-binary", "@" + request_file
+                    ])
+
+                # Token passed through stdin, not command arguments.
+                config = (
+                    'header = "Accept: application/json"\n'
+                    'header = "Content-Type: application/json"\n'
+                    'header = "Authorization: Bearer ' + token + '"\n'
+                )
+
+                completed = subprocess.run(
+                    args,
+                    input=config,
+                    capture_output=True,
+                    text=True,
+                    timeout=limit + 5,
+                    check=False,
+                )
+
+                if completed.returncode != 0:
+                    return {
+                        "success": False,
+                        "status_code": None,
+                        "data": {},
+                        "error": (
+                            "Transport error; request outcome unknown "
+                            "if this was a purchase. Do not retry."
+                        ),
+                    }
+
+                status = int(completed.stdout.strip())
+
+                with open(output_path, "r") as f:
+                    raw = f.read()
+
+                try:
+                    body = json.loads(raw) if raw else {}
+                except ValueError:
+                    body = {"text": raw[:1000]}
+
+                success = 200 <= status < 300
+                error = None
+
+                if not success:
+                    if isinstance(body, dict):
+                        error = (
+                            body.get("message")
+                            or body.get("error")
+                            or body.get("msg")
+                        )
+                    if not error:
+                        error = "HTTP " + str(status)
+
+                return {
+                    "success": success,
+                    "status_code": status,
+                    "data": body,
+                    "headers": {},
+                    "text": raw[:1000],
+                    "url": url,
+                    "error": error,
+                }
+
+        except Exception as exc:
+            logger.error(
+                "Alaaeddin IPv4 request error: %s",
+                type(exc).__name__,
+            )
+            return {
+                "success": False,
+                "status_code": None,
+                "data": {},
+                "error": (
+                    "Request outcome unknown; "
+                    "do not repeat purchase automatically"
+                ),
+            }
     
     def test_connection(self) -> bool:
         """Test V2 connection using /v2/me"""
