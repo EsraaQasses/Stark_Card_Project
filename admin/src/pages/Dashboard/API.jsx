@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../utils/apiError';
 import React, {
   useCallback,
   useEffect,
@@ -49,89 +50,7 @@ const normalizeList = (value) => {
   return [];
 };
 
-const getApiError = (error, fallback) => {
-  const data = error?.response?.data;
-
-  if (typeof data === 'string' && data.trim()) {
-    return data;
-  }
-
-  return (
-    data?.error
-    || data?.detail
-    || data?.message
-    || error?.message
-    || fallback
-  );
-};
-
-const getProviderName = (provider, isArabic) => {
-  const map = {
-    daily: isArabic ? 'ديلي' : 'Daily',
-    alfaour: isArabic ? 'الفاغور' : 'Alfaour',
-    alaaeddin: isArabic ? 'علاء الدين' : 'Alaaeddin',
-  };
-
-  return map[provider] || provider || (isArabic ? 'غير محدد' : 'Unknown');
-};
-
-const formatLimit = (value, isArabic) => {
-  if (value === null || value === undefined || value === '') {
-    return isArabic ? 'بلا حد' : 'No limit';
-  }
-
-  const numeric = Number(value);
-
-  if (!Number.isFinite(numeric)) {
-    return String(value);
-  }
-
-  return numeric.toLocaleString(isArabic ? 'ar-SY' : 'en-US', {
-    maximumFractionDigits: 2,
-  });
-};
-
-const StatCard = ({
-  icon,
-  label,
-  value,
-  helper,
-  accentColor,
-}) => (
-  <div
-    className="
-      rounded-2xl border border-slate-100 bg-white p-4 shadow-sm
-      transition duration-200 hover:-translate-y-0.5 hover:shadow-md
-      dark:border-slate-800 dark:bg-secondary-dark-bg
-    "
-  >
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0 text-start">
-        <p className="text-xs font-extrabold text-slate-400">
-          {label}
-        </p>
-        <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
-          {value}
-        </p>
-        {helper && (
-          <p className="mt-1 truncate text-xs font-semibold text-slate-400">
-            {helper}
-          </p>
-        )}
-      </div>
-
-      <div
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-lg"
-        style={{
-          backgroundColor: `${accentColor}14`,
-          color: accentColor,
-        }}
-      >
-        {icon}
-      </div>
-    </div>
-  </div>
-);
+const getApiError = apiErrorMessage;
 
 const StatusBadge = ({ active, isArabic }) => (
   <span
@@ -318,7 +237,7 @@ const ApiCard = ({
 
           <button
             type="button"
-            disabled={syncing}
+            disabled={syncing || !api.is_active}
             onClick={onSync}
             className="
               inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border
@@ -940,6 +859,10 @@ const Api = () => {
 
   const handleToggleApi = async (api) => {
     if (updatingApi !== null) return;
+    const count = api.products_count == null ? (isArabic ? 'غير متاح' : 'unavailable') : api.products_count;
+    if (!window.confirm(isArabic
+      ? `${api.is_active ? 'تأكيد تعطيل' : 'تأكيد تفعيل'} المزوّد «${api.name}»؟ عدد المنتجات المرتبطة: ${count}. ${api.is_active ? 'قد تتوقف المنتجات المرتبطة عن الظهور والطلب.' : 'ستعتمد إتاحة المنتجات على حالتها ونتيجة المزامنة.'}`
+      : `${api.is_active ? 'Deactivate' : 'Activate'} provider “${api.name}”? Linked products: ${count}. ${api.is_active ? 'Linked products may become unavailable for display and orders.' : 'Product availability depends on product state and synchronization.'}`)) return;
 
     setUpdatingApi(api.id);
     setNotice(null);
@@ -1058,6 +981,7 @@ const Api = () => {
   };
 
   const syncOneApi = async (api, { silent = false } = {}) => {
+    if (!api.is_active) return false;
     if (!silent) {
       setSyncingProducts(api.id);
       setNotice(null);

@@ -14,8 +14,7 @@ function pickPriceLabel(p, uiCurrency) {
   const amt = res?.amount != null ? Number(res.amount) : null;
   const cur = (res?.currency || p?.currency || "").toUpperCase();
   if (amt != null && !Number.isNaN(amt) && amt > 0) return `${amt} ${cur}`.trim();
-  if (p?.price != null && Number(p.price) > 0) return `${p.price} ${cur}`.trim();
-  return cur || ""; // no amount available, show currency if present
+  return "السعر غير متوفر حالياً"; // no amount available, show currency if present
 }
 
 /**

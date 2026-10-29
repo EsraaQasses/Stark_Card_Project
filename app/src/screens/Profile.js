@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/screens/Profile.js
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -307,14 +308,7 @@ export default function Profile({ navigation }) {
           return;
         }
 
-        setError(
-          e?.response?.data
-            ?.error ||
-            t(
-              "wallet.errors.load",
-              "تعذر تحميل بيانات الحساب."
-            )
-        );
+        setError(getApiErrorMessage(e));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -488,21 +482,7 @@ export default function Profile({ navigation }) {
         )
       );
     } catch (e) {
-      const responseData =
-        e?.response?.data;
-
-      const message =
-        responseData?.detail ||
-        responseData?.error ||
-        Object.values(
-          responseData || {}
-        )
-          .flat()
-          .join(", ") ||
-        t(
-          "profile.saveFailed",
-          "تعذر تحديث بيانات الحساب."
-        );
+      const message = getApiErrorMessage(e);
 
       Alert.alert(
         t(
@@ -678,18 +658,7 @@ export default function Profile({ navigation }) {
           ]
         );
       } catch (e) {
-        const data =
-          e?.response?.data;
-
-        const message =
-          data?.message?.ar ||
-          data?.message?.en ||
-          data?.detail ||
-          data?.error ||
-          t(
-            "profile.passwordChangeFailed",
-            "تعذر تغيير كلمة المرور."
-          );
+        const message = getApiErrorMessage(e);
 
         Alert.alert(
           t(

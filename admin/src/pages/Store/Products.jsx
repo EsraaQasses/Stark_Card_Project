@@ -25,6 +25,8 @@ import {
 } from 'react-icons/fi';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { apiErrorMessage } from '../../utils/apiError';
+import ProductProfitMatrix from '../../components/ProductProfitMatrix';
 
 import { useStateContext } from '../../contexts/ContextProvider';
 import axiosInstance from '../../utils/axiosConfig';
@@ -56,6 +58,7 @@ const initialProduct = {
   product_type: 'amount_based',
   currency: 'USD',
   base_price: 0,
+  product_profit_percentage: '0',
   min_amount: 0,
   max_amount: 0,
   min_amount_price: 0,
@@ -74,13 +77,7 @@ const initialRequirement = {
   order: 0,
 };
 
-const getApiError = (error, fallback) => (
-  error?.response?.data?.detail
-  || error?.response?.data?.error
-  || error?.response?.data?.message
-  || error?.message
-  || fallback
-);
+const getApiError = apiErrorMessage;
 
 const ProductsPage = () => {
   const { i18n } = useTranslation();
@@ -182,6 +179,10 @@ const ProductsPage = () => {
   }), [isArabic]);
 
   const [products, setProducts] = useState([]);
+  const [showProfitMatrix, setShowProfitMatrix] = useState(false);
+  const [matrixDirty, setMatrixDirty] = useState(false);
+  const [matrixBusy, setMatrixBusy] = useState(false);
+  const [matrixRefresh, setMatrixRefresh] = useState(0);
   const [sections, setSections] = useState([]);
   const [apis, setApis] = useState([]);
   const [apiProducts, setApiProducts] = useState([]);
@@ -483,6 +484,7 @@ const ProductsPage = () => {
       product_type: product.product_type || 'amount_based',
       currency: product.currency || 'USD',
       base_price: product.base_price ?? '0',
+      product_profit_percentage: String(product.product_profit_percentage ?? '0'),
       min_amount: Number(product.min_amount || 0),
       max_amount: Number(product.max_amount || 0),
       min_amount_price: Number(product.min_amount_price || 0),
@@ -521,14 +523,6 @@ const ProductsPage = () => {
     setLoadingApiProducts(true);
 
     try {
-      try {
-        await axiosInstance.post(
-          `third_party_apis/apis/${apiId}/sync_products/`,
-        );
-      } catch (syncError) {
-        console.warn('API product sync failed:', syncError);
-      }
-
       const response = await axiosInstance.get(
         'store/admin/external-products/',
         { params: { api_id: apiId } },
@@ -693,14 +687,15 @@ const ProductsPage = () => {
       formData.append('product_type', newProduct.product_type);
       formData.append('currency', newProduct.currency);
       formData.append('base_price', String(newProduct.base_price));
+      formData.append('product_profit_percentage', String(newProduct.product_profit_percentage));
       formData.append('is_active', String(newProduct.is_active));
 
-      if (newProduct.api_config) {
-        formData.append('api_config', newProduct.api_config);
+      if (!editingProduct || String(newProduct.api_config || '') !== String(editingProduct.api_config || '')) {
+        formData.append('api_config', newProduct.api_config || '');
       }
 
-      if (newProduct.external_product) {
-        formData.append('external_product', newProduct.external_product);
+      if (!editingProduct || String(newProduct.external_product || '') !== String(editingProduct.external_product || '')) {
+        formData.append('external_product', newProduct.external_product || '');
       }
 
       if (newProduct.product_type === 'amount_based') {
@@ -736,7 +731,7 @@ const ProductsPage = () => {
       };
 
       if (editingProduct) {
-        await axiosInstance.put(
+        await axiosInstance.patch(
           `store/admin/products/${editingProduct.id}/`,
           formData,
           config,
@@ -858,7 +853,7 @@ const ProductsPage = () => {
     </div>
   );
 
-  if (loading && !products.length) {
+  if (loading && !products.length && !showProfitMatrix) {
     return (
       <div className="flex min-h-[520px] items-center justify-center">
         <FiRefreshCw className="animate-spin text-3xl text-slate-400" />
@@ -907,7 +902,8 @@ const ProductsPage = () => {
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => fetchData({ background: true })}
+                  disabled={matrixBusy}
+                  onClick={() => { if (showProfitMatrix) setMatrixRefresh((value) => value + 1); else fetchData({ background: true }); }}
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                 >
                   <FiRefreshCw className={loading ? 'animate-spin' : ''} />
@@ -916,7 +912,24 @@ const ProductsPage = () => {
 
                 <button
                   type="button"
-                  onClick={() => navigate('/product/add')}
+                  disabled={matrixBusy}
+                  aria-expanded={showProfitMatrix}
+                  onClick={() => {
+                    if (showProfitMatrix && matrixDirty && !window.confirm(isArabic ? 'توجد نسب غير محفوظة. هل تريد إغلاق الجدول والتخلي عن التعديلات؟' : 'You have unsaved rates. Close the table and discard changes?')) return;
+                    setShowProfitMatrix((visible) => !visible);
+                  }}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
+                >
+                  <FiBox />
+                  {isArabic ? 'إدارة نسب الأرباح' : 'Manage profit rates'}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={matrixBusy}
+                  onClick={() => {
+                    navigate('/product/add');
+                  }}
                   className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white transition hover:opacity-90"
                   style={{ backgroundColor: accentColor }}
                 >
@@ -927,380 +940,400 @@ const ProductsPage = () => {
             </div>
           </section>
 
-          {notice && (
-            <div
-              className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-bold ${
-                notice.type === 'error'
-                  ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300'
-                  : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
-              }`}
-            >
-              {notice.type === 'error'
-                ? <FiAlertCircle className="mt-0.5" />
-                : <FiCheck className="mt-0.5" style={{ color: accentColor }} />}
-              <span className="flex-1 text-start">
-                {notice.message}
-              </span>
-              <button type="button" onClick={() => setNotice(null)}>
-                <FiX />
-              </button>
-            </div>
-          )}
+          {showProfitMatrix ? (
+            <ProductProfitMatrix
+              sections={sections}
+              providers={apis}
+              accentColor={accentColor}
+              refreshToken={matrixRefresh}
+              onDirtyChange={setMatrixDirty}
+              onBusyChange={setMatrixBusy}
+              onClose={() => setShowProfitMatrix(false)}
+            />
+          ) : (
+            <>
+              {notice && (
+              <div
+                className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-bold ${
+                  notice.type === 'error'
+                    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300'
+                    : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                }`}
+              >
+                {notice.type === 'error'
+                  ? <FiAlertCircle className="mt-0.5" />
+                  : <FiCheck className="mt-0.5" style={{ color: accentColor }} />}
+                <span className="flex-1 text-start">
+                  {notice.message}
+                </span>
+                <button type="button" onClick={() => setNotice(null)}>
+                  <FiX />
+                </button>
+              </div>
+              )}
 
-          {error && (
-            <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-              <FiAlertCircle />
-              <span className="flex-1 text-start">
-                {error}
-              </span>
-            </div>
-          )}
+              {error && (
+              <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+                <FiAlertCircle />
+                <span className="flex-1 text-start">
+                  {error}
+                </span>
+              </div>
+              )}
 
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            <StatCard
-              icon={<FiPackage />}
-              label={labels.total}
-              value={stats.total}
-            />
-            <StatCard
-              icon={<FiCheck />}
-              label={labels.active}
-              value={stats.active}
-            />
-            <StatCard
-              icon={<span className="font-black">$</span>}
-              label={labels.usd}
-              value={stats.usd}
-            />
-            <StatCard
-              icon={<span className="text-xs font-black">SYP</span>}
-              label={labels.syp}
-              value={stats.syp}
-            />
-            <StatCard
-              icon={<FiBox />}
-              label={labels.amountBased}
-              value={stats.amountBased}
-            />
-            <StatCard
-              icon={<FiFileText />}
-              label={labels.customization}
-              value={stats.customization}
-            />
-          </section>
+              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                <StatCard
+                  icon={<FiPackage />}
+                  label={labels.total}
+                  value={stats.total}
+                />
+                <StatCard
+                  icon={<FiCheck />}
+                  label={labels.active}
+                  value={stats.active}
+                />
+                <StatCard
+                  icon={<span className="font-black">$</span>}
+                  label={labels.usd}
+                  value={stats.usd}
+                />
+                <StatCard
+                  icon={<span className="text-xs font-black">SYP</span>}
+                  label={labels.syp}
+                  value={stats.syp}
+                />
+                <StatCard
+                  icon={<FiBox />}
+                  label={labels.amountBased}
+                  value={stats.amountBased}
+                />
+                <StatCard
+                  icon={<FiFileText />}
+                  label={labels.customization}
+                  value={stats.customization}
+                />
+              </section>
 
-          <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="text-start">
-                  <h2 className="text-lg font-black text-slate-950 dark:text-white">
-                    {labels.title}
-                  </h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-400">
-                    {isArabic
-                      ? 'فلترة سريعة مع فرز وترقيم صفحات.'
-                      : 'Quick filters, sorting, and pagination.'}
-                  </p>
-                </div>
+              <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="text-start">
+                      <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                        {labels.title}
+                      </h2>
+                      <p className="mt-1 text-sm font-semibold text-slate-400">
+                        {isArabic
+                          ? 'فلترة سريعة مع فرز وترقيم صفحات.'
+                          : 'Quick filters, sorting, and pagination.'}
+                      </p>
+                    </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <div className="relative min-w-[260px]">
-                    <FiSearch className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="search"
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder={labels.search}
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-white ps-10 pe-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <div className="relative min-w-[260px]">
+                        <FiSearch className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="search"
+                          value={searchQuery}
+                          onChange={(event) => setSearchQuery(event.target.value)}
+                          placeholder={labels.search}
+                          className="h-11 w-full rounded-xl border border-slate-200 bg-white ps-10 pe-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={clearFilters}
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+                      >
+                        <FiFilter />
+                        {labels.clear}
+                      </button>
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-sm font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
-                  >
-                    <FiFilter />
-                    {labels.clear}
-                  </button>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+                    <select
+                      value={filters.section}
+                      onChange={(event) => setFilters((previous) => ({
+                        ...previous,
+                        section: event.target.value,
+                      }))}
+                      className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <option value="All">{labels.allSections}</option>
+                      {sections.map((section) => (
+                        <option key={section.id} value={section.id}>
+                          {isArabic
+                            ? (section.name_ar || section.name_en)
+                            : (section.name_en || section.name_ar)}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={filters.status}
+                      onChange={(event) => setFilters((previous) => ({
+                        ...previous,
+                        status: event.target.value,
+                      }))}
+                      className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <option value="All">{labels.allStatuses}</option>
+                      <option value="Active">{labels.activeLabel}</option>
+                      <option value="Inactive">{labels.inactiveLabel}</option>
+                    </select>
+
+                    <select
+                      value={filters.currency}
+                      onChange={(event) => setFilters((previous) => ({
+                        ...previous,
+                        currency: event.target.value,
+                      }))}
+                      className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <option value="All">{labels.allCurrencies}</option>
+                      <option value="USD">USD</option>
+                      <option value="SYP">SYP</option>
+                    </select>
+
+                    <select
+                      value={filters.product_type}
+                      onChange={(event) => setFilters((previous) => ({
+                        ...previous,
+                        product_type: event.target.value,
+                      }))}
+                      className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <option value="All">{labels.allTypes}</option>
+                      <option value="amount_based">{labels.amountBased}</option>
+                      <option value="customization_based">
+                        {labels.customization}
+                      </option>
+                    </select>
+
+                    <select
+                      value={`${sortBy}:${sortOrder}`}
+                      onChange={(event) => {
+                        const [field, order] = event.target.value.split(':');
+                        setSortBy(field);
+                        setSortOrder(order);
+                      }}
+                      className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <option value="id:desc">
+                        {isArabic ? 'الأحدث أولاً' : 'Newest first'}
+                      </option>
+                      <option value="id:asc">
+                        {isArabic ? 'الأقدم أولاً' : 'Oldest first'}
+                      </option>
+                      <option value="name:asc">
+                        {isArabic ? 'الاسم أ-ي' : 'Name A-Z'}
+                      </option>
+                      <option value="name:desc">
+                        {isArabic ? 'الاسم ي-أ' : 'Name Z-A'}
+                      </option>
+                      <option value="base_price:asc">
+                        {isArabic ? 'السعر الأقل' : 'Lowest price'}
+                      </option>
+                      <option value="base_price:desc">
+                        {isArabic ? 'السعر الأعلى' : 'Highest price'}
+                      </option>
+                    </select>
+
+                    <select
+                      value={pageSize}
+                      onChange={(event) => setPageSize(Number(event.target.value))}
+                      className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      <option value={10}>{labels.pageSize}: 10</option>
+                      <option value={20}>{labels.pageSize}: 20</option>
+                      <option value={50}>{labels.pageSize}: 50</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+              </section>
 
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-                <select
-                  value={filters.section}
-                  onChange={(event) => setFilters((previous) => ({
-                    ...previous,
-                    section: event.target.value,
-                  }))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="All">{labels.allSections}</option>
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {isArabic
-                        ? (section.name_ar || section.name_en)
-                        : (section.name_en || section.name_ar)}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={filters.status}
-                  onChange={(event) => setFilters((previous) => ({
-                    ...previous,
-                    status: event.target.value,
-                  }))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="All">{labels.allStatuses}</option>
-                  <option value="Active">{labels.activeLabel}</option>
-                  <option value="Inactive">{labels.inactiveLabel}</option>
-                </select>
-
-                <select
-                  value={filters.currency}
-                  onChange={(event) => setFilters((previous) => ({
-                    ...previous,
-                    currency: event.target.value,
-                  }))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="All">{labels.allCurrencies}</option>
-                  <option value="USD">USD</option>
-                  <option value="SYP">SYP</option>
-                </select>
-
-                <select
-                  value={filters.product_type}
-                  onChange={(event) => setFilters((previous) => ({
-                    ...previous,
-                    product_type: event.target.value,
-                  }))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="All">{labels.allTypes}</option>
-                  <option value="amount_based">{labels.amountBased}</option>
-                  <option value="customization_based">
-                    {labels.customization}
-                  </option>
-                </select>
-
-                <select
-                  value={`${sortBy}:${sortOrder}`}
-                  onChange={(event) => {
-                    const [field, order] = event.target.value.split(':');
-                    setSortBy(field);
-                    setSortOrder(order);
-                  }}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value="id:desc">
-                    {isArabic ? 'الأحدث أولاً' : 'Newest first'}
-                  </option>
-                  <option value="id:asc">
-                    {isArabic ? 'الأقدم أولاً' : 'Oldest first'}
-                  </option>
-                  <option value="name:asc">
-                    {isArabic ? 'الاسم أ-ي' : 'Name A-Z'}
-                  </option>
-                  <option value="name:desc">
-                    {isArabic ? 'الاسم ي-أ' : 'Name Z-A'}
-                  </option>
-                  <option value="base_price:asc">
-                    {isArabic ? 'السعر الأقل' : 'Lowest price'}
-                  </option>
-                  <option value="base_price:desc">
-                    {isArabic ? 'السعر الأعلى' : 'Highest price'}
-                  </option>
-                </select>
-
-                <select
-                  value={pageSize}
-                  onChange={(event) => setPageSize(Number(event.target.value))}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  <option value={10}>{labels.pageSize}: 10</option>
-                  <option value={20}>{labels.pageSize}: 20</option>
-                  <option value={50}>{labels.pageSize}: 50</option>
-                </select>
-              </div>
-            </div>
-          </section>
-
-          {!sortedProducts.length ? (
-            <section className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm font-black text-slate-400 dark:border-slate-700 dark:bg-secondary-dark-bg">
-              {labels.empty}
-            </section>
-          ) : (
-            <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
-              <div className="overflow-x-auto">
-                <table className="min-w-[1040px] w-full">
-                  <thead className="bg-slate-50/80 dark:bg-slate-900/60">
-                    <tr className="border-b border-slate-100 dark:border-slate-800">
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">#</th>
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.image}</th>
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.name}</th>
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.section}</th>
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.price}</th>
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.type}</th>
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.api}</th>
-                      <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.status}</th>
-                      <th className="px-4 py-3 text-center text-xs font-black text-slate-400">{labels.actions}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {paginatedProducts.map((product) => {
-                      const primaryName = isArabic
-                        ? (product.name_ar || product.name_en || '—')
-                        : (product.name_en || product.name_ar || '—');
-                      const secondaryName = isArabic
-                        ? product.name_en
-                        : product.name_ar;
-                      const imageUrl = getImageUrl(product.image);
-
-                      return (
-                        <tr
-                          key={product.id}
-                          className="transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
-                        >
-                          <td className="px-4 py-4 text-sm font-black text-slate-400">
-                            {product.id}
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
-                              {imageUrl ? (
-                                <img
-                                  src={imageUrl}
-                                  alt={primaryName}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <FiImage className="text-slate-300" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-start">
-                            <p className="max-w-[220px] truncate text-sm font-black text-slate-900 dark:text-white">
-                              {primaryName}
-                            </p>
-                            {secondaryName && secondaryName !== primaryName && (
-                              <p className="mt-1 max-w-[220px] truncate text-xs font-semibold text-slate-400">
-                                {secondaryName}
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">
-                            {getSectionName(product.section)}
-                          </td>
-                          <td className="px-4 py-4 text-sm font-black text-slate-900 dark:text-white">
-                            {formatPrice(product)}
-                          </td>
-                          <td className="px-4 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">
-                            {product.product_type === 'customization_based'
-                              ? labels.customization
-                              : labels.amountBased}
-                          </td>
-                          <td className="px-4 py-4 text-sm font-bold text-slate-500 dark:text-slate-400">
-                            {getApiName(product.api_config)}
-                          </td>
-                          <td className="px-4 py-4">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black ${
-                                product.is_active
-                                  ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
-                                  : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-300'
-                              }`}
-                            >
-                              <span
-                                className="h-1.5 w-1.5 rounded-full"
-                                style={{
-                                  backgroundColor: product.is_active
-                                    ? accentColor
-                                    : '#ef4444',
-                                }}
-                              />
-                              {product.is_active
-                                ? labels.activeLabel
-                                : labels.inactiveLabel}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => openEdit(product)}
-                                className="flex h-9 w-9 items-center justify-center rounded-xl text-white transition hover:opacity-90"
-                                style={{ backgroundColor: accentColor }}
-                                title={labels.edit}
-                              >
-                                <FiEdit2 />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => window.alert(
-                                  `${labels.requirements}: ${Array.isArray(product.requirements) ? product.requirements.length : 0}`,
-                                )}
-                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                                title={labels.requirements}
-                              >
-                                <FiFileText />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleStatus(product)}
-                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                                title={product.is_active ? labels.hide : labels.show}
-                              >
-                                {product.is_active ? <FiEyeOff /> : <FiEye />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(product)}
-                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300"
-                                title={labels.delete}
-                              >
-                                <FiTrash2 />
-                              </button>
-                            </div>
-                          </td>
+              {!sortedProducts.length ? (
+                <section className="rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm font-black text-slate-400 dark:border-slate-700 dark:bg-secondary-dark-bg">
+                  {labels.empty}
+                </section>
+              ) : (
+                <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[1040px] w-full">
+                      <thead className="bg-slate-50/80 dark:bg-slate-900/60">
+                        <tr className="border-b border-slate-100 dark:border-slate-800">
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">#</th>
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.image}</th>
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.name}</th>
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.section}</th>
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.price}</th>
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.type}</th>
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.api}</th>
+                          <th className="px-4 py-3 text-start text-xs font-black text-slate-400">{labels.status}</th>
+                          <th className="px-4 py-3 text-center text-xs font-black text-slate-400">{labels.actions}</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {paginatedProducts.map((product) => {
+                          const primaryName = isArabic
+                            ? (product.name_ar || product.name_en || '—')
+                            : (product.name_en || product.name_ar || '—');
+                          const secondaryName = isArabic
+                            ? product.name_en
+                            : product.name_ar;
+                          const imageUrl = getImageUrl(product.image);
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs font-bold text-slate-400">
-                  {isArabic
-                    ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min((currentPage - 1) * pageSize + paginatedProducts.length, totalProducts)} من ${totalProducts}`
-                    : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min((currentPage - 1) * pageSize + paginatedProducts.length, totalProducts)} of ${totalProducts}`}
-                </p>
+                          return (
+                            <tr
+                              key={product.id}
+                              className="transition hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
+                            >
+                              <td className="px-4 py-4 text-sm font-black text-slate-400">
+                                {product.id}
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-900">
+                                  {imageUrl ? (
+                                    <img
+                                      src={imageUrl}
+                                      alt={primaryName}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <FiImage className="text-slate-300" />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 text-start">
+                                <p className="max-w-[220px] truncate text-sm font-black text-slate-900 dark:text-white">
+                                  {primaryName}
+                                </p>
+                                {secondaryName && secondaryName !== primaryName && (
+                                <p className="mt-1 max-w-[220px] truncate text-xs font-semibold text-slate-400">
+                                  {secondaryName}
+                                </p>
+                                )}
+                              </td>
+                              <td className="px-4 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">
+                                {getSectionName(product.section)}
+                              </td>
+                              <td className="px-4 py-4 text-sm font-black text-slate-900 dark:text-white">
+                                {formatPrice(product)}
+                              </td>
+                              <td className="px-4 py-4 text-sm font-bold text-slate-600 dark:text-slate-300">
+                                {product.product_type === 'customization_based'
+                                  ? labels.customization
+                                  : labels.amountBased}
+                              </td>
+                              <td className="px-4 py-4 text-sm font-bold text-slate-500 dark:text-slate-400">
+                                {getApiName(product.api_config)}
+                              </td>
+                              <td className="px-4 py-4">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black ${
+                                    product.is_active
+                                      ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                                      : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-300'
+                                  }`}
+                                >
+                                  <span
+                                    className="h-1.5 w-1.5 rounded-full"
+                                    style={{
+                                      backgroundColor: product.is_active
+                                        ? accentColor
+                                        : '#ef4444',
+                                    }}
+                                  />
+                                  {product.is_active
+                                    ? labels.activeLabel
+                                    : labels.inactiveLabel}
+                                </span>
+                                {(apis.some((api) => String(api.id) === String(product.api_config) && !api.is_active)
+                              || product.external_product_info?.is_active === false) && (
+                              <p className="mt-2 text-xs text-red-600">
+                                {isArabic ? 'غير متاح: المزوّد أو المنتج الخارجي معطّل' : 'Unavailable: provider or external product disabled'}
+                              </p>
+                                )}
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEdit(product)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl text-white transition hover:opacity-90"
+                                    style={{ backgroundColor: accentColor }}
+                                    title={labels.edit}
+                                  >
+                                    <FiEdit2 />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => window.alert(
+                                      `${labels.requirements}: ${Array.isArray(product.requirements) ? product.requirements.length : 0}`,
+                                    )}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                    title={labels.requirements}
+                                  >
+                                    <FiFileText />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleStatus(product)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                    title={product.is_active ? labels.hide : labels.show}
+                                  >
+                                    {product.is_active ? <FiEyeOff /> : <FiEye />}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(product)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300"
+                                    title={labels.delete}
+                                  >
+                                    <FiTrash2 />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
-                  >
-                    {isArabic ? <FiChevronRight /> : <FiChevronLeft />}
-                  </button>
-                  <span className="min-w-[80px] text-center text-sm font-black text-slate-700 dark:text-slate-200">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
-                  >
-                    {isArabic ? <FiChevronLeft /> : <FiChevronRight />}
-                  </button>
-                </div>
-              </div>
-            </section>
+                  <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs font-bold text-slate-400">
+                      {isArabic
+                        ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min((currentPage - 1) * pageSize + paginatedProducts.length, totalProducts)} من ${totalProducts}`
+                        : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min((currentPage - 1) * pageSize + paginatedProducts.length, totalProducts)} of ${totalProducts}`}
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={currentPage <= 1}
+                        onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
+                      >
+                        {isArabic ? <FiChevronRight /> : <FiChevronLeft />}
+                      </button>
+                      <span className="min-w-[80px] text-center text-sm font-black text-slate-700 dark:text-slate-200">
+                        {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300"
+                      >
+                        {isArabic ? <FiChevronLeft /> : <FiChevronRight />}
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -1334,6 +1367,8 @@ const ProductsPage = () => {
             </div>
 
             <form onSubmit={handleSaveProduct} className="space-y-5 p-5 md:p-6">
+              {notice?.type === 'error' && <p role="alert" className="rounded-xl border border-red-200 p-3 text-red-600">{notice.message}</p>}
+
               <section className="rounded-3xl border border-slate-100 p-4 dark:border-slate-800">
                 <h3 className="mb-4 font-black text-slate-900 dark:text-white">
                   {labels.basicInfo}
@@ -1500,6 +1535,21 @@ const ProductsPage = () => {
                   </label>
                 </div>
 
+                <label className="mt-4 block">
+                  <span>{isArabic ? 'نسبة ربح المنتج (%)' : 'Product profit (%)'}</span>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    max="999.99"
+                    step="0.01"
+                    value={newProduct.product_profit_percentage}
+                    onChange={(event) => setNewProduct((previous) => ({ ...previous, product_profit_percentage: event.target.value }))}
+                    className="w-full rounded-xl border p-3 dark:border-slate-700 dark:bg-slate-950"
+                  />
+                  <p className="mt-2 text-xs text-slate-500">{isArabic ? 'التسعير النهائي يحسبه Backend وفق المنتج وفئة العميل.' : 'Backend calculates the final price using the product and customer category.'}</p>
+                </label>
+
                 {newProduct.product_type === 'amount_based' && (
                   <div className="mt-4 grid gap-4 md:grid-cols-3">
                     <label className="block">
@@ -1605,7 +1655,7 @@ const ProductsPage = () => {
                       <option value="">{labels.noProvider}</option>
                       {apis.map((api) => (
                         <option key={api.id} value={api.id}>
-                          {api.name} ({api.provider})
+                          {api.name} ({api.provider}){!api.is_active ? (isArabic ? " — المزوّد معطّل" : " — Provider disabled") : ""}
                         </option>
                       ))}
                     </select>
@@ -1628,11 +1678,18 @@ const ProductsPage = () => {
                       </option>
                       {apiProducts.map((product) => (
                         <option key={product.id} value={product.id}>
-                          {product.name || `#${product.id}`}
+                          {product.name || `#${product.id}`}{!product.is_active ? (isArabic ? " — معطّل" : " — Disabled") : ""}{product.administrator_disabled ? (isArabic ? " (بقرار الإدارة)" : " (administrator)") : ""}
                         </option>
                       ))}
                     </select>
                   </label>
+                  {apiProducts.filter((item) => String(item.id) === String(newProduct.external_product)).map((item) => (
+                    <div key={item.id} className="rounded-xl border p-3 text-sm md:col-span-2">
+                      <p>{isArabic ? 'حالة المزوّد للمنتج' : 'Product provider status'}: {item.provider_status || '—'}</p>
+                      {item.administrator_disabled && <p>{isArabic ? 'معطّل بقرار الإدارة؛ المزامنة لا تعيد تفعيله تلقائياً.' : 'Administrator disabled; synchronization will not reactivate this product.'}</p>}
+                      {item.last_sync_error && <p role="alert" className="text-amber-700">{item.last_sync_error_code}: {item.last_sync_error}</p>}
+                    </div>
+                  ))}
                 </div>
               </section>
 

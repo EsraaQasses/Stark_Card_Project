@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/api/qrcode.js
 import api from "./client";
 
@@ -37,14 +38,7 @@ export async function getUserQRCode(userId) {
   }
 }
 
-function extractErrorMessage(error) {
-  return (
-    error?.response?.data?.detail ||
-    error?.response?.data?.message ||
-    error?.message ||
-    "فشل الطلب"
-  );
-}
+function extractErrorMessage(error) { return getApiErrorMessage(error); }
 
 export default {
   generateMyQRCode,

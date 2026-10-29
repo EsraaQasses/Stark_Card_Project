@@ -1,3 +1,5 @@
+import { rejectedSettlement, moneySnapshot } from "../features/payments/model/paymentHistory";
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/screens/AgentCashouts.js
 
 import { Ionicons } from "@expo/vector-icons";
@@ -182,46 +184,9 @@ function formatDate(value) {
   }
 }
 
-function containsArabic(value) {
-  return /[\u0600-\u06FF]/.test(
-    String(value || "")
-  );
-}
 
-function getArabicError(
-  error,
-  fallback
-) {
-  const data =
-    error?.response?.data ??
-    error?.data ??
-    error;
 
-  const candidates = [
-    data?.message?.ar,
-    data?.error?.ar,
-    data?.detail?.ar,
-    data?.message_ar,
-    data?.error_ar,
-    data?.detail,
-    data?.error,
-    data?.message,
-    error?.message,
-  ];
-
-  for (
-    const value of candidates
-  ) {
-    if (
-      typeof value === "string" &&
-      containsArabic(value)
-    ) {
-      return value;
-    }
-  }
-
-  return fallback;
-}
+function getArabicError(error) { return getApiErrorMessage(error); }
 
 /* =========================================================
    Screen
@@ -858,6 +823,7 @@ export default function AgentCashouts({
               </View>
             </View>
 
+            {item.status === "rejected" && <Text style={{textAlign:"right",paddingVertical:8}}>{rejectedSettlement(item)}{item.settlement?.confirmed === true && item.settlement?.amount != null ? `\n${moneySnapshot(item.settlement.amount,item.settlement.currency)}` : ""}</Text>}
             {/* ===========================================
                 Date
             =========================================== */}

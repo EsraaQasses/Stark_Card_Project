@@ -1,5 +1,7 @@
+import { buildCheckoutParams, checkoutProductId } from "../../features/payments/model/checkoutRoute";
+import { getApiErrorMessage } from "../../shared/api/errors/apiError";
 // src/screens/payments/GenericPayment.js
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,11 +15,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createPurchaseTransaction } from "../../api/payment";
 import { createProductQueryWaitV2, getUserProductById, getUserProductRequirements } from "../../api/store";
 import { useCurrency } from "../../context/CurrencyProvider";
 import PageLayout from "../../ui/PageLayout"; // ✅ الغلاف الموحّد (BottomNav + SideMenu)
-import { resolveWalletId } from "../../utils/walletHelpers";
 import PaymentForm from "./components/PaymentForm";
 const colors = {};
 const isRTL = I18nManager.isRTL !== false;
@@ -99,11 +99,11 @@ export default function GenericPayment({ navigation, route }) {
 
   const methodInit = route?.params?.method || null;          // قد يجي من PaymentMethodsList
   const recipient = route?.params?.recipient || null;       // في حال وكيل يدفع لمستخدم
-  const productId = route?.params?.store_product_id || null;
-  const selectedWalletId = route?.params?.wallet_id ?? null;
+  const productId = checkoutProductId(route?.params);
 
   const { displayCurrency, getExchangeRate } = useCurrency();
 
+  const [productError,setProductError] = useState("");
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(!!productId);
   const [selectedMethod, setSelected] = useState(methodInit);
@@ -114,19 +114,21 @@ export default function GenericPayment({ navigation, route }) {
   const [queryError, setQueryError] = useState("");
   const [queryStatus, setQueryStatus] = useState(null);
   const [queryLocalId, setQueryLocalId] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-  const submitLockRef = useRef(false);
+  const submitting = false;
 
   // ارتفاع تقريبي للـ BottomNav + هامش إضافي بسيط
   const BOTTOM_PAD = insets.bottom + sy(64) + sy(12);
 
   const loadProduct = useCallback(async () => {
-    if (!productId) return;
+    if (!productId) {setProduct(null);setProductError("معرّف المنتج غير متوفر. افتح المنتج مجدداً من المتجر.");return;}
+    setProduct(null);
+    setProductError("");
     setLoading(true);
     try {
       const res = await getUserProductById(productId);
       setProduct(res || null);
-    } catch {
+    } catch(error) {
+      setProductError(getApiErrorMessage(error));
       setProduct(null);
     } finally {
       setLoading(false);
@@ -171,55 +173,16 @@ export default function GenericPayment({ navigation, route }) {
     });
   };
 
-  // الدفع الحقيقي
-  const handleSubmit = async ({ quantity, selected_options, method_fields }) => {
-    if (submitLockRef.current) return;
-    if (!product?.id) {
-      Alert.alert("الدفع", "المنتج غير معروف.");
-      return;
-    }
-    if (!selectedMethod?.id) {
-      Alert.alert("الدفع", "اختر وسيلة دفع أولاً.");
-      return;
-    }
-
-    submitLockRef.current = true;
-    setSubmitting(true);
-    try {
-      // حل الـ wallet_id: route.params.wallet_id أو من AsyncStorage
-      const walletId = selectedWalletId ?? (await resolveWalletId());
-      const user_inputs = {
-        quantity: Number(quantity || 1),
-        selected_options: selected_options || {},
-        payment_method_id: selectedMethod.id,
-        payment_method_name: selectedMethod.name,
-        payment_method_fields: method_fields || {},
-        ...(recipient ? { target_user_id: recipient.user_id, target_user_name: recipient.name, flow: "agent_to_user" } : {}),
-      };
-
-      const { ok, error } = await createPurchaseTransaction({
-        store_product_id: product.id,
-        user_inputs,
-        wallet_id: walletId,
-      });
-
-      if (!ok) {
-        Alert.alert("فشل الدفع", error || "تعذّر إرسال الطلب.");
-        return;
-      }
-
-      Alert.alert("نجاح", "تم إرسال طلب الدفع ✅");
-      navigation.navigate("MyPayments");
-    } catch (_e) {
-      const message = _e?.response?.data?.error || _e?.response?.data?.detail || _e?.message || "تعذّر إتمام العملية الآن. حاول لاحقاً.";
-      Alert.alert("خطأ", String(message));
-    } finally {
-      setSubmitting(false);
-      submitLockRef.current = false;
-    }
+  // Reuse the product checkout, which refreshes server pricing and asks for confirmation.
+  const handleSubmit = ({quantity, selected_options, method_fields}) => {
+    if (!product?.id) { Alert.alert("الدفع", "المنتج غير معروف."); return; }
+    if (!selectedMethod?.id) { Alert.alert("الدفع", "اختر وسيلة دفع أولاً."); return; }
+    navigation.navigate("Payment", buildCheckoutParams(product, {
+      inputs:{...queryInputs,payment_method_id:selectedMethod.id,payment_method_fields:method_fields || {},
+        ...(recipient ? {target_user_id:recipient.user_id,target_user_name:recipient.name} : {})},
+      quantity, selected_option:selected_options?.selected_option ?? null,
+    }));
   };
-
-
 
   const handleQuery = async () => {
     if (!product?.id) return;
@@ -673,6 +636,7 @@ export default function GenericPayment({ navigation, route }) {
         <Header />
 
         {/* لو المنتج مطلوب ولم يُحمّل بعد */}
+        {!!productError && <View style={{padding:16}}><Text style={{textAlign:"right",color:"#B42318"}}>{productError}</Text><Pressable style={{minHeight:44,justifyContent:"center"}} onPress={loadProduct}><Text>إعادة المحاولة</Text></Pressable></View>}
         {productId && loading ? (
           <View style={{ alignItems: "center", paddingVertical: sy(25) }}>
             <ActivityIndicator size="large" />

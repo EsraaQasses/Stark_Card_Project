@@ -1,6 +1,7 @@
 // Pure pricing helpers extracted from Payment.js.
 // Preserves the existing admin CSV/backend customization/range derivation behavior.
 export const num = (value, defaultValue = 0) => {
+  if (value == null || value === "") return defaultValue;
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : defaultValue;
 };
@@ -44,7 +45,7 @@ export function buildOptionsFromAdminCSV(product, appCurrency) {
       if (priceStrTok != null && priceStrTok !== "") amount = num(priceStrTok, null);
       return { id: index + 1, label: String(label), value: String(label), amount, currency };
     })
-    .filter((option) => Number.isFinite(option.amount) && option.amount >= 0);
+    .filter((option) => option.value !== "");
 
   return options.length ? { options, currency } : null;
 }
@@ -54,27 +55,9 @@ export function normalizeCustomizationItem(item, index, product, appCurrency) {
   if (value == null) return null;
 
   const label = String(value);
-  const units = Number.isFinite(+item?.units)
-    ? +item.units
-    : Number.isFinite(+value)
-      ? +value
-      : 1;
-
-  const unit_price = Number.isFinite(+item?.unit_price)
-    ? +item.unit_price
-    : Number.isFinite(+item?.price_per_unit)
-      ? +item.price_per_unit
-      : num(product?.base_price ?? product?.price ?? 0);
-
-  const price = num(item?.price ?? null);
-  const user_final_price = num(item?.user_final_price ?? null);
-
-  const amount =
-    Number.isFinite(user_final_price) && user_final_price > 0
-      ? user_final_price
-      : (Number.isFinite(price) && price > 0 ? price : units * unit_price);
-
-  if (!Number.isFinite(amount) || amount < 0) return null;
+  // Option costs are not final customer prices. Keep the selection even without a price;
+  // the checkout calculator is the only source of the final amount.
+  const amount = num(item?.user_final_price, null);
 
   const currency = product?.currency || appCurrency || "USD";
 
@@ -105,26 +88,15 @@ export function buildOptionsFromBackendCustomization(product, appCurrency) {
 }
 
 export function derivePricingFromProduct(product, appCurrency) {
-  const csv = buildOptionsFromAdminCSV(product, appCurrency);
-  if (csv?.options?.length) {
-    return { mode: "packages", options: csv.options, range: null, currency: csv.currency };
-  }
-
   const backend = buildOptionsFromBackendCustomization(product, appCurrency);
-  if (backend?.options?.length) {
-    return { mode: "packages", options: backend.options, range: null, currency: backend.currency };
+  if (backend?.options?.length) return {mode:"packages",options:backend.options,range:null,currency:backend.currency};
+  const csv = buildOptionsFromAdminCSV(product, appCurrency);
+  if (csv?.options?.length) return {mode:"packages",options:csv.options,range:null,currency:csv.currency};
+
+  const currency = product?.currency || appCurrency;
+  if (product?.product_type === "amount_based" || product?.min_amount != null || product?.qty) {
+    return {mode:"range",options:[],range:{min:num(product?.min_amount,product?.qty?.min ?? 1),
+      max:num(product?.max_amount,product?.qty?.max ?? null),step:num(product?.step,product?.qty?.step ?? 1),currency},currency};
   }
-
-  const min = num(product?.min_amount, product?.amount_based?.min ?? product?.qty?.min ?? 1);
-  const max = num(product?.max_amount, product?.amount_based?.max ?? product?.qty?.max ?? 999999);
-  const step = num(product?.step, product?.amount_based?.step ?? product?.qty?.step ?? 1);
-
-  const unit_price = num(product?.calculated_price ?? product?.base_price ?? product?.price, 0);
-  const currency = product?.currency || product?.amount_based?.currency || appCurrency || "USD";
-
-  if (unit_price > 0 && (min != null || max != null)) {
-    return { mode: "range", options: [], range: { min, max, step, unit_price, currency }, currency };
-  }
-
-  return { mode: null, options: [], range: null, currency: product?.currency || appCurrency || "USD" };
+  return { mode:null,options:[],range:null,currency };
 }

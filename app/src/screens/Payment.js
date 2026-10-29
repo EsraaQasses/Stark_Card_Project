@@ -1,10 +1,16 @@
 // src/screens/Payment.js
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import * as Crypto from "expo-crypto";
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
+import { inquiryIsPayable, calculatorTotal } from "../features/payments/model/paymentVerification";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
+  Image,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -27,8 +33,6 @@ import {
   addFavorite,
   createProductQueryWaitV2,
   getPriceCalculator,
-  getUserProductById,
-  getUserProductRequirements,
   removeFavorite,
 } from "../api/store";
 
@@ -48,7 +52,9 @@ import {
 
 import { usePaymentPricing } from "../features/payments/hooks/usePaymentPricing";
 import { usePaymentQueryState } from "../features/payments/hooks/usePaymentQueryState";
-import { usePaymentRequirements } from "../features/payments/hooks/usePaymentRequirements";
+import { useCheckoutProduct } from "../features/payments/hooks/useCheckoutProduct";
+import { checkoutProductId, checkoutInitialization } from "../features/payments/model/checkoutRoute";
+import { getProductDisplayImage } from "../features/store/utils/productImages";
 
 import { derivePricingFromProduct } from "../features/payments/model/paymentPricing";
 
@@ -173,7 +179,6 @@ const GUEST_FAVS_KEY = "@guest_favs";
 const favKey = (prod) =>
   String(
     prod?.id ??
-      prod?.store_product_id ??
       prod?.name ??
       ""
   );
@@ -246,78 +251,8 @@ async function removeGuestFavLocal(prod) {
    Server Errors
 ========================================================= */
 
-function extractServerMessage(raw) {
-  try {
-    if (!raw) return "";
-
-    const data =
-      raw?.response?.data ??
-      raw?.data ??
-      raw;
-
-    if (typeof data === "string") {
-      return data;
-    }
-
-    if (Array.isArray(data)) {
-      return data.map(String).join("\n");
-    }
-
-    if (typeof data === "object") {
-      if (data.detail) {
-        return String(data.detail);
-      }
-
-      const firstKey = Object.keys(data)[0];
-
-      if (firstKey) {
-        const value = data[firstKey];
-
-        if (Array.isArray(value)) {
-          return value.map(String).join("\n");
-        }
-
-        return String(value);
-      }
-    }
-
-    return "";
-  } catch {
-    return "";
-  }
-}
-
-function buildErrorMessage(res, t) {
-  const step = res?.step;
-  const error = res?.error;
-
-  const stepMessages = {
-    validation:
-      error || "يرجى التحقق من البيانات المدخلة.",
-
-    balance_check:
-      error || "الرصيد غير كافٍ.",
-
-    auth:
-      error || "انتهت الجلسة، يرجى تسجيل الدخول مجدداً.",
-
-    product_not_found:
-      error || "المنتج غير موجود.",
-
-    payment_processing:
-      error || "تعذر إتمام عملية الدفع.",
-
-    api_error:
-      error || "تعذر الاتصال بالسيرفر.",
-  };
-
-  return (
-    stepMessages[step] ||
-    error ||
-    t?.("common.networkError") ||
-    "حدث خطأ ما."
-  );
-}
+function extractServerMessage(error) { return getApiErrorMessage(error); }
+function buildErrorMessage(result) { return getApiErrorMessage(result); }
 
 /* =========================================================
    Component
@@ -464,104 +399,30 @@ export default function Payment({ route, navigation }) {
     [route?.params]
   );
 
-  const p0 = useMemo(
-    () =>
-      params.product ?? {
-        id: "dev",
-        store_product_id: null,
-
-        name: t(
-          "payment.productFallback",
-          "المنتج"
-        ),
-
-        currency: "USD",
-        price: 0,
-
-        requiresGamerId: false,
-
-        qty: {
-          min: 1,
-          max: 999999,
-          step: 1,
-          defaultValue: 1,
-        },
-
-        is_favorite: false,
-      },
-    [params, t]
-  );
-
-  const productId =
-    params?.product_id ??
-    params?.id ??
-    p0?.id ??
-    null;
-
-  const preUserInputs =
-    params?.user_inputs_prefill || null;
-
-  const isAgentFlow =
-    params?.is_agent === true ||
-    params?.flow === "agent" ||
-    !!preUserInputs?.target_user_id;
-
-  const preMode =
-    params?.mode ?? null;
-
-  const preOptions =
-    Array.isArray(params?.options)
-      ? params.options
-      : null;
-
-  const preRange =
-    params?.range ?? null;
-
-  const preSelectedId =
-    params?.selected_id ?? null;
-
-  const preDispCurr =
-    (
-      params?.display_currency ||
-      params?.currency ||
-      ""
-    )
-      .toString()
-      .toUpperCase() || null;
+  const productId = checkoutProductId(params);
+  const initializationKey = JSON.stringify({prefill:params.prefill,user_inputs_prefill:params.user_inputs_prefill,quantity:params.quantity,amount:params.amount,selected_option:params.selected_option,selected_id:params.selected_id});
+  const initialization = useMemo(() => checkoutInitialization(JSON.parse(initializationKey)), [initializationKey]);
+  const preUserInputs = initialization.inputs;
+  const isAgentFlow = params?.is_agent === true || params?.is_agent === "true" || params?.flow === "agent" || !!preUserInputs?.target_user_id;
+  const preSelectedId = initialization.selectedId;
 
   /* =======================================================
      Product / Pricing State
   ======================================================= */
 
-  const [product, setProduct] =
-    useState(p0);
-
-  const [pricing, setPricing] =
-    useState({
-      mode:
-        preMode ??
-        params.mode ??
-        null,
-
-      options:
-        preOptions ??
-        (Array.isArray(params.options)
-          ? params.options
-          : []),
-
-      range:
-        preRange ??
-        params.range ??
-        null,
-
-      currency:
-        p0?.currency ||
-        preDispCurr ||
-        "USD",
-    });
-
-  const [pricingBoot, setPricingBoot] =
-    useState(true);
+  const [paymentFields,setPaymentFields] = useState({});
+  const latestInquiryInputRef = useRef("");
+  const [pricingRevision,setPricingRevision] = useState(0);
+  const uncertainPaymentRef = useRef(false);
+  const checkoutAliveRef = useRef(true);
+  useEffect(() => {checkoutAliveRef.current=true;return()=>{checkoutAliveRef.current=false;};},[]);
+  const inquiryInputRef = useRef(null);
+  const queryLockRef = useRef(false);
+  useFocusEffect(useCallback(() => { setPricingRevision(previous=>previous+1); }, []));
+  const checkout = useCheckoutProduct(productId);
+  const product = checkout.product;
+  const pricingBoot = checkout.loading;
+  const pricing = useMemo(() => derivePricingFromProduct(product, appCurrency), [product, appCurrency]);
 
   const [fx, setFx] =
     useState(null);
@@ -577,20 +438,15 @@ export default function Payment({ route, navigation }) {
       "USD"
     ).toUpperCase();
 
-  const [
-    priceCalculatorData,
-    setPriceCalculatorData,
-  ] = useState(null);
+  const [priceState, setPriceState] = useState({key:null,data:null,error:"",loading:false});
+  const [priceAttempt,setPriceAttempt] = useState(0);
 
-  const [
-    requirements,
-    setRequirements,
-  ] = useState([]);
+  const requirements = checkout.requirements;
 
   const [
     requirementValues,
     setRequirementValues,
-  ] = useState({});
+  ] = useState(() => preUserInputs || {});
 
   /* =======================================================
      Query
@@ -693,119 +549,6 @@ export default function Payment({ route, navigation }) {
   }, []);
 
   /* =======================================================
-     Load Product + Pricing
-  ======================================================= */
-
-  useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      try {
-        const hasPrePricing =
-          (
-            preMode ===
-              "packages" &&
-            preOptions?.length
-          ) ||
-          (
-            preMode ===
-              "range" &&
-            preRange
-          );
-
-        if (hasPrePricing) {
-          const next = {
-            mode:
-              preMode ??
-              null,
-
-            options:
-              preOptions ??
-              [],
-
-            range:
-              preRange ??
-              null,
-
-            currency:
-              preDispCurr ||
-              p0?.currency ||
-              "USD",
-          };
-
-          if (alive) {
-            setPricing(next);
-
-            setPricingBoot(
-              false
-            );
-          }
-
-          return;
-        }
-
-        let prod = p0;
-
-        if (
-          productId &&
-          productId !== "dev"
-        ) {
-          const full =
-            await getUserProductById(
-              Number(productId)
-            ).catch(
-              () => null
-            );
-
-          if (
-            alive &&
-            full
-          ) {
-            prod = full;
-
-            setProduct(
-              full
-            );
-          }
-        }
-
-        const derived =
-          derivePricingFromProduct(
-            prod,
-            (
-              appCurrency ||
-              "USD"
-            ).toUpperCase()
-          );
-
-        if (alive) {
-          setPricing(
-            derived
-          );
-        }
-      } finally {
-        if (alive) {
-          setPricingBoot(
-            false
-          );
-        }
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [
-    productId,
-    appCurrency,
-    preMode,
-    preRange,
-    preDispCurr,
-    preOptions,
-    p0,
-  ]);
-
-  /* =======================================================
      Quantity / Packages
   ======================================================= */
 
@@ -814,6 +557,7 @@ export default function Payment({ route, navigation }) {
     setQtyStr,
   ] = useState(
     String(
+      initialization.quantity ??
       product?.qty
         ?.defaultValue ??
         Number(
@@ -863,8 +607,7 @@ export default function Payment({ route, navigation }) {
     isPackages
       ? options.find(
           (o) =>
-            o?.id ===
-            preSelectedId
+            String(o?.id) === String(preSelectedId) || String(o?.value) === String(initialization.selectedValue)
         ) ||
           options[0]
       : null
@@ -878,8 +621,7 @@ export default function Payment({ route, navigation }) {
       const sel =
         options.find(
           (o) =>
-            o?.id ===
-            preSelectedId
+            String(o?.id) === String(preSelectedId) || String(o?.value) === String(initialization.selectedValue)
         ) ||
         options[0];
 
@@ -891,12 +633,13 @@ export default function Payment({ route, navigation }) {
     isPackages,
     options,
     preSelectedId,
+    initialization.selectedValue,
   ]);
 
   useEffect(() => {
     setQtyStr(
       String(
-        product?.qty
+        initialization.quantity ?? product?.qty
           ?.defaultValue ??
           minQ
       )
@@ -905,6 +648,7 @@ export default function Payment({ route, navigation }) {
     product?.qty
       ?.defaultValue,
     minQ,
+    initialization.quantity,
   ]);
 
   const bump = (dir) => {
@@ -945,129 +689,30 @@ export default function Payment({ route, navigation }) {
     product?.currency ||
     "USD";
 
-  const outCurrency =
-    (
-      walletCurrency ||
-      preDispCurr ||
-      baseCurrency
-    ).toUpperCase();
-
+  const priceKey = JSON.stringify([productId, product?.id, checkout.status, isPackages ? selected?.value : safeQty, walletCurrency]);
+  const priceCalculatorData = priceState.key === priceKey && checkout.status === "ready" ? priceState.data : null;
+  const priceLoading = checkout.status === "ready" && (priceState.key !== priceKey || priceState.loading);
+  const priceError = priceState.key === priceKey ? priceState.error : "";
+  const setPriceCalculatorData = data => setPriceState({key:priceKey,data,error:"",loading:false});
   useEffect(() => {
     let alive = true;
+    if (checkout.status !== "ready" || isPackages && !selected) return;
+    setPriceState({key:priceKey,data:null,error:"",loading:true});
+    const calculatorParams = {wallet_currency:walletCurrency};
+    if (isPackages) calculatorParams.selected_option = String(selected.value);
+    else calculatorParams.amount = String(safeQty);
+    getPriceCalculator(productId,calculatorParams).then(result => {
+      if (!alive) return;
+      if (!result.ok || calculatorTotal(result.data,walletCurrency) == null) throw new Error(result.error || t("checkout.priceUnavailable"));
+      setPriceState({key:priceKey,data:result.data,error:"",loading:false});
+    }).catch(error => {
+      if (alive) setPriceState({key:priceKey,data:null,error:getApiErrorMessage(error),loading:false});
+    });
+    return () => {alive=false;};
+  }, [checkout.status, productId, isPackages, selected, safeQty, walletCurrency, priceKey, pricingRevision, priceAttempt, t]);
 
-    (async () => {
-      if (
-        pricingBoot ||
-        !productId ||
-        productId === "dev"
-      ) {
-        return;
-      }
-
-      const calculatorParams = {
-        wallet_currency:
-          walletCurrency,
-      };
-
-      if (
-        isPackages &&
-        selected?.value
-      ) {
-        calculatorParams.selected_option =
-          String(
-            selected.value
-          );
-      } else if (
-        isRange &&
-        safeQty > 0
-      ) {
-        calculatorParams.amount =
-          String(safeQty);
-      }
-
-      try {
-        const res =
-          await getPriceCalculator(
-            Number(productId),
-            calculatorParams
-          );
-
-        if (
-          alive &&
-          res.ok
-        ) {
-          setPriceCalculatorData(
-            res.data
-          );
-        } else if (alive) {
-          setPriceCalculatorData(
-            null
-          );
-        }
-      } catch {
-        if (alive) {
-          setPriceCalculatorData(
-            null
-          );
-        }
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [
-    pricingBoot,
-    productId,
-    isPackages,
-    selected?.value,
-    isRange,
-    safeQty,
-    walletCurrency,
-  ]);
-
-  const calcWalletCurrency =
-    priceCalculatorData
-      ?.wallet_currency
-      ? String(
-          priceCalculatorData
-            .wallet_currency
-        ).toUpperCase()
-      : null;
-
-  const hasWalletCalc =
-    priceCalculatorData
-      ?.wallet_user_final_price !=
-      null &&
-    calcWalletCurrency ===
-      walletCurrency;
-
-  const backendTotalRaw =
-    hasWalletCalc
-      ? priceCalculatorData
-          ?.wallet_user_final_price
-      : priceCalculatorData
-          ?.user_final_price;
-
-  const total =
-    Number.isFinite(
-      +backendTotalRaw
-    )
-      ? +(
-          +backendTotalRaw
-        ).toFixed(12)
-      : 0;
-
-  const currency =
-    hasWalletCalc
-      ? walletCurrency
-      : String(
-          priceCalculatorData
-            ?.currency ||
-            outCurrency ||
-            baseCurrency ||
-            "USD"
-        ).toUpperCase();
+  const total = calculatorTotal(priceCalculatorData,walletCurrency);
+  const currency = walletCurrency;
 
   const unitPrice =
     total > 0
@@ -1114,103 +759,18 @@ export default function Payment({ route, navigation }) {
   const favoriteLockRef =
     useRef(false);
 
-  const normalizedProductRequirements =
-    usePaymentRequirements(
-      product
-    );
-
-  /* =======================================================
-     Requirements
-  ======================================================= */
-
+  const appliedInitialization = useRef(initializationKey);
   useEffect(() => {
-    setRequirements(
-      normalizedProductRequirements
-    );
-  }, [
-    normalizedProductRequirements,
-  ]);
-
-  useEffect(() => {
-    setQueryResult(null);
-    setQueryError("");
-    setQueryStatus(null);
-  }, [product?.id]);
-
-  useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      if (!product?.id) {
-        return;
-      }
-
-      if (
-        requirements?.length
-      ) {
-        return;
-      }
-
-      try {
-        const reqs =
-          await getUserProductRequirements(
-            product.id
-          );
-
-        if (
-          alive &&
-          Array.isArray(reqs) &&
-          reqs.length
-        ) {
-          setRequirements(
-            reqs
-          );
-        }
-      } catch {}
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [
-    product?.id,
-    requirements?.length,
-  ]);
-
-  useEffect(() => {
-    if (
-      !requirements?.length
-    ) {
-      return;
-    }
-
-    setRequirementValues(
-      (prev) => {
-        const next = {
-          ...prev,
-        };
-
-        requirements.forEach(
-          (r) => {
-            const key =
-              r.payload_key ||
-              r.field_name;
-
-            if (
-              key &&
-              next[key] ==
-                null
-            ) {
-              next[key] =
-                "";
-            }
-          }
-        );
-
-        return next;
-      }
-    );
-  }, [requirements]);
+    if (checkout.status !== "ready") return;
+    const changed = appliedInitialization.current !== initializationKey;
+    appliedInitialization.current = initializationKey;
+    setRequirementValues(previous => Object.fromEntries(requirements.map(field => {
+      const key = field.payload_key || field.field_name;
+      const value = changed ? preUserInputs?.[key] ?? "" : previous[key] ?? preUserInputs?.[key] ?? "";
+      const allowed = Array.isArray(field.options) ? field.options : [];
+      return [key, allowed.length && !allowed.some(option => String(option?.value ?? option) === String(value)) ? "" : String(value ?? "")];
+    })));
+  }, [requirements, preUserInputs, checkout.status, initializationKey]);
 
   /* =======================================================
      Favorite
@@ -1443,6 +1003,9 @@ export default function Payment({ route, navigation }) {
      Query
   ======================================================= */
 
+  const inquiryInputKey = JSON.stringify(buildRequirementPayload(requirements,requirementValues).values);
+  latestInquiryInputRef.current = inquiryInputKey;
+  useEffect(() => { setQueryResult(null); setQueryStatus(null); setQueryError(""); }, [inquiryInputKey, product?.id]);
   const handleQuery =
     async () => {
       if (
@@ -1453,6 +1016,7 @@ export default function Payment({ route, navigation }) {
       }
 
       if (
+        queryLockRef.current ||
         queryLoading ||
         isQueryPending
       ) {
@@ -1487,6 +1051,7 @@ export default function Payment({ route, navigation }) {
         }
       }
 
+      queryLockRef.current = true;
       setQueryLoading(true);
       setQueryError("");
       setQueryResult(null);
@@ -1501,9 +1066,12 @@ export default function Payment({ route, navigation }) {
           buildRequirementPayload(
             requirements,
             requirementValues
-          )
+          ).values
         );
 
+      queryLockRef.current = false;
+      if (latestInquiryInputRef.current !== inquiryInputKey) { setQueryLoading(false); return; }
+      inquiryInputRef.current = JSON.stringify(buildRequirementPayload(requirements, requirementValues).values);
       setQueryLoading(false);
 
       if (!res?.ok) {
@@ -1557,12 +1125,23 @@ export default function Payment({ route, navigation }) {
   const onPay =
     async () => {
       if (
+        checkout.status !== "ready" ||
+        priceLoading ||
         loading ||
         paymentLockRef.current
       ) {
         return;
       }
 
+      if (uncertainPaymentRef.current) {
+        Alert.alert(t("payment.title"), "تعذر التأكد من نتيجة العملية. يرجى مراجعة سجل عملياتك قبل إعادة المحاولة.",
+          [{text:"سجل المدفوعات",onPress:()=>navigation.navigate("MyPayments")}]);
+        return;
+      }
+      if (product?.query_enabled && !inquiryIsPayable(queryResult,inquiryInputRef.current,inquiryInputKey)) {
+        Alert.alert(t("payment.title"), "يلزم استعلام ناجح مرتبط ببيانات الحساب وصلاحية مؤكدة من الخدمة قبل الدفع. أعد الاستعلام؛ إذا لم تتوفر الصلاحية يرجى التواصل مع الدعم.");
+        return;
+      }
       if (
         !priceCalculatorData ||
         !Number.isFinite(
@@ -1673,6 +1252,7 @@ export default function Payment({ route, navigation }) {
         return;
       }
 
+      setPaymentFields({});
       const amountToCharge =
         total;
 
@@ -1706,26 +1286,11 @@ export default function Payment({ route, navigation }) {
         available =
           Number(
             wallet.raw
-              ?.balance ??
-              wallet.raw
-                ?.available_balance ??
+              ?.available_balance ??
               wallet.available ??
               0
           );
 
-        if (
-          available <
-          amountToCharge
-        ) {
-          Alert.alert(
-            t(
-              "payment.title"
-            ),
-            `الرصيد غير كافٍ.\nالمطلوب: ${amountToCharge} ${walletCurrency}\nالمتاح: ${available} ${walletCurrency}`
-          );
-
-          return;
-        }
       } catch {
         Alert.alert(
           t(
@@ -1740,6 +1305,33 @@ export default function Payment({ route, navigation }) {
       paymentLockRef.current =
         true;
 
+      const verifyCurrentPrice = async () => {
+      try {
+        const params={wallet_currency:walletCurrency};
+        if (isPackages && selected?.value != null) params.selected_option=String(selected.value);
+        else params.amount=String(safeQty);
+        const latest=await getPriceCalculator(Number(productId),params);
+        if (!checkoutAliveRef.current) return false;
+        const latestTotal=latest?.ok ? calculatorTotal(latest.data,walletCurrency) : null;
+        if (latestTotal == null) {
+          paymentLockRef.current=false;
+          Alert.alert(t("payment.title"), latest?.error || "تعذر التحقق من السعر الحالي. أعد المحاولة.");
+          return false;
+        }
+        setPriceCalculatorData(latest.data);
+        if (latestTotal !== amountToCharge) {
+          paymentLockRef.current=false;
+          Alert.alert(t("payment.title"), "تغير السعر. راجع السعر الجديد ثم أكد الشراء مجدداً.");
+          return false;
+        }
+        return true;
+      } catch(error) {
+        paymentLockRef.current=false;
+        Alert.alert(t("payment.title"),getApiErrorMessage(error));
+        return false;
+      }
+      };
+      if (!await verifyCurrentPrice()) return;
       const confirmed =
         await new Promise(
           (resolve) => {
@@ -1792,13 +1384,20 @@ export default function Payment({ route, navigation }) {
           }
         );
 
-      if (!confirmed) {
+      if (!checkoutAliveRef.current || !confirmed) {
         paymentLockRef.current =
           false;
 
         return;
       }
 
+      if (!await verifyCurrentPrice()) return;
+
+      if (product?.query_enabled && !inquiryIsPayable(queryResult,inquiryInputRef.current,inquiryInputKey)) {
+        paymentLockRef.current=false;
+        Alert.alert(t("payment.title"), "انتهت صلاحية الاستعلام. يرجى الاستعلام مجدداً.");
+        return;
+      }
       const requirementPayload =
         buildRequirementPayload(
           requirements,
@@ -1854,6 +1453,7 @@ export default function Payment({ route, navigation }) {
         const res =
           await processCompletePayment(
             {
+              idempotencyKey: Crypto.randomUUID(),
               store_product_id:
                 payloadData.store_product_id,
 
@@ -1884,6 +1484,8 @@ export default function Payment({ route, navigation }) {
           );
 
         if (!res?.ok) {
+          setPaymentFields(res?.fields || {});
+          if (res?.outcomeUnknown) uncertainPaymentRef.current = true;
           Alert.alert(
             t(
               "payment.title"
@@ -1905,7 +1507,7 @@ export default function Payment({ route, navigation }) {
           );
 
         Alert.alert(
-          t(
+          res.step === "payment_pending" ? "العملية قيد المعالجة" : t(
             "payment.successTitle"
           ),
           successMessage,
@@ -1924,6 +1526,7 @@ export default function Payment({ route, navigation }) {
           ]
         );
       } catch (err) {
+        if (err?.outcomeUnknown) uncertainPaymentRef.current = true;
         const msg =
           extractServerMessage(
             err
@@ -1954,8 +1557,6 @@ export default function Payment({ route, navigation }) {
     sy(90);
 
   const titleText =
-    params.productDisplayName ||
-    params.product_name ||
     product?.name ||
     t(
       "payment.productFallback"
@@ -1964,6 +1565,8 @@ export default function Payment({ route, navigation }) {
   const disablePay =
     loading ||
     pricingBoot ||
+    checkout.status !== "ready" ||
+    priceLoading ||
     (
       isPackages &&
       !selected
@@ -2125,6 +1728,17 @@ export default function Payment({ route, navigation }) {
                 "center",
             }}
           >
+            {checkout.loading && <View accessibilityLabel={t("checkout.loading")} style={{padding:24,alignItems:"center"}}><ActivityIndicator color={colors.primary}/><Text style={T.body}>{t("checkout.loading")}</Text></View>}
+            {!!checkout.error && <Card R={R} pad={G.md}><Text style={{color:"#B42318",textAlign:"right"}}>{checkout.error}</Text><Pressable style={{minHeight:44,justifyContent:"center"}} onPress={checkout.retry}><Text style={T.bodyB}>{t("common.tryAgain")}</Text></Pressable></Card>}
+            {checkout.status === "ready" && <>
+              <Card R={R} pad={G.md}>
+                {!!getProductDisplayImage(product) && <Image source={{uri:getProductDisplayImage(product)}} resizeMode="contain" style={{width:"100%",height:160}}/>}
+                {!!product.description && <Text style={T.body}>{product.description}</Text>}
+                {!!product.section_name && <Text style={T.caption}>{t("checkout.section")}: {product.section_name}</Text>}
+                <Text style={T.caption}>{t("checkout.available")}</Text>
+              </Card>
+              {priceLoading && <Text style={T.caption}>{t("checkout.loadingPrice")}</Text>}
+              {!!priceError && <Card R={R} pad={G.md}><Text style={{color:"#B42318",textAlign:"right"}}>{priceError}</Text><Pressable onPress={()=>setPriceAttempt(value=>value+1)} style={{minHeight:44,justifyContent:"center"}}><Text>{t("common.tryAgain")}</Text></Pressable></Card>}
             {/* ================= Recipient ================= */}
 
             {hasRecipient && (
@@ -2259,6 +1873,14 @@ export default function Payment({ route, navigation }) {
                           ) : null}
                         </Text>
 
+                        {req.options?.length ? <View style={{flexDirection:"row-reverse",flexWrap:"wrap",gap:8}}>
+                          {req.options.map(option => {
+                            const optionValue=String(option?.value ?? option);
+                            return <Pressable key={optionValue} accessibilityRole="button" accessibilityState={{selected:String(val)===optionValue}}
+                              disabled={loading} onPress={()=>setRequirementValues(previous=>({...previous,[key]:optionValue}))}
+                              style={{minHeight:44,padding:10,borderRadius:10,borderWidth:1,borderColor:String(val)===optionValue ? "#1274F5" : "#E4ECF2"}}><Text>{String(option?.label ?? option?.value ?? option)}</Text></Pressable>;
+                          })}
+                        </View> : (
                         <TextInput
                           style={[
                             S.input,
@@ -2312,7 +1934,9 @@ export default function Payment({ route, navigation }) {
                               : true
                           }
                         />
+                        )}
 
+                        {!!(paymentFields[key] || paymentFields[`user_inputs.${key}`]) && <Text style={{color:"#B42318",textAlign:"right"}}>{getApiErrorMessage(paymentFields[key] || paymentFields[`user_inputs.${key}`])}</Text>}
                         {req.is_required &&
                           !val.trim() && (
                             <Text
@@ -2477,6 +2101,15 @@ export default function Payment({ route, navigation }) {
                   </Text>
                 )}
 
+                {!!queryResult && (() => {
+                  const bill = queryResult.invoice || queryResult.data?.invoice || queryResult.query?.invoice;
+                  if (!bill || typeof bill !== "object") return null;
+                  return <View style={{gap:6,marginTop:G.sm}}>
+                    {[["قيمة الفاتورة",bill.amount != null && bill.currency ? `${bill.amount} ${bill.currency}` : null],
+                      ["حالة الفاتورة",bill.status],["الفترة",bill.period],["المرجع",bill.reference]].map(([label,value]) =>
+                        value != null && <Text key={label} style={{textAlign:"right"}}>{label}: {String(value)}</Text>)}
+                  </View>;
+                })()}
                 {!!queryDisplay &&
                   !isQueryPending && (
                     <View
@@ -2636,7 +2269,7 @@ export default function Payment({ route, navigation }) {
 
                   <Row
                     label="السعر"
-                    value={`${total} ${currency}`}
+                    value={total == null ? t("checkout.priceUnavailable") : `${total} ${currency}`}
                     T={T}
                     big
                   />
@@ -2782,7 +2415,7 @@ export default function Payment({ route, navigation }) {
                     >
                       <Row
                         label="الرصيد المتاح"
-                        value={`${selectedWalletBalance ?? 0} ${walletCurrency}`}
+                        value={selectedWalletBalance == null ? t("checkout.walletUnavailable") : `${selectedWalletBalance} ${walletCurrency}`}
                         T={T}
                       />
                     </View>
@@ -2881,6 +2514,7 @@ export default function Payment({ route, navigation }) {
                 </View>
               </Card>
             )}
+            </>}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -2904,7 +2538,7 @@ export default function Payment({ route, navigation }) {
         }
         loading={
           loading ||
-          pricingBoot
+          pricingBoot || priceLoading
         }
       />
 
@@ -3548,8 +3182,7 @@ function PayBar({
                 "ltr",
             }}
           >
-            {total}{" "}
-            {currency}
+            {total == null ? "—" : `${total} ${currency}`}
           </Text>
         </View>
 

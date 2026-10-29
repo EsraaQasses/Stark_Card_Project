@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../../shared/api/errors/apiError";
 // src/screens/transactions/TransactionsList.js
 
 import React, {
@@ -79,55 +80,9 @@ const PAGE_SIZE = 20;
    Helpers
 ========================================================= */
 
-function containsArabic(value) {
-  return /[\u0600-\u06FF]/.test(
-    String(value || "")
-  );
-}
 
-function getArabicError(error, fallback) {
-  const data =
-    error?.response?.data ??
-    error?.data ??
-    error;
 
-  if (
-    data &&
-    typeof data === "object"
-  ) {
-    const arabic =
-      data?.message?.ar ||
-      data?.error?.ar ||
-      data?.detail?.ar ||
-      data?.message_ar ||
-      data?.error_ar;
-
-    if (arabic) {
-      return String(arabic);
-    }
-
-    const normal =
-      data?.detail ||
-      data?.error ||
-      data?.message;
-
-    if (
-      typeof normal === "string" &&
-      containsArabic(normal)
-    ) {
-      return normal;
-    }
-  }
-
-  if (
-    typeof data === "string" &&
-    containsArabic(data)
-  ) {
-    return data;
-  }
-
-  return fallback;
-}
+function getArabicError(error) { return getApiErrorMessage(error); }
 
 function hexWithAlpha(hex, alpha) {
   try {

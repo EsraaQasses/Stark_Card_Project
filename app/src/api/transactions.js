@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/api/transactions.js
 import api from "./client";
 
@@ -132,14 +133,7 @@ function normalizePagination(data, params) {
   };
 }
 
-function extractErrorMessage(error) {
-  return (
-    error?.response?.data?.detail ||
-    error?.response?.data?.message ||
-    error?.message ||
-    "فشل الطلب"
-  );
-}
+function extractErrorMessage(error) { return getApiErrorMessage(error); }
 
 export default {
   getTransactions,

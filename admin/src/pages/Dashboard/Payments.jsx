@@ -1,3 +1,5 @@
+import { apiErrorMessage } from '../../utils/apiError';
+import PaymentMediaFields, { paymentMediaLabels } from '../../components/PaymentMediaFields';
 import React, {
   useCallback,
   useEffect,
@@ -25,13 +27,7 @@ import axiosInstance from '../../utils/axiosConfig';
 
 const normalizeCurrency = (value) => String(value || '').trim().toLowerCase();
 
-const getApiError = (error, fallback) => (
-  error?.response?.data?.detail
-  || error?.response?.data?.error
-  || error?.response?.data?.message
-  || error?.message
-  || fallback
-);
+const getApiError = apiErrorMessage;
 
 const StatCard = ({
   icon,
@@ -69,7 +65,7 @@ const StatCard = ({
   </div>
 );
 
-const PaymentMethods = () => {
+const PaymentMethods = ({ openOnMount = false }) => {
   const { i18n } = useTranslation();
   const { currentColor } = useStateContext();
 
@@ -116,7 +112,7 @@ const PaymentMethods = () => {
     methodTitle: isArabic ? 'عنوان طريقة الدفع' : 'Method title',
     uniqueName: isArabic ? 'الاسم الداخلي' : 'Internal name',
     currency: isArabic ? 'العملة' : 'Currency',
-    iconUrl: isArabic ? 'صورة طريقة الدفع / QR' : 'Payment image / QR',
+    iconUrl: isArabic ? 'الصورة الرئيسية لطريقة الدفع' : 'Main payment method image',
     description: isArabic ? 'الوصف' : 'Description',
     note: isArabic ? 'ملاحظة' : 'Note',
     formFields: isArabic ? 'حقول نموذج الدفع' : 'Payment form fields',
@@ -150,9 +146,10 @@ const PaymentMethods = () => {
   const [methods, setMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reconciliationRequired, setReconciliationRequired] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(openOnMount);
   const [editingMethod, setEditingMethod] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [formFields, setFormFields] = useState([]);
@@ -160,6 +157,7 @@ const PaymentMethods = () => {
   // stark-payment-gallery-v1
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [galleryRemoved, setGalleryRemoved] = useState([]);
+  const [galleryReplacements, setGalleryReplacements] = useState({});
   const [galleryOrder, setGalleryOrder] = useState([]);
   const [galleryMessage, setGalleryMessage] = useState('');
   const maxGallery = 20;
@@ -170,16 +168,21 @@ const PaymentMethods = () => {
       setGalleryMessage(isArabic ? 'مسموح PNG وJPG وWEBP حتى 5 ميغابايت للصورة.' : 'PNG/JPG/WEBP only, 5 MB per image.');
       return;
     }
-    if (galleryFiles.length + picked.length + galleryOrder.length > maxGallery) {
+    if (galleryFiles.length + picked.length + galleryOrder.filter((item) => !galleryRemoved.includes(item.id)).length > maxGallery) {
       setGalleryMessage(isArabic ? 'الحد الأقصى 20 صورة إضافية.' : 'Maximum 20 additional images.');
       return;
     }
     setGalleryMessage('');
     setGalleryFiles((prev) => [...prev, ...picked]);
   };
+  const [media, setMedia] = useState({});
+
   const resetGallery = (method = null) => {
+    setMedia({});
+    setReconciliationRequired(false);
     setGalleryFiles([]);
     setGalleryRemoved([]);
+    setGalleryReplacements({});
     setGalleryOrder(method?.additional_images || []);
     setGalleryMessage('');
   };
@@ -305,11 +308,11 @@ const PaymentMethods = () => {
   };
 
   const closeModal = () => {
-    resetGallery();
     if (saving) {
       return;
     }
 
+    resetGallery();
     setShowModal(false);
     setEditingMethod(null);
     setFormFields([]);
@@ -362,24 +365,43 @@ const PaymentMethods = () => {
   const saveGalleryChanges = async (methodId) => {
     if (!methodId) throw new Error('Missing payment method ID for gallery.');
     const base = `/payment-methods/admin/payment-methods/${methodId}/`;
+    let savedImages = [...galleryOrder];
+    for (const [id, file] of Object.entries(galleryReplacements)) {
+      if (galleryRemoved.includes(Number(id))) continue;
+      const data = new FormData();
+      data.append('image', file);
+      const response = await axiosInstance.patch(`${base}gallery/${id}/`, data);
+      savedImages = savedImages.map((entry) => String(entry.id) === id ? response.data : entry);
+      setGalleryOrder(savedImages);
+      setGalleryReplacements((previous) => { const next = { ...previous }; delete next[id]; return next; });
+    }
     for (const removedId of galleryRemoved) {
       await axiosInstance.delete(`${base}gallery/${removedId}/`);
+      savedImages = savedImages.filter((entry) => entry.id !== removedId);
+      setGalleryOrder(savedImages);
+      setGalleryRemoved((previous) => previous.filter((id) => id !== removedId));
     }
-    const savedImages = galleryOrder.filter((entry) => !galleryRemoved.includes(entry.id));
-    if (editingMethod && savedImages.length > 0 && galleryOrder.some((entry, i) => entry.id !== (editingMethod.additional_images || [])[i]?.id)) {
-      await axiosInstance.post(`${base}gallery-order/`, {ids: savedImages.map((item) => item.id)});
-    }
-    if (galleryFiles.length) {
-      for (let i = 0; i < galleryFiles.length; i += 10) {
-        const imageData = new FormData();
-        galleryFiles.slice(i, i + 10).forEach((file) => imageData.append('images', file));
-        await axiosInstance.post(`${base}gallery/`, imageData, {headers: {'Content-Type': 'multipart/form-data'}});
+    for (let i = 0; i < galleryFiles.length; i += 10) {
+      const files = galleryFiles.slice(i, i + 10);
+      const imageData = new FormData();
+      files.forEach((file) => imageData.append('images', file));
+      const response = await axiosInstance.post(`${base}gallery/`, imageData);
+      const added = response.data?.additional_images;
+      if (!Array.isArray(added) || added.length !== files.length) {
+        throw new Error('Gallery upload returned an invalid response. Reopen the method to reconcile images.');
       }
+      savedImages = [...savedImages, ...added];
+      setGalleryOrder(savedImages);
+      setGalleryFiles((previous) => previous.filter((file) => !files.includes(file)));
+    }
+    if (savedImages.length) {
+      await axiosInstance.post(`${base}gallery-order/`, { ids: savedImages.map((item) => item.id) });
     }
   };
 
   const handleSave = async (event) => {
     event.preventDefault();
+    if (saving || reconciliationRequired) return;
     setSaving(true);
     setNotice(null);
 
@@ -388,10 +410,10 @@ const PaymentMethods = () => {
     const payload = {
       title: formData.get('title'),
       name: formData.get('name'),
-      currency: formData.get('currency'),
+      currency: String(formData.get('currency')).toUpperCase(),
+      description: formData.get('description') || '',
       account_details: formData.get('account_details'),
       instructions: formData.get('instructions'),
-      description: formData.get('description') || '',
       note: formData.get('note') || '',
       is_active: formData.get('is_active') === 'on',
       fields: formFields.map((field, index) => ({
@@ -404,7 +426,7 @@ const PaymentMethods = () => {
       })),
     };
 
-    if (imageError) {
+    if (imageError || Object.values(media).some((value) => value.error)) {
       setSaving(false);
       return;
     }
@@ -415,16 +437,21 @@ const PaymentMethods = () => {
       requestData.append(key, key === 'fields' ? JSON.stringify(value) : String(value ?? ''));
     });
     if (imageFile) requestData.append('icon_url', imageFile);
-    else if (removeImage) requestData.append('icon_url', '');
+
+    Object.entries(media).forEach(([field, value]) => {
+      if (value.file) requestData.append(field, value.file);
+
+    });
 
     try {
       let savedMethodId = editingMethod?.id;
       if (editingMethod) {
-        await axiosInstance.put(
+        const updateResponse = await axiosInstance.patch(
           `/payment-methods/admin/payment-methods/${editingMethod.id}/`,
           requestData,
           { headers: { 'Content-Type': 'multipart/form-data' } },
         );
+        setEditingMethod({ ...editingMethod, ...updateResponse.data });
       } else {
         const createResponse = await axiosInstance.post(
           '/payment-methods/admin/payment-methods/',
@@ -432,8 +459,19 @@ const PaymentMethods = () => {
           { headers: { 'Content-Type': 'multipart/form-data' } },
         );
         savedMethodId = createResponse.data?.id;
+        setEditingMethod(createResponse.data);
       }
 
+      const cleared = Object.fromEntries(Object.entries(media).filter(([, value]) => value.remove).map(([field]) => [field, null]));
+      if (removeImage) cleared.icon_url = null;
+      if (Object.keys(cleared).length) {
+        const clearedResponse = await axiosInstance.patch(`/payment-methods/admin/payment-methods/${savedMethodId}/`, cleared);
+        setEditingMethod(clearedResponse.data);
+      }
+      setMedia({});
+      setImageFile(null);
+      setImagePreview('');
+      setRemoveImage(false);
       await saveGalleryChanges(savedMethodId);
       setShowModal(false);
       setEditingMethod(null);
@@ -444,9 +482,12 @@ const PaymentMethods = () => {
       });
       await fetchPaymentMethods({ background: true });
     } catch (saveError) {
+      if (!saveError.response) setReconciliationRequired(true);
       setNotice({
         type: 'error',
-        message: getApiError(saveError, labels.saveFailed),
+        message: !saveError.response
+          ? (isArabic ? 'انقطع الاتصال وقد تكون بعض الخطوات حُفظت. عُد إلى القائمة وحدّثها ثم أعد فتح السجل قبل المحاولة.' : 'Connection lost; some steps may have been saved. Return to the list, refresh, and reopen the record before retrying.')
+          : getApiError(saveError, labels.saveFailed),
       });
     } finally {
       setSaving(false);
@@ -457,10 +498,9 @@ const PaymentMethods = () => {
     setNotice(null);
 
     try {
-      await axiosInstance.put(
+      await axiosInstance.patch(
         `/payment-methods/admin/payment-methods/${method.id}/`,
         {
-          ...method,
           is_active: !method.is_active,
         },
       );
@@ -747,6 +787,12 @@ const PaymentMethods = () => {
                     </div>
 
                     <div className="space-y-3 p-5">
+                      {Object.entries(paymentMediaLabels(isArabic)).map(([field, label]) => method[field] ? (
+                        <figure key={field} className="my-3">
+                          <figcaption className="text-xs font-bold">{label}</figcaption>
+                          <img src={method[field]} alt={label} className="mt-2 max-h-48 object-contain" />
+                        </figure>
+                      ) : null)}
                       {method.additional_images?.length > 0 && (
                         <div className="rounded-2xl border border-slate-100 p-3 dark:border-slate-800">
                           <p className="mb-3 text-xs font-extrabold text-slate-500">{isArabic ? 'الصور الإضافية' : 'Additional images'}</p>
@@ -872,7 +918,8 @@ const PaymentMethods = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+            {notice && <p role="alert" className={`rounded-xl border p-4 ${notice.type === 'error' ? 'text-red-600' : 'text-emerald-600'}`}>{notice.message}</p>}
+            <fieldset disabled={saving} className="contents"><form onSubmit={handleSave} className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
               <div className="space-y-5 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-7 lg:col-span-8">
                 <h3 className="mb-5 border-b border-slate-100 pb-4 text-lg font-black dark:border-slate-800">{isArabic ? 'المعلومات الأساسية' : 'Basic information'}</h3>
               <div className="grid gap-4 md:grid-cols-2">
@@ -1144,6 +1191,7 @@ const PaymentMethods = () => {
                 </div>
                 </section>
                 <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-secondary-dark-bg md:p-6">
+                  <PaymentMediaFields method={editingMethod} media={media} setMedia={setMedia} isArabic={isArabic} />
                   <h3 className="mb-4 border-b border-slate-100 pb-4 text-lg font-black dark:border-slate-800">{isArabic ? 'معرض الصور الإضافية' : 'Additional images gallery'}</h3>
               <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
                 <p className="mb-2 text-sm font-black text-slate-800 dark:text-white">
@@ -1159,6 +1207,18 @@ const PaymentMethods = () => {
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {galleryOrder.map((item, index) => !galleryRemoved.includes(item.id) && (
                     <div key={item.id} className="rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+                      <input type="file" aria-label={isArabic ? 'استبدال صورة المعرض' : 'Replace gallery image'} accept="image/png,image/jpeg,image/webp"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+                            setGalleryMessage(isArabic ? 'الصورة غير صالحة؛ الحد 5 MB.' : 'Invalid image; maximum 5 MB.');
+                            return;
+                          }
+                          setGalleryReplacements((previous) => ({ ...previous, [item.id]: file }));
+                          setGalleryMessage('');
+                        }} />
+                      {galleryReplacements[item.id] && <p>{galleryReplacements[item.id].name}</p>}
                       <img src={item.image} alt="Gallery" className="h-28 w-full rounded-lg object-contain" />
                       <div className="mt-2 flex justify-between gap-2 text-xs">
                         <button type="button" disabled={index === 0} onClick={() => setGalleryOrder((old) => { const a = [...old]; [a[index-1],a[index]]=[a[index],a[index-1]]; return a; })}>↑</button>
@@ -1195,7 +1255,7 @@ const PaymentMethods = () => {
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || reconciliationRequired}
                   className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-black text-white transition hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: accentColor }}
                 >
@@ -1206,7 +1266,7 @@ const PaymentMethods = () => {
                 </button>
               </div>
               </div>
-            </form>
+            </form></fieldset>
           </div>
         </div>
       )}

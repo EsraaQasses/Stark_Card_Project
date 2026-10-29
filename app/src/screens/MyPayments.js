@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -15,7 +16,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -24,25 +24,26 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import PageLayout from "../ui/PageLayout";
 import CornerSpinner from "../ui/CornerSpinner";
 import { AppHeader } from "../shared/ui/layout";
-import api from "../api/client";
+import { useAuth } from "../context/AuthProvider";
+import { listPaymentObjections, submitPaymentObjection } from "../api/objections";
+import { paymentIdentifiers, paymentSnapshots, moneySnapshot, canObject, isOpenObjection, objectionStatus, refundPresentation } from "../features/payments/model/paymentHistory";
+import * as Clipboard from "expo-clipboard";
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
+import { calendarKey, historyToday } from "../features/payments/model/historyFilters";
 
 import {
   getPaymentsStatusSummary,
   listPaymentsHistory,
 } from "../api/payment";
 
-import {
-  getCache,
-  setCache,
-  cacheKey,
-} from "../utils/cache";
+
 
 /* =========================================================
    Light Theme
@@ -609,58 +610,14 @@ function getStatusMeta(status, L) {
    Summary
 ========================================================= */
 
-function buildLocalSummary(
-  items,
-  totalOverride
-) {
-  const counts = {
-    total: 0,
-    success: 0,
-    pending: 0,
-    failed: 0,
-  };
-
-  for (const item of items || []) {
-    counts.total += 1;
-
-    const status =
-      normalizeStatus(item);
-
-    if (
-      status === "approved" ||
-      status === "refunded"
-    ) {
-      counts.success += 1;
-    } else if (
-      status === "failed" ||
-      status === "cancelled"
-    ) {
-      counts.failed += 1;
-    } else {
-      counts.pending += 1;
-    }
-  }
-
-  if (
-    Number.isFinite(
-      Number(totalOverride)
-    )
-  ) {
-    counts.total =
-      Number(totalOverride);
-  }
-
-  return counts;
-}
-
 /* =========================================================
    Dates
 ========================================================= */
 
 function extractItemDate(item) {
   const candidates = [
-    item?.processed_at,
     item?.created_at,
+    item?.processed_at,
     item?.created,
     item?.paid_at,
     item?.updated_at,
@@ -699,22 +656,6 @@ function startOfDay(date) {
     0,
     0,
     0
-  );
-
-  return result;
-}
-
-function endOfDay(date) {
-  if (!date) return null;
-
-  const result =
-    new Date(date);
-
-  result.setHours(
-    23,
-    59,
-    59,
-    999
   );
 
   return result;
@@ -809,30 +750,10 @@ function pickCurrency(...values) {
 
 function pickAmount(...values) {
   for (const value of values) {
-    const number =
-      Number(value);
-
-    if (
-      Number.isFinite(number)
-    ) {
-      return Math.abs(number);
-    }
+    const text = String(value ?? "").trim();
+    if (/^-?\d+(?:\.\d+)?$/.test(text)) return text.replace(/^-/, "");
   }
-
   return null;
-}
-
-function fmtNum(value) {
-  const number =
-    Number(value);
-
-  if (
-    !Number.isFinite(number)
-  ) {
-    return "0.00";
-  }
-
-  return number.toFixed(2);
 }
 
 /* =========================================================
@@ -851,142 +772,6 @@ function hexWithAlpha(hex, alpha) {
       .padStart(2, "0")}`;
   } catch {
     return hex;
-  }
-}
-
-function extractServerMessage(raw) {
-  try {
-    if (!raw) return "";
-
-    const data =
-      raw?.response?.data ??
-      raw?.data ??
-      raw;
-
-    if (
-      typeof data === "string"
-    ) {
-      return data;
-    }
-
-    if (
-      Array.isArray(data)
-    ) {
-      return data
-        .map(String)
-        .join("\n");
-    }
-
-    if (
-      typeof data === "object"
-    ) {
-      if (data.detail) {
-        return String(data.detail);
-      }
-
-      if (data.error) {
-        return String(data.error);
-      }
-
-      const firstKey =
-        Object.keys(data)[0];
-
-      if (firstKey) {
-        const value =
-          data[firstKey];
-
-        if (
-          Array.isArray(value)
-        ) {
-          return value
-            .map(String)
-            .join("\n");
-        }
-
-        return String(value);
-      }
-    }
-
-    return "";
-  } catch {
-    return "";
-  }
-}
-
-async function createPaymentObjectionRequest({
-  item,
-  reason,
-  productName,
-  userInput,
-  quantity,
-  paidAmount,
-  paidCurrency,
-  transactionId,
-}) {
-  try {
-    const cleanReason = String(reason || "").trim();
-
-    if (cleanReason.length < 5) {
-      return {
-        ok: false,
-        error: "يرجى كتابة سبب الاعتراض بشكل أوضح.",
-      };
-    }
-
-    const paymentId = item?.id ?? null;
-    const reference = transactionId || paymentId || "—";
-
-    const payload = {
-      request_type: "support",
-      status: "objection",
-      title: `Payment objection #${reference}`,
-      description: cleanReason,
-      user_input_data: {
-        objection_type: "payment",
-        source: "mobile_app",
-        payment_id: paymentId,
-        transaction_id: transactionId || null,
-        product_name: productName || null,
-        payment_status: normalizeStatus(item),
-        quantity: quantity || null,
-        account_input: userInput || null,
-      },
-    };
-
-    if (
-      paidAmount != null &&
-      Number.isFinite(Number(paidAmount))
-    ) {
-      payload.amount = String(paidAmount);
-    }
-
-    const normalizedCurrency = String(
-      paidCurrency || ""
-    ).toUpperCase();
-
-    if (
-      normalizedCurrency === "USD" ||
-      normalizedCurrency === "SYP"
-    ) {
-      payload.currency = normalizedCurrency;
-    }
-
-    const { data } = await api.post(
-      "all_requests/user/requests/",
-      payload
-    );
-
-    return {
-      ok: true,
-      data,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        extractServerMessage(error) ||
-        "تعذر إرسال الاعتراض. حاول مرة أخرى.",
-    };
   }
 }
 
@@ -1118,413 +903,58 @@ export default function MyPayments({
     setDateTo,
   ] = useState(null);
 
-  const [
-    showFromPicker,
-    setShowFromPicker,
-  ] = useState(false);
-
-  const [
-    showToPicker,
-    setShowToPicker,
-  ] = useState(false);
-
-  const hasDateFilter =
-    Boolean(
-      dateFrom ||
-      dateTo
-    );
-
-  /* =======================================================
-     Local filter
-  ======================================================= */
-
-  const filteredItems =
-    useMemo(() => {
-      let result =
-        items;
-
-      const from =
-        startOfDay(dateFrom);
-
-      const to =
-        endOfDay(dateTo);
-
-      if (
-        from ||
-        to
-      ) {
-        result =
-          result.filter(
-            (item) => {
-              const itemDate =
-                extractItemDate(
-                  item
-                );
-
-              if (!itemDate) {
-                return false;
-              }
-
-              if (
-                from &&
-                itemDate < from
-              ) {
-                return false;
-              }
-
-              if (
-                to &&
-                itemDate > to
-              ) {
-                return false;
-              }
-
-              return true;
-            }
-          );
-      }
-
-      if (
-        statusFilter !==
-        "all"
-      ) {
-        result =
-          result.filter(
-            (item) =>
-              normalizeStatus(
-                item
-              ) ===
-              statusFilter
-          );
-      }
-
-      return result;
-    }, [
-      items,
-      dateFrom,
-      dateTo,
-      statusFilter,
-    ]);
+  const [dateInputFrom,setDateInputFrom] = useState(null);
+  const [dateInputTo,setDateInputTo] = useState(null);
+  const [pickerField, setPickerField] = useState(null);
+  const [draftDate, setDraftDate] = useState(new Date());
+  const requestSequence = useRef(0);
+  const historyAbort = useRef(null);
+  const hasDateFilter = Boolean(dateFrom || dateTo);
+  const filteredItems = items;
 
   /* =======================================================
      Fetch
   ======================================================= */
 
-  const fetchPage =
-    useCallback(
-      async ({
-        reset = false,
-        pageOverride,
-      } = {}) => {
-        try {
-          if (reset) {
-            setError("");
-          }
-
-          const currentPage =
-            reset
-              ? 1
-              : pageOverride ?? 1;
-
-          const fromKey =
-            formatApiDate(dateFrom) ||
-            "all";
-
-          const toKey =
-            formatApiDate(dateTo) ||
-            "all";
-
-          const cacheK =
-            cacheKey(
-              "payment-history-v3",
-              statusFilter,
-              fromKey,
-              toKey,
-              String(currentPage)
-            );
-
-          /* ================= Cache ================= */
-
-          if (reset) {
-            const cached =
-              await getCache(
-                cacheK,
-                1000 *
-                  60 *
-                  5
-              );
-
-            if (
-              cached &&
-              Array.isArray(cached)
-            ) {
-              const nextItems =
-                sortByCreatedDesc(
-                  cached
-                );
-
-              setItems(
-                nextItems
-              );
-
-              setSummary(
-                buildLocalSummary(
-                  nextItems
-                )
-              );
-            }
-          }
-
-          /* ================= API Params ================= */
-
-          const params = {
-            page:
-              currentPage,
-
-            page_size:
-              PAGE_SIZE,
-
-            ...(statusFilter !==
-            "all"
-              ? {
-                  status:
-                    statusFilter,
-                }
-              : {}),
-
-            ...(dateFrom
-              ? {
-                  date_from:
-                    formatApiDate(
-                      dateFrom
-                    ),
-                }
-              : {}),
-
-            ...(dateTo
-              ? {
-                  date_to:
-                    formatApiDate(
-                      dateTo
-                    ),
-                }
-              : {}),
-          };
-
-          /* ================= History ================= */
-
-          const historyResponse =
-            await listPaymentsHistory(
-              params
-            );
-
-          if (
-            !historyResponse?.ok
-          ) {
-            const message =
-              extractServerMessage(
-                historyResponse?.error ||
-                  historyResponse
-              );
-
-            throw new Error(
-              message ||
-                "تعذر تحميل المدفوعات."
-            );
-          }
-
-          let pageItems =
-            Array.isArray(
-              historyResponse.data
-            )
-              ? historyResponse.data
-              : [];
-
-          if (
-            statusFilter !==
-            "all"
-          ) {
-            pageItems =
-              pageItems.filter(
-                (item) =>
-                  normalizeStatus(
-                    item
-                  ) ===
-                  statusFilter
-              );
-          }
-
-          const pagination =
-            historyResponse.pagination ||
-            {};
-
-          /* ================= Summary ================= */
-
-          let serverSummary = null;
-
-          /*
-           * إذا ما في فلتر تاريخ نستعمل summary من السيرفر.
-           * إذا في فترة مخصصة نحسب الملخص من النتائج المعروضة
-           * حتى ما نظهر أرقام عامة وهي مو من نفس الفترة.
-           */
-
-          if (!hasDateFilter) {
-            try {
-              const summaryResponse =
-                await getPaymentsStatusSummary();
-
-              serverSummary =
-                summaryResponse?.ok
-                  ? summaryResponse.data
-                  : null;
-            } catch {
-              serverSummary = null;
-            }
-          }
-
-          /* ================= Pagination ================= */
-
-          const nextExists =
-            !!pagination.next ||
-            (
-              (
-                pagination.page ||
-                currentPage
-              ) *
-                (
-                  pagination.page_size ||
-                  PAGE_SIZE
-                ) <
-              (
-                pagination.count ||
-                pageItems.length
-              )
-            );
-
-          setHasNext(
-            nextExists
-          );
-
-          if (reset) {
-            const nextItems =
-              sortByCreatedDesc(
-                pageItems
-              );
-
-            setItems(
-              nextItems
-            );
-
-            setSummary(
-              serverSummary ||
-                buildLocalSummary(
-                  nextItems,
-                  pagination?.count
-                )
-            );
-
-            setPage(1);
-
-            await setCache(
-              cacheK,
-              nextItems
-            );
-          } else {
-            setItems(
-              (previous) => {
-                const seen =
-                  new Set(
-                    previous.map(
-                      (item) =>
-                        item.id
-                    )
-                  );
-
-                const merged = [
-                  ...previous,
-                ];
-
-                for (
-                  const item of pageItems
-                ) {
-                  if (
-                    !seen.has(
-                      item.id
-                    )
-                  ) {
-                    merged.push(
-                      item
-                    );
-                  }
-                }
-
-                const nextItems =
-                  sortByCreatedDesc(
-                    merged
-                  );
-
-                setSummary(
-                  serverSummary ||
-                    buildLocalSummary(
-                      nextItems,
-                      pagination?.count
-                    )
-                );
-
-                return nextItems;
-              }
-            );
-          }
-        } catch (e) {
-          const message =
-            extractServerMessage(
-              e
-            ) ||
-            e?.message ||
-            String(e);
-
-          setError(
-            message
-          );
-        } finally {
-          setLoading(
-            false
-          );
-
-          setRefreshing(
-            false
-          );
-
-          setLoadingMore(
-            false
-          );
-        }
-      },
-      [
-        statusFilter,
-        dateFrom,
-        dateTo,
-        hasDateFilter,
-      ]
-    );
-
-  /* =======================================================
-     Refetch
-  ======================================================= */
+  const fetchPage = useCallback(async ({ reset = false, pageOverride } = {}) => {
+    const sequence = ++requestSequence.current;
+    historyAbort.current?.abort();
+    const controller = new AbortController();
+    historyAbort.current = controller;
+    const currentPage = reset ? 1 : pageOverride || 1;
+    try {
+      setError("");
+      if (reset) { setItems([]); setSummary(null); setHasNext(false); setPage(1); }
+      const params = { page:currentPage, page_size:PAGE_SIZE,
+        ...(statusFilter !== "all" ? {status:statusFilter} : {}),
+        ...(dateFrom ? {date_from:calendarKey(dateFrom)} : {}),
+        ...(dateTo ? {date_to:calendarKey(dateTo)} : {}) };
+      const response = await listPaymentsHistory(params, {signal:controller.signal});
+      if (sequence !== requestSequence.current) return;
+      if (!response?.ok) throw new Error(response?.error || "تعذر تحميل المدفوعات.");
+      let totals = response.summary || null;
+      if (!totals && !hasDateFilter && statusFilter === "all") {
+        const result = await getPaymentsStatusSummary();
+        if (sequence !== requestSequence.current) return;
+        totals = result?.ok && !result.missing ? result.data : null;
+      }
+      const nextItems = sortByCreatedDesc(response.data || []);
+      setItems(previous => reset ? nextItems : [...previous, ...nextItems.filter(x => !previous.some(y => y.id === x.id))]);
+      setSummary(totals);
+      setHasNext(Boolean(response.pagination?.next));
+      setPage(currentPage);
+    } catch (error) {
+      if (sequence === requestSequence.current) setError(getApiErrorMessage(error));
+    } finally {
+      if (sequence === requestSequence.current) { setLoading(false); setRefreshing(false); setLoadingMore(false); }
+    }
+  }, [statusFilter, dateFrom, dateTo, hasDateFilter]);
 
   useEffect(() => {
     setLoading(true);
-    setPage(1);
-
-    fetchPage({
-      reset: true,
-    });
-  }, [
-    statusFilter,
-    dateFrom,
-    dateTo,
-    fetchPage,
-  ]);
+    fetchPage({reset:true});
+    return () => { requestSequence.current += 1; historyAbort.current?.abort(); };
+  }, [fetchPage]);
 
   /* =======================================================
      Refresh
@@ -1565,7 +995,7 @@ export default function MyPayments({
       const next =
         page + 1;
 
-      setPage(next);
+
 
       fetchPage({
         reset: false,
@@ -1615,103 +1045,30 @@ export default function MyPayments({
      Date actions
   ======================================================= */
 
-  const clearDates =
-    useCallback(() => {
-      setDateFrom(null);
-      setDateTo(null);
-
-      setShowFromPicker(
-        false
-      );
-
-      setShowToPicker(
-        false
-      );
-    }, []);
-
-  const onFromChange =
-    useCallback(
-      (
-        event,
-        selectedDate
-      ) => {
-        if (
-          Platform.OS !== "ios"
-        ) {
-          setShowFromPicker(
-            false
-          );
-        }
-
-        if (
-          event?.type ===
-          "dismissed"
-        ) {
-          return;
-        }
-
-        if (!selectedDate) {
-          return;
-        }
-
-        const cleanDate =
-          startOfDay(
-            selectedDate
-          );
-
-        setDateFrom(
-          cleanDate
-        );
-
-        /*
-         * إذا "إلى" صار أقدم من "من"
-         * منمسحه ليختار المستخدم تاريخ صحيح.
-         */
-
-        if (
-          dateTo &&
-          cleanDate >
-            endOfDay(dateTo)
-        ) {
-          setDateTo(null);
-        }
-      },
-      [dateTo]
-    );
-
-  const onToChange =
-    useCallback(
-      (
-        event,
-        selectedDate
-      ) => {
-        if (
-          Platform.OS !== "ios"
-        ) {
-          setShowToPicker(
-            false
-          );
-        }
-
-        if (
-          event?.type ===
-          "dismissed"
-        ) {
-          return;
-        }
-
-        if (!selectedDate) {
-          return;
-        }
-
-        setDateTo(
-          startOfDay(
-            selectedDate
-          )
-        );
-      },
-      []
-    );
+  const clearDates = useCallback(() => {
+    setDateFrom(null);setDateTo(null);setDateInputFrom(null);setDateInputTo(null);setPickerField(null);
+  }, []);
+  const applyDates = () => {
+    if (dateInputFrom && dateInputTo && dateInputFrom > dateInputTo) return;
+    if (dateInputFrom > historyToday() || dateInputTo > historyToday()) return;
+    setDateFrom(dateInputFrom);setDateTo(dateInputTo);
+  };
+  const commitDate = (field,value) => {
+    const date = startOfDay(value);
+    if (!date || Number.isNaN(+date) || date > historyToday()) return;
+    if (field === "from" && dateInputTo && date > dateInputTo || field === "to" && dateInputFrom && date < dateInputFrom) return;
+    if (field === "from") setDateInputFrom(date);else setDateInputTo(date);
+  };
+  const openDatePicker = field => {
+    const maximumDate = field === "from" && dateInputTo ? dateInputTo : historyToday();
+    const minimumDate = field === "to" ? dateInputFrom || undefined : undefined;
+    let value = (field === "from" ? dateInputFrom : dateInputTo) || maximumDate;
+    if (value > maximumDate) value = maximumDate;
+    if (minimumDate && value < minimumDate) value = minimumDate;
+    if (Platform.OS === "android") DateTimePickerAndroid.open({value,mode:"date",minimumDate,maximumDate,
+      onChange:(event,date)=>{if(event.type==="set" && date) commitDate(field,date);}});
+    else if (Platform.OS === "ios") {setDraftDate(value);setPickerField(field);}
+  };
 
   /* =======================================================
      Navigation
@@ -2113,198 +1470,21 @@ export default function MyPayments({
             </View>
           )}
 
+          {!loading && !summary && <Text style={{textAlign:"right",paddingHorizontal:14,color:COLORS.textMuted}}>إحصائيات الفترة غير متوفرة حالياً.</Text>}
           {/* =================================================
               Custom Date Range
           ================================================= */}
 
-          <View
-            style={
-              S.dateCard
-            }
-          >
-            <View
-              style={
-                S.dateHeader
-              }
-            >
-              <View
-                style={
-                  S.dateHeaderIcon
-                }
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={20}
-                  color={
-                    COLORS.primary
-                  }
-                />
-              </View>
-
-              <View
-                style={{
-                  flex: 1,
-                  alignItems:
-                    "flex-end",
-                }}
-              >
-                <Text
-                  style={
-                    S.dateTitle
-                  }
-                >
-                  الفترة الزمنية
-                </Text>
-
-                <Text
-                  style={
-                    S.dateSubtitle
-                  }
-                >
-                  اختر المدة التي تريد عرض عملياتها
-                </Text>
-              </View>
-
-              {hasDateFilter && (
-                <Pressable
-                  onPress={
-                    clearDates
-                  }
-                  style={
-                    S.clearDateButton
-                  }
-                >
-                  <Ionicons
-                    name="refresh-outline"
-                    size={17}
-                    color={
-                      COLORS.primary
-                    }
-                  />
-
-                  <Text
-                    style={
-                      S.clearDateText
-                    }
-                  >
-                    الكل
-                  </Text>
-                </Pressable>
-              )}
+          <View style={S.dateCard}>
+            <Text style={S.dateTitle}>الفترة الزمنية</Text>
+            <View style={[S.dateFieldsRow,{marginVertical:6}]}>
+              <DateButton title="من تاريخ" value={dateInputFrom} onPress={()=>openDatePicker("from")}/>
+              <DateButton title="إلى تاريخ" value={dateInputTo} onPress={()=>openDatePicker("to")}/>
             </View>
-
-            <View
-              style={
-                S.dateFieldsRow
-              }
-            >
-              <DateButton
-                title="من تاريخ"
-                value={
-                  dateFrom
-                }
-                onPress={() => {
-                  setShowToPicker(
-                    false
-                  );
-
-                  setShowFromPicker(
-                    true
-                  );
-                }}
-              />
-
-              <View
-                style={
-                  S.dateArrow
-                }
-              >
-                <Ionicons
-                  name="arrow-back-outline"
-                  size={19}
-                  color={
-                    COLORS.textMuted
-                  }
-                />
-              </View>
-
-              <DateButton
-                title="إلى تاريخ"
-                value={
-                  dateTo
-                }
-                onPress={() => {
-                  setShowFromPicker(
-                    false
-                  );
-
-                  setShowToPicker(
-                    true
-                  );
-                }}
-              />
+            <View style={styles.monthRow}>
+              <Pressable accessibilityRole="button" style={[styles.datePreset,styles.datePresetActive]} onPress={applyDates}><Text style={styles.datePresetTextActive}>{t("checkout.apply","تطبيق الفلتر")}</Text></Pressable>
+              <Pressable accessibilityRole="button" style={styles.datePreset} onPress={clearDates}><Text style={styles.datePresetText}>{t("checkout.clear","مسح الفلتر")}</Text></Pressable>
             </View>
-
-            {!!dateFrom &&
-              !dateTo && (
-                <Text
-                  style={
-                    S.dateHint
-                  }
-                >
-                  اختر تاريخ النهاية لإكمال الفترة
-                </Text>
-              )}
-
-            {showFromPicker && (
-              <DateTimePicker
-                value={
-                  dateFrom ||
-                  new Date()
-                }
-                mode="date"
-                display={
-                  Platform.OS ===
-                  "ios"
-                    ? "compact"
-                    : "default"
-                }
-                maximumDate={
-                  dateTo ||
-                  new Date()
-                }
-                onChange={
-                  onFromChange
-                }
-              />
-            )}
-
-            {showToPicker && (
-              <DateTimePicker
-                value={
-                  dateTo ||
-                  dateFrom ||
-                  new Date()
-                }
-                mode="date"
-                display={
-                  Platform.OS ===
-                  "ios"
-                    ? "compact"
-                    : "default"
-                }
-                minimumDate={
-                  dateFrom ||
-                  undefined
-                }
-                maximumDate={
-                  new Date()
-                }
-                onChange={
-                  onToChange
-                }
-              />
-            )}
           </View>
 
           {/* =================================================
@@ -2445,6 +1625,21 @@ export default function MyPayments({
           )}
         </View>
       </View>
+      {Platform.OS === "ios" && pickerField !== null && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setPickerField(null)}>
+          <View style={styles.datePickerBackdrop}><View style={styles.datePickerSheet} accessibilityViewIsModal>
+            <Text style={styles.datePickerTitle}>{pickerField === "from" ? "من تاريخ" : "إلى تاريخ"}</Text>
+            <DateTimePicker value={draftDate} mode="date" display="spinner" themeVariant="light" style={{width:"100%",height:216}}
+              minimumDate={pickerField === "to" ? dateInputFrom || undefined : undefined}
+              maximumDate={pickerField === "from" && dateInputTo ? dateInputTo : historyToday()}
+              onChange={(event,date) => { if (event.type === "set" && date) setDraftDate(date); }}/>
+            <View style={styles.monthRow}>
+              <Pressable style={styles.datePreset} onPress={() => setPickerField(null)}><Text>إلغاء</Text></Pressable>
+              <Pressable style={[styles.datePreset,styles.datePresetActive]} onPress={() => {commitDate(pickerField,draftDate);setPickerField(null);}}><Text style={styles.datePresetTextActive}>تطبيق</Text></Pressable>
+            </View>
+          </View></View>
+        </Modal>
+      )}
     </PageLayout>
   );
 }
@@ -2495,7 +1690,6 @@ function DateButton({
         </Text>
 
         <Text
-          numberOfLines={1}
           style={[
             styles.dateButtonValue,
 
@@ -2569,7 +1763,7 @@ function SummaryCard({
             name={
               icon
             }
-            size={19}
+            size={16}
             color={
               tint
             }
@@ -2614,6 +1808,15 @@ const PaymentCard =
       lang,
       L,
     }) {
+      const { user } = useAuth();
+      const [objections, setObjections] = useState([]);
+      const [objectionLoadError, setObjectionLoadError] = useState("");
+      const objectionLock = useRef(false);
+      const loadObjections = useCallback(async () => {
+        if (!user?.id || !item?.id) return;
+        try { setObjectionLoadError(""); setObjections(await listPaymentObjections(item.id, user.id)); }
+        catch (error) { setObjectionLoadError(getApiErrorMessage(error)); }
+      }, [item?.id, user?.id]);
       const [
         expanded,
         setExpanded,
@@ -2637,11 +1840,6 @@ const PaymentCard =
         setObjectionSubmitting,
       ] = useState(false);
 
-      const [
-        objectionSubmitted,
-        setObjectionSubmitted,
-      ] = useState(false);
-
       const normalizedStatus =
         normalizeStatus(
           item
@@ -2655,8 +1853,8 @@ const PaymentCard =
 
       const created =
         formatDate(
-          item?.processed_at ||
-            item?.created_at,
+          item?.created_at ||
+            item?.processed_at,
 
           lang
         );
@@ -2688,10 +1886,7 @@ const PaymentCard =
 
           item?.final_price,
 
-          item?.amount,
-
-          item?.user_inputs
-            ?.final_amount_submitted
+          item?.amount
         );
 
       const paidCurrency =
@@ -2700,31 +1895,18 @@ const PaymentCard =
 
           item?.wallet_currency,
 
-          item?.currency,
-
-          item?.user_inputs
-            ?.wallet_currency,
-
-          item?.user_inputs
-            ?.currency_submitted
+          item?.currency
         );
 
-      const amountText =
-        paidAmount != null
-          ? `${fmtNum(
-              paidAmount
-            )} ${paidCurrency}`.trim()
-          : "—";
+      const amountText = moneySnapshot(paidAmount, paidCurrency, lang);
 
-      const transactionId =
-        item?.external_transaction_id ||
-        item?.transaction_id ||
-        item?.reference ||
-        item?.id ||
-        "";
-
-      const canSubmitObjection =
-        Boolean(item?.id);
+      const identifiers = paymentIdentifiers(item);
+      const snapshot = paymentSnapshots(item);
+      const refund = refundPresentation(item, lang);
+      const activeObjection = objections.find(isOpenObjection);
+      const latestObjection = activeObjection || objections[0];
+      const canSubmitObjection = canObject(item) && Boolean(user?.id) && (item.user == null || String(item.user) === String(user.id));
+      useEffect(() => { if (expanded && canSubmitObjection) loadObjections(); }, [expanded, canSubmitObjection, loadObjections]);
 
       const openObjection =
         (event) => {
@@ -2732,7 +1914,7 @@ const PaymentCard =
 
           if (
             !canSubmitObjection ||
-            objectionSubmitted
+            activeObjection
           ) {
             return;
           }
@@ -2759,29 +1941,20 @@ const PaymentCard =
               objectionReason || ""
             ).trim();
 
-          if (cleanReason.length < 5) {
+          if (!cleanReason) {
             Alert.alert(
               "سبب الاعتراض",
-              "يرجى كتابة سبب الاعتراض بشكل أوضح."
+              "يرجى كتابة سبب الاعتراض."
             );
 
             return;
           }
 
+          if (objectionLock.current || activeObjection) return;
+          objectionLock.current = true;
           setObjectionSubmitting(true);
-
-          const result =
-            await createPaymentObjectionRequest({
-              item,
-              reason: cleanReason,
-              productName,
-              userInput,
-              quantity,
-              paidAmount,
-              paidCurrency,
-              transactionId,
-            });
-
+          const result = await submitPaymentObjection(item, cleanReason, user?.id);
+          objectionLock.current = false;
           setObjectionSubmitting(false);
 
           if (!result?.ok) {
@@ -2794,7 +1967,7 @@ const PaymentCard =
             return;
           }
 
-          setObjectionSubmitted(true);
+          setObjections(previous => [result.data, ...previous.filter(x => x.id !== result.data?.id)]);
           setObjectionOpen(false);
 
           Alert.alert(
@@ -3071,18 +2244,37 @@ const PaymentCard =
                 sy={sy}
               />
 
-              {!!transactionId && (
-                <DetailItem
-                  icon="receipt-outline"
-                  label="رقم العملية"
-                  value={String(
-                    transactionId
-                  )}
-                  sp={sp}
-                  sy={sy}
-                  ltr
-                />
-              )}
+              {[["رقم عملية Stark Card",identifiers.transaction],["رقم الدفعة",identifiers.payment],
+                ["رقم عملية المزود",identifiers.provider],["رقم طلب المزود",identifiers.order]].map(([label,value]) => (
+                <View key={label}>
+                  <DetailItem icon="receipt-outline" label={label} value={value == null ? "غير متوفر" : String(value)} sp={sp} sy={sy} ltr/>
+                  {value != null && <Pressable accessibilityRole="button" accessibilityLabel={`نسخ ${label}`}
+                    style={styles.copyNumber} onPress={async event => {
+                      event.stopPropagation();
+                      try {await Clipboard.setStringAsync(String(value)); Alert.alert("تم النسخ");}
+                      catch(error) {Alert.alert("تعذر النسخ",getApiErrorMessage(error));}
+                    }}><Text style={styles.datePresetTextActive}>نسخ</Text></Pressable>}
+                </View>
+              ))}
+              <DetailItem icon="wallet-outline" label="الرصيد المتاح قبل العملية" value={moneySnapshot(snapshot.before,snapshot.currency,lang)} sp={sp} sy={sy} ltr/>
+              <DetailItem icon="wallet-outline" label="الرصيد المتاح بعد العملية" value={moneySnapshot(snapshot.after,snapshot.currency,lang)} sp={sp} sy={sy} ltr/>
+              <DetailItem icon="cash-outline" label="المبلغ المخصوم فعلياً" value={moneySnapshot(snapshot.debit,snapshot.currency,lang)} sp={sp} sy={sy} ltr/>
+              <DetailItem icon="return-down-back-outline" label="حالة الاسترداد" value={refund.status} sp={sp} sy={sy}/>
+              {item.refund && <>
+                <DetailItem icon="cash-outline" label="المبلغ الأصلي" value={moneySnapshot(refund.original,refund.currency,lang)} sp={sp} sy={sy}/>
+                <DetailItem icon="cash-outline" label="المبلغ المسترد فعلياً" value={moneySnapshot(refund.refunded,refund.currency,lang)} sp={sp} sy={sy}/>
+                <DetailItem icon="cash-outline" label="المتبقي القابل للاسترداد" value={moneySnapshot(refund.remaining,refund.currency,lang)} sp={sp} sy={sy}/>
+                {refund.date && <DetailItem icon="calendar-outline" label="تاريخ الاسترداد" value={formatDate(refund.date,lang)} sp={sp} sy={sy}/>}
+                {refund.reference != null && <DetailItem icon="receipt-outline" label="مرجع معاملة الاسترداد" value={String(refund.reference)} sp={sp} sy={sy}/>}
+              </>}
+              {latestObjection && <>
+                <DetailItem icon="chatbubble-outline" label="حالة الاعتراض" value={objectionStatus(latestObjection,lang)} sp={sp} sy={sy}/>
+                {latestObjection.rejection_reason && <DetailItem icon="alert-circle-outline" label="سبب رفض الاعتراض" value={getApiErrorMessage(latestObjection.rejection_reason)} sp={sp} sy={sy}/>}
+                {latestObjection.admin_notes && <DetailItem icon="chatbubble-outline" label="رد الإدارة" value={getApiErrorMessage(latestObjection.admin_notes)} sp={sp} sy={sy}/>}
+                {latestObjection.decision_at && <DetailItem icon="calendar-outline" label="تاريخ القرار" value={formatDate(latestObjection.decision_at,lang)} sp={sp} sy={sy}/>}
+                <Text style={styles.datePresetText}>قبول الاعتراض لا يعني استرداد الأموال؛ تظهر التسوية بعد تأكيدها.</Text>
+              </>}
+              {!!objectionLoadError && <Pressable style={styles.datePreset} onPress={loadObjections}><Text>{objectionLoadError} — إعادة المحاولة</Text></Pressable>}
 
               {!!item?.gamer_id && (
                 <DetailItem
@@ -3162,9 +2354,7 @@ const PaymentCard =
                       styles.failureText
                     }
                   >
-                    {String(
-                      item.error_message
-                    )}
+                    {getApiErrorMessage(item.error_message)}
                   </Text>
                 </View>
               )}
@@ -3206,24 +2396,24 @@ const PaymentCard =
                       openObjection
                     }
                     disabled={
-                      objectionSubmitted
+                      (Boolean(activeObjection))
                     }
                     style={[
                       styles.objectionButton,
 
-                      objectionSubmitted &&
+                      activeObjection &&
                         styles.objectionButtonDone,
                     ]}
                   >
                     <Ionicons
                       name={
-                        objectionSubmitted
+                        (Boolean(activeObjection))
                           ? "checkmark-circle-outline"
                           : "alert-circle-outline"
                       }
                       size={17}
                       color={
-                        objectionSubmitted
+                        (Boolean(activeObjection))
                           ? COLORS.success
                           : "#FFFFFF"
                       }
@@ -3233,11 +2423,11 @@ const PaymentCard =
                       style={[
                         styles.objectionButtonText,
 
-                        objectionSubmitted &&
+                        activeObjection &&
                           styles.objectionButtonTextDone,
                       ]}
                     >
-                      {objectionSubmitted
+                      {(Boolean(activeObjection))
                         ? "تم إرسال الاعتراض"
                         : "تقديم اعتراض"}
                     </Text>
@@ -3354,7 +2544,7 @@ const PaymentCard =
                         styles.objectionModalSubtitle
                       }
                     >
-                      العملية #{String(transactionId)}
+                      الدفعة #{String(identifiers.payment)}
                     </Text>
                   </View>
                 </View>
@@ -3867,10 +3057,10 @@ function stylesFactory({
         sx(14),
 
       marginBottom:
-        sy(12),
+        sy(8),
 
       padding:
-        sx(13),
+        sx(10),
 
       borderWidth:
         1,
@@ -4173,7 +3363,7 @@ const styles =
         "48.5%",
 
       minHeight:
-        88,
+        64,
 
       backgroundColor:
         "#FFFFFF",
@@ -4188,7 +3378,7 @@ const styles =
         16,
 
       padding:
-        12,
+        8,
 
       shadowColor:
         "#7d14140c",
@@ -4221,10 +3411,10 @@ const styles =
 
     summaryIcon: {
       width:
-        34,
+        24,
 
       height:
-        34,
+        24,
 
       borderRadius:
         11,
@@ -4238,7 +3428,7 @@ const styles =
 
     summaryValue: {
       fontSize:
-        22,
+        19,
 
       fontWeight:
         "900",
@@ -4261,7 +3451,7 @@ const styles =
         "800",
 
       marginTop:
-        9,
+        4,
 
       textAlign:
         "right",
@@ -4274,12 +3464,25 @@ const styles =
        Date button
     ===================================================== */
 
+    copyNumber: {minHeight:44,alignSelf:"flex-start",justifyContent:"center",paddingHorizontal:12},
+    datePresets: { flexDirection:"row-reverse",flexWrap:"wrap",gap:6,marginVertical:6 },
+    datePreset: { minHeight:44,paddingHorizontal:9,paddingVertical:7,borderRadius:10,borderWidth:1,borderColor:COLORS.line,backgroundColor:"#F8FAFC",alignItems:"center",justifyContent:"center" },
+    datePresetActive: {borderColor:COLORS.primary,backgroundColor:COLORS.primarySoft},
+    datePresetText: {fontSize:12,color:COLORS.text,textAlign:"center",writingDirection:"rtl"},
+    datePresetTextActive: {fontSize:12,color:COLORS.primary,fontWeight:"800",textAlign:"center"},
+    monthRow: {flexDirection:"row-reverse",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:4},
+    monthLabel: {flexShrink:1,color:COLORS.text,fontSize:13,textAlign:"center"},
+    datePickerBackdrop: {flex:1,backgroundColor:"rgba(15,23,42,0.45)",justifyContent:"center",alignItems:"center",padding:16},
+    datePickerSheet: {width:"100%",maxWidth:390,padding:12,borderRadius:17,backgroundColor:COLORS.card},
+    datePickerTitle: {fontSize:16,fontWeight:"800",color:COLORS.text,textAlign:"right"},
     dateButton: {
+      minWidth:0,
+      paddingVertical:5,
       flex:
         1,
 
       minHeight:
-        58,
+        48,
 
       flexDirection:
         "row-reverse",
@@ -4308,10 +3511,10 @@ const styles =
 
     dateButtonIcon: {
       width:
-        31,
+        24,
 
       height:
-        31,
+        24,
 
       borderRadius:
         9,
@@ -4327,6 +3530,7 @@ const styles =
     },
 
     dateButtonTextWrap: {
+      minWidth:0,
       flex:
         1,
 

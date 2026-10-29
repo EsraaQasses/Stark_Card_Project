@@ -1,0 +1,20 @@
+
+
+class ProductCategoryProfit(models.Model):
+    """Draft configuration; deliberately has no effect on PricingPolicy yet."""
+    product = models.ForeignKey('store.Product', on_delete=models.CASCADE, related_name='category_profit_rates')
+    customer_category = models.ForeignKey('users.CustomerCategory', on_delete=models.PROTECT, related_name='product_profit_rates')
+    profit_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('999.99'))],
+    )
+    revision = models.PositiveIntegerField(default=0)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['product', 'customer_category'], name='store_unique_product_category_profit'),
+            models.CheckConstraint(check=models.Q(profit_percentage__isnull=True) | (models.Q(profit_percentage__gte=0) & models.Q(profit_percentage__lte=Decimal('999.99'))), name='store_category_profit_bounds'),
+        ]

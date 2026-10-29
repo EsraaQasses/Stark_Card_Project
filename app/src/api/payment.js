@@ -1,3 +1,5 @@
+import { getApiErrorMessage, normalizeApiError } from "../shared/api/errors/apiError";
+import { filterHistory, matchesHistoryStatus, historySummary } from "../features/payments/model/historyFilters";
 // ================================================
 // src/api/payment.js  (نسخة منقّحة + Summary Normalization)
 // ================================================
@@ -85,7 +87,7 @@ export async function getPaymentConfig() {
  * POST /store/user/purchases/
  * Body: { store_product_id or product_id, user_inputs }
  */
-export async function createPurchaseTransaction({ store_product_id, product_id, user_inputs = {} }) {
+export async function createPurchaseTransaction({ store_product_id, product_id, user_inputs = {}, idempotencyKey }) {
   try {
     const safeInputs = user_inputs && typeof user_inputs === "object" ? user_inputs : {};
 
@@ -100,20 +102,11 @@ export async function createPurchaseTransaction({ store_product_id, product_id, 
     }
 
     const url = buildUrl(STORE_PREFIX, "user/purchases/");
-    const { data } = await api.post(url, payload);
-    return { ok: true, data };
+    const { data } = await api.post(url, payload, idempotencyKey ? {headers:{"Idempotency-Key":idempotencyKey}} : undefined);
+    return data?.success === true ? {ok:true,data} : {ok:false,error:getApiErrorMessage(data)};
   } catch (e) {
-    const status = e?.response?.status;
-    const payload = e?.response?.data;
-
-    if (status === 401) return { ok: false, unauth: true, error: "Unauthorized" };
-
-    const msg =
-      payload?.detail ||
-      payload?.message ||
-      (typeof payload === "string" ? payload : "Payment request failed");
-
-    return { ok: false, error: msg, raw: payload };
+    const normalized=normalizeApiError(e);
+    return {ok:false,error:normalized.message,outcomeUnknown:normalized.outcomeUnknown,fields:normalized.fields,status:normalized.status};
   }
 }
 
@@ -131,6 +124,7 @@ export async function processCompletePayment({
   amount = null,
   selected_option = null,
   wallet_currency = null,
+  idempotencyKey,
 }) {
   try {
     if (store_product_id == null && product_id == null) {
@@ -145,26 +139,7 @@ export async function processCompletePayment({
       return { ok: false, error: "لا يمكن قراءة رصيد المحفظة", step: "validation" };
     }
 
-    if (walletBalance <= 0) {
-      return {
-        ok: false,
-        error: "لا يوجد رصيد في محفظتك",
-        step: "balance_check",
-        required: finalAmount,
-        available: walletBalance,
-      };
-    }
-
-    if (walletBalance < finalAmount) {
-      return {
-        ok: false,
-        error: `رصيد غير كافٍ. المطلوب: ${finalAmount} ${currency}, المتاح: ${walletBalance} ${currency}`,
-        step: "balance_check",
-        required: finalAmount,
-        available: walletBalance,
-      };
-    }
-
+    // Balance/overdraft eligibility is enforced by the backend ledger, not a stale UI snapshot.
     const safeInputs = user_inputs && typeof user_inputs === "object" ? user_inputs : {};
 
     let wallet_currency_final = wallet_currency;
@@ -204,13 +179,14 @@ export async function processCompletePayment({
     else payload.product_id = Number(product_id);
 
     const url = buildUrl(STORE_PREFIX, "user/purchases/");
-    const { data } = await api.post(url, payload);
+    const { data } = await api.post(url, payload, idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined);
 
-    if (data?.success || data?.transaction_id) {
+    if (data?.success === true && data?.status !== "failed") {
       return {
         ok: true,
-        step: "payment_success",
+        step: ["pending", "processing"].includes(data.status) ? "payment_pending" : "payment_success",
         data: {
+          status: data.status,
           transaction_id: data.transaction_id,
           payment_id: data.payment_id,
           order_id: data.order_id,
@@ -221,43 +197,14 @@ export async function processCompletePayment({
       };
     }
 
-    if (data?.message) {
-      return { ok: true, step: "payment_success", data };
-    }
+
 
     return { ok: false, error: data?.error || "فشلت عملية الدفع", step: "payment_processing", raw: data };
   } catch (e) {
-    const status = e?.response?.status;
-    const payload = e?.response?.data;
-
-    if (status === 401) {
-      return { ok: false, unauth: true, error: "جلستك انتهت، يرجى تسجيل الدخول من جديد", step: "auth" };
-    }
-
-    if (status === 400) {
-      const details =
-        payload?.errors ||
-        payload?.detail ||
-        payload?.error ||
-        payload?.message ||
-        "بيانات غير صحيحة";
-      if (__DEV__) {
-        console.log("Purchase 400 payload:", payload);
-      }
-      return { ok: false, error: details, step: "validation", raw: payload };
-    }
-
-    if (status === 404) {
-      return { ok: false, error: "المنتج غير موجود", step: "product_not_found", raw: payload };
-    }
-
-    const msg =
-      payload?.detail ||
-      payload?.error ||
-      payload?.message ||
-      (typeof payload === "string" ? payload : "حدث خطأ في الدفع");
-
-    return { ok: false, error: msg, step: "api_error", status: status, raw: payload };
+    const normalized = normalizeApiError(e);
+    return { ok: false, error: normalized.message, status: normalized.status,
+      outcomeUnknown: normalized.outcomeUnknown, fields: normalized.fields,
+      step: normalized.outcomeUnknown ? "outcome_unknown" : "api_error" };
   }
 }
 
@@ -265,20 +212,32 @@ export async function processCompletePayment({
  * GET /payment/payment/
  * يجلب تاريخ المدفوعات مع دعم الصفحات والفلاتر
  */
-export async function listPaymentsHistory(params = {}) {
+export async function listPaymentsHistory(params = {}, options = {}) {
   try {
-    const { data } = await api.get("payment/payment/", { params });
-    const items = Array.isArray(data) ? data : data?.results || [];
-    const pagination = normalizePagination(data, params);
-    return { ok: true, data: items, pagination };
-  } catch (e) {
-    const payload = e?.response?.data;
-    const msg =
-      payload?.detail ||
-      payload?.message ||
-      (typeof payload === "string" ? payload : "Failed to load payments history");
-    return { ok: false, error: msg, raw: payload };
-  }
+    const requestedPage = Number(params.page) || 1;
+    const pageSize = Number(params.page_size) || 12;
+    // The current backend ignores date/status query params. Read the complete owner-scoped
+    // history before filtering and paginating. Never label a single page as a global total.
+    let all = [], page = 1, expectedCount;
+    for (;;) {
+      const { data } = await api.get("payment/payment/", { signal:options.signal, params: { page, page_size: 100 } });
+      if (page === 1 && Number.isFinite(data?.count)) expectedCount=data.count;
+      if (expectedCount != null && data?.count !== expectedCount) return {ok:false,error:"تغير سجل العمليات أثناء التحميل. يرجى إعادة المحاولة."};
+      all.push(...(Array.isArray(data) ? data : data?.results || []));
+      if (Array.isArray(data) || !data?.next) break;
+      if (page >= 100) return { ok: false, error: "تعذر تحميل كامل السجل لهذه الفترة. يرجى المحاولة لاحقاً." };
+      page += 1;
+    }
+    all = [...new Map(all.map(item=>[item.id,item])).values()];
+    if (expectedCount != null && all.length !== expectedCount) return {ok:false,error:"تعذر التحقق من اكتمال سجل العمليات. أعد المحاولة."};
+    const dated = filterHistory(all, params);
+    const summary = historySummary(dated);
+    const selected = params.status ? dated.filter(item => matchesHistoryStatus(item, params.status)) : dated;
+    const start = (requestedPage - 1) * pageSize;
+    return { ok: true, data: selected.slice(start, start + pageSize), summary,
+      pagination: { count:selected.length, next:start+pageSize<selected.length, page:requestedPage, page_size:pageSize },
+      filtering: "complete_client_fallback" };
+  } catch (error) { return { ok:false, error:getApiErrorMessage(error) }; }
 }
 
 /**
@@ -308,8 +267,8 @@ export async function getPaymentsStatusSummary() {
     const status = e?.response?.status;
     if (status === 404) {
       return {
-        ok: true,
-        data: { total: 0, success: 0, failed: 0, pending: 0, raw: null },
+        ok: false,
+        data: null,
         missing: true,
       };
     }
@@ -386,10 +345,4 @@ function extractQueryNumber(url, key) {
   }
 }
 
-function extractErrorMessage(error, defaultMsg = "فشل الطلب") {
-  if (typeof error === "string") return error;
-  if (error?.detail) return error.detail;
-  if (error?.message) return error.message;
-  if (error?.error) return error.error;
-  return defaultMsg;
-}
+function extractErrorMessage(error) { return getApiErrorMessage(error); }

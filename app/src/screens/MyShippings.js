@@ -1,3 +1,5 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
+import { rejectedSettlement, moneySnapshot } from "../features/payments/model/paymentHistory";
 // src/screens/MyShippings.js
 
 import React, {
@@ -225,22 +227,7 @@ function localizeFailureReason(raw) {
    Error Message
 ========================================================= */
 
-function getErrorMessage(error) {
-  const raw =
-    error?.response?.data?.detail ||
-    error?.response?.data?.error ||
-    error?.message ||
-    "";
-
-  if (
-    raw &&
-    containsArabic(raw)
-  ) {
-    return String(raw);
-  }
-
-  return "تعذر تحميل طلبات الشحن. يرجى المحاولة مرة أخرى.";
-}
+function getErrorMessage(error) { return getApiErrorMessage(error); }
 
 /* =========================================================
    Status
@@ -2218,6 +2205,8 @@ const ShippingCard =
                 />
               )}
 
+              {status === "rejected" && <DetailItem icon="wallet-outline" label="تسوية المبلغ" value={rejectedSettlement(item)} sp={sp} sy={sy}/>}
+              {status === "rejected" && item.settlement?.confirmed === true && item.settlement?.amount != null && <DetailItem icon="cash-outline" label="مبلغ حركة التسوية" value={moneySnapshot(item.settlement.amount,item.settlement.currency)} sp={sp} sy={sy}/>}
               {status ===
                 "rejected" &&
                 !!failureReason && (

@@ -15,6 +15,8 @@ import {
 import { FiSettings } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
 
+import './utils/profitMatrixNavigationGuard';
+
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Sidebar from './components/Sidebar';
@@ -702,6 +704,15 @@ const AppContent = () => {
                   element={(
                     <ProtectedRoute>
                       <Payments />
+                    </ProtectedRoute>
+                  )}
+                />
+
+                <Route
+                  path="/payments/add"
+                  element={(
+                    <ProtectedRoute>
+                      <Payments key="add-payment-method" openOnMount />
                     </ProtectedRoute>
                   )}
                 />

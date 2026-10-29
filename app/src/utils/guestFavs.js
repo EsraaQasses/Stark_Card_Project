@@ -2,7 +2,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const KEY = "@guest_favs";
-const keyOf = (product) => String(product?.store_product_id ?? product?.id ?? "");
+const keyOf = (product) => String(product?.id ?? "");
 
 export async function readGuestFavs() {
   try {

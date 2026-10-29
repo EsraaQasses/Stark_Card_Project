@@ -85,23 +85,10 @@ export async function listUserPaymentMethods({
         }
 
         // ?? ????? ??? ????????? ?? ??? ???
-        console.log(
-          "? listUserPaymentMethods failed:",
-          status,
-          e?.message,
-          e?.response?.data
-        );
+
 
         // ?? Retry attempts ?????
-        if (status === 429) {
-          throw new Error(
-            `Payment methods request was rate-limited. (${status || "no status"})`
-          );
-        }
-
-        throw new Error(
-          `Payment methods request failed. (${status || "no status"})`
-        );
+        throw e;
       }
     }
   })();

@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 import React, { useMemo, useState } from "react";
 import { Alert, Image, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -55,11 +56,7 @@ export default function Verification({ initialName = "", onVerified }) {
         { text: "متابعة", onPress: goAfterVerified },
       ]);
     } catch (e) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.detail ||
-        e?.response?.data ||
-        "فشل التحقق من الرمز.";
+      const msg = getApiErrorMessage(e);
       Alert.alert("فشل التحقق", String(msg));
     } finally {
       setLoading(false);
@@ -77,11 +74,7 @@ export default function Verification({ initialName = "", onVerified }) {
       await resendOtp({ name: name.trim() });
       Alert.alert("تم الإرسال", "أعدنا إرسال رمز التحقق. تفقد صندوق الوارد/الرسائل.");
     } catch (e) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.detail ||
-        e?.response?.data ||
-        "تعذّر إعادة إرسال الرمز.";
+      const msg = getApiErrorMessage(e);
       Alert.alert("خطأ", String(msg));
     } finally {
       setResending(false);

@@ -35,7 +35,10 @@ import {
 import { loadSavedLanguage } from "../src/utils/lang";
 
 import PushNotificationsBootstrap from "../src/components/PushNotificationsBootstrap";
-
+import AppLockGate from "../src/features/app-lock/components/AppLockGate";
+import AppLockProvider, {
+  useAppLock,
+} from "../src/features/app-lock/context/AppLockProvider";
 
 // نخلي Splash الحقيقي ظاهر أثناء تجهيز التطبيق
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -43,6 +46,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootLayoutNav() {
   const { user, booting } = useAuth();
+  const { phase: appLockPhase } = useAppLock();
 
   const segments = useSegments();
   const router = useRouter();
@@ -84,7 +88,7 @@ function RootLayoutNav() {
 
 
   useEffect(() => {
-    if (booting) return;
+    if (booting || appLockPhase === "loading") return;
 
     const currentPath =
       pathname || `/${segments.join("/")}`;
@@ -152,29 +156,33 @@ function RootLayoutNav() {
     segments,
     pathname,
     safeReplace,
+    appLockPhase,
   ]);
 
 
   useEffect(() => {
-    if (booting) return;
+    if (booting || appLockPhase === "loading") return;
 
     // الجلسة صارت جاهزة، نخفي Splash
     void SplashScreen.hideAsync().catch(() => {});
-  }, [booting]);
+  }, [appLockPhase, booting]);
 
 
   // ما عاد نظهر AppLoadingState
-  if (booting) {
+  if (booting || appLockPhase === "loading") {
     return null;
   }
 
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    />
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      />
+      <AppLockGate />
+    </>
   );
 }
 
@@ -249,7 +257,8 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <PushNotificationsBootstrap />
+        <AppLockProvider>
+          <PushNotificationsBootstrap />
           <CurrencyProvider>
 
             <StatusBar
@@ -261,6 +270,7 @@ export default function RootLayout() {
             <RootLayoutNav />
 
           </CurrencyProvider>
+        </AppLockProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

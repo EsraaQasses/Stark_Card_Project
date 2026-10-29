@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/api/system.js
 import api from "./client";
 
@@ -94,14 +95,7 @@ export async function getAdminActions(params = {}) {
 /**
  * Helper
  */
-function extractErrorMessage(error) {
-  return (
-    error?.response?.data?.detail ||
-    error?.response?.data?.message ||
-    error?.message ||
-    "فشل الطلب"
-  );
-}
+function extractErrorMessage(error) { return getApiErrorMessage(error); }
 
 export default {
   getNotifications,

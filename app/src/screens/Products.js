@@ -1,3 +1,4 @@
+import { buildCheckoutParams } from "../features/payments/model/checkoutRoute";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
@@ -167,25 +168,9 @@ export default function Products({ route, navigation }) {
     });
   }, []);
 
-  const openProductTile = useCallback((p) => {
-    const productDisplayName = pname(p, lang) || p.name || p.name_en || p.name_ar || "";
-
-    const storeProductId = p?.store_product_id ?? p?.store_product?.id ?? null;
-
-    const row = priceById[p.id];
-    const unitPriceDisplay = row?.amount ?? null;
-    const displayCurrency = (row?.currency || (currency || "USD")).toUpperCase();
-
-    navigation.navigate("Payment", {
-      product_id: p.id,
-      store_product_id: storeProductId,
-      product: p,
-
-      productDisplayName,
-      unit_price_display: unitPriceDisplay,
-      display_currency: displayCurrency,
-    });
-  }, [currency, lang, navigation, priceById]);
+  const openProductTile = useCallback(product => {
+    navigation.navigate("Payment", buildCheckoutParams(product));
+  }, [navigation]);
 
   const MIN_CARD_W = Math.max(150, Math.min(200, W * 0.42));
   const H_PAD = sx(16);

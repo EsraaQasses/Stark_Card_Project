@@ -1,5 +1,6 @@
 // src/api/client.js
 import axios from "axios";
+import { normalizeApiError, isFinancialRequest } from "../shared/api/errors/apiError";
 import {
   clearAuthTokens,
   getAuthorizationToken,
@@ -85,6 +86,8 @@ const agentsApi = createAxios(buildUrl(API_ROOT, AGENTS_PREFIX));
 const REFRESH_PATH = buildUrl(API_ROOT, USERS_PREFIX, "token/refresh/");
 let sharedRefreshPromise = null;
 const authFailureListeners = new Set();
+const activeFinancialRequests = new Set();
+const uncertainFinancialRequests = new Set();
 
 export function subscribeAuthFailure(listener) {
   authFailureListeners.add(listener);
@@ -101,7 +104,7 @@ function notifyAuthFailure() {
 
 async function refreshAuthentication() {
   const refresh = await getRefreshToken();
-  if (!refresh) throw new Error("No refresh token");
+  if (!refresh) throw Object.assign(new Error("No refresh token"), { code: "SESSION_EXPIRED" });
 
   const { data } = await axios.post(
     REFRESH_PATH,
@@ -129,6 +132,17 @@ function attachAuthAndRefresh(instance) {
         delete config.headers.Authorization;
       }
     } catch {}
+    if (isFinancialRequest(config) && !config._retry) {
+      const key = JSON.stringify([config.headers?.Authorization || "", config.method, config.url, config.data]);
+      if (activeFinancialRequests.has(key) || uncertainFinancialRequests.has(key)) {
+        const uncertain = uncertainFinancialRequests.has(key);
+        throw Object.assign(new Error(uncertain ? "تعذر التأكد من نتيجة العملية. يرجى مراجعة سجل عملياتك قبل إعادة المحاولة." : "العملية قيد الإرسال. يرجى الانتظار."), {
+          code: uncertain ? "OUTCOME_UNKNOWN" : "REQUEST_IN_PROGRESS", outcomeUnknown:uncertain,
+        });
+      }
+      activeFinancialRequests.add(key);
+      config._financialRequestKey = key;
+    }
     return config;
   });
 
@@ -141,9 +155,10 @@ function attachAuthAndRefresh(instance) {
 
       const url = (original?.baseURL || "") + (original?.url || "");
       const isRefreshReq = url.startsWith(REFRESH_PATH);
+      const isPublicAuthReq = /\/users\/(?:register|login|verify-otp|resend-otp|password-reset|forgot-password|reset-password)/i.test(url);
       const isLogoutReq = /\/users\/logout\/?$/i.test(url);
 
-      if (status !== 401 || original?._retry || isRefreshReq || isLogoutReq) {
+      if (status !== 401 || original?._retry || isRefreshReq || isLogoutReq || isPublicAuthReq) {
         return Promise.reject(error);
       }
 
@@ -153,8 +168,11 @@ function attachAuthAndRefresh(instance) {
         if (!sharedRefreshPromise) {
           sharedRefreshPromise = refreshAuthentication()
             .catch(async (refreshError) => {
-              await clearAuthTokens();
-              notifyAuthFailure();
+              const refreshStatus = refreshError?.response?.status;
+              if (refreshError?.code === "SESSION_EXPIRED" || refreshStatus === 401 || refreshStatus === 403) {
+                await clearAuthTokens();
+                notifyAuthFailure();
+              }
               throw refreshError;
             })
             .finally(() => {
@@ -167,7 +185,8 @@ function attachAuthAndRefresh(instance) {
         original.headers.Authorization = `Bearer ${newAccess}`;
         return instance.request(original);
       } catch (e) {
-        return Promise.reject(error);
+        activeFinancialRequests.delete(original._financialRequestKey);
+        return Promise.reject(e);
       }
     }
   );
@@ -176,6 +195,27 @@ function attachAuthAndRefresh(instance) {
 // ثبّت الإنترسبتورز على الإنستانسين
 attachAuthAndRefresh(api);
 attachAuthAndRefresh(agentsApi);
+
+// One display-safe boundary for legacy JS services and typed feature services.
+for (const instance of [api, agentsApi]) {
+  instance.interceptors.response.use(response => {
+    activeFinancialRequests.delete(response.config?._financialRequestKey);
+    return response;
+  }, error => {
+    const normalized = normalizeApiError(error);
+    const key = error.config?._financialRequestKey;
+    activeFinancialRequests.delete(key);
+    if (key && normalized.outcomeUnknown) uncertainFinancialRequests.add(key);
+    error.message = normalized.message;
+    error.apiError = normalized;
+    error.outcomeUnknown = normalized.outcomeUnknown;
+    if (error.response) error.response.data = {
+      message: normalized.message, detail: normalized.message, error: normalized.message,
+      code: normalized.code, fields: normalized.fields,
+    };
+    return Promise.reject(error);
+  });
+}
 
 /* ===== Exports ===== */
 export default api;       // باقي الموديولات تستعمل /api

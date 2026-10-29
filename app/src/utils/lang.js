@@ -1,24 +1,20 @@
 // src/utils/lang.js
 import i18n, { initI18n } from "../i18n";
 
-/**
- * Keeps the app language Arabic without forcing React Native layout direction.
- */
+import { getItem, setItem } from "../shared/storage/appStorage";
+const LANGUAGE_KEY = "stark.language";
+const languageCode = code => String(code).startsWith("en") ? "en" : "ar";
 export async function loadSavedLanguage() {
-  // 1. Force Arabic in i18n
-  if (!i18n.isInitialized) {
-    initI18n("ar");
-  } else if (i18n.language !== "ar") {
-    await i18n.changeLanguage("ar");
-  }
-
-  return { code: "ar", needsReload: false };
+  const saved = await getItem(LANGUAGE_KEY);
+  const code = languageCode(saved || i18n.language || "ar");
+  if (!i18n.isInitialized) initI18n(code);
+  else if (i18n.language !== code) await i18n.changeLanguage(code);
+  return {code,needsReload:false};
 }
-
-/**
- * دالة فارغة لأن اللغة ثابتة
- */
-export async function setAppLanguage(code) {
-  // لا تفعل شيئاً، اللغة دائماً عربية
-  return loadSavedLanguage();
+export async function setAppLanguage(value) {
+  const code = languageCode(value);
+  await setItem(LANGUAGE_KEY,code);
+  if (!i18n.isInitialized) initI18n(code);
+  else await i18n.changeLanguage(code);
+  return {code,needsReload:false};
 }

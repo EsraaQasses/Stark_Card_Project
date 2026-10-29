@@ -1,3 +1,5 @@
+import { buildCheckoutParams, favoriteProductId } from "../features/payments/model/checkoutRoute";
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/screens/Favorites.js
 
 import React, {
@@ -106,26 +108,7 @@ export default function Favorites({
         setItems([]);
       }
 
-      const rawMessage =
-        loadError?.response?.data?.detail ||
-        loadError?.response?.data?.error ||
-        loadError?.message ||
-        "";
-
-      /*
-       * إذا الخطأ عربي منعرضه.
-       * إذا إنكليزي أو تقني منعرض رسالة عربية عامة.
-       */
-      const hasArabic =
-        /[\u0600-\u06FF]/.test(
-          String(rawMessage)
-        );
-
-      setError(
-        hasArabic
-          ? String(rawMessage)
-          : "تعذر تحميل المفضلة. يرجى المحاولة مرة أخرى."
-      );
+      setError(getApiErrorMessage(loadError));
     } finally {
       setLoading(false);
     }
@@ -145,18 +128,10 @@ export default function Favorites({
      Open Product
   ======================================================= */
 
-  const openProduct =
-    useCallback(
-      (prod) => {
-        navigation.navigate(
-          "Payment",
-          {
-            product: prod,
-          }
-        );
-      },
-      [navigation]
-    );
+  const openProduct = useCallback(record => {
+    try { navigation.navigate("Payment", buildCheckoutParams(favoriteProductId(record))); }
+    catch (error) { Alert.alert("تعذر فتح المنتج", getApiErrorMessage(error)); }
+  }, [navigation]);
 
   /* =======================================================
      Remove Product
@@ -202,30 +177,7 @@ export default function Favorites({
         } catch (
           removeError
         ) {
-          const rawMessage =
-            removeError?.response?.data
-              ?.detail ||
-            removeError?.response?.data
-              ?.error ||
-            removeError?.message ||
-            "";
-
-          const hasArabic =
-            /[\u0600-\u06FF]/.test(
-              String(
-                rawMessage
-              )
-            );
-
-          Alert.alert(
-            "خطأ",
-
-            hasArabic
-              ? String(
-                  rawMessage
-                )
-              : "تعذر حذف المنتج من المفضلة."
-          );
+          Alert.alert("خطأ",getApiErrorMessage(removeError));
         } finally {
           setRemovingId(
             null
@@ -282,8 +234,7 @@ export default function Favorites({
         index
       ) =>
         String(
-          item?.product
-            ?.store_product_id ??
+          item?.product_id ??
             item?.product?.id ??
             index
         ),
@@ -317,7 +268,7 @@ export default function Favorites({
               }
               onPress={() =>
                 openProduct(
-                  prod
+                  item
                 )
               }
               onRemove={() =>

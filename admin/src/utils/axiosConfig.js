@@ -2,11 +2,19 @@ import axios from 'axios';
 
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
 
-const apiBaseURL = configuredApiBase
+const localApiBase = 'http://127.0.0.1:8000/api';
+const isLoopback = (value) => {
+  try {
+    return ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(value).hostname);
+  } catch { return false; }
+};
+const apiBaseURL = import.meta.env.DEV
+  ? (configuredApiBase && isLoopback(configuredApiBase) ? configuredApiBase.replace(/\/+$/, '') : localApiBase)
+  : configuredApiBase
   ? configuredApiBase.replace(/\/+$/, '')
   : import.meta.env.PROD
     ? 'https://stark-card-app.com/api'
-    : 'http://37.120.185.235/api';
+    : localApiBase;
 
 const axiosInstance = axios.create({
   baseURL: apiBaseURL,
@@ -64,6 +72,9 @@ const refreshAccessToken = async () => {
 // ==============================
 axiosInstance.interceptors.request.use(
   (config) => {
+    if (import.meta.env.DEV && !isLoopback(new URL(config.url || '', `${config.baseURL}/`).href)) {
+      throw new Error('Local development only allows a loopback API.');
+    }
     const token = localStorage.getItem('access_token');
 
     const requestUrl = `${config.baseURL || ''}${config.url || ''}`;

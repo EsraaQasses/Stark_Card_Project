@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/api/deposits.js
 import api from "./client";
 
@@ -442,16 +443,4 @@ function shapeOk(data, via) {
   return { ok: true, data, via, id };
 }
 
-function extractMsg(payload) {
-  if (!payload) return "Request failed";
-  if (typeof payload === "string") return payload;
-  if (payload?.detail) return payload.detail;
-  if (payload?.message) return payload.message;
-  if (typeof payload === "object") {
-    const fieldErrors = Object.entries(payload)
-      .filter(([k]) => Array.isArray(payload[k]))
-      .map(([k, v]) => `${k}: ${v.join(", ")}`);
-    if (fieldErrors.length) return fieldErrors.join(" | ");
-  }
-  return "Request failed";
-}
+function extractMsg(error) { return getApiErrorMessage(error); }

@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../../shared/api/errors/apiError";
 // src/screens/SignUp/ResetPassword.js
 
 import React, { useEffect, useState } from "react";
@@ -107,29 +108,7 @@ export default function ResetPassword({ navigation, route }) {
         ]
       );
     } catch (err) {
-      const data = err?.response?.data;
-
-      let errorMsg =
-        data?.message?.ar ||
-        data?.message?.en ||
-        data?.detail ||
-        data?.error ||
-        "تعذر تغيير كلمة المرور. يرجى التحقق والمحاولة مرة أخرى.";
-
-      /*
-       * إذا أعاد الـ Backend تفاصيل قواعد كلمة المرور،
-       * نعرضها للمستخدم بدون تنفيذ القواعد في الـ Frontend.
-       */
-      if (
-        data?.code === "PASSWORD_RESET_PASSWORD_POLICY" &&
-        Array.isArray(data?.details?.errors)
-      ) {
-        const policyErrors = data.details.errors
-          .map((error) => `- ${error}`)
-          .join("\n");
-
-        errorMsg = `${errorMsg}\n${policyErrors}`;
-      }
+      const errorMsg = getApiErrorMessage(err);
 
       setErrBanner([String(errorMsg)]);
     } finally {

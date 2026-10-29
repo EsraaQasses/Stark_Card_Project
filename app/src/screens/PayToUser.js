@@ -1,3 +1,4 @@
+import { buildCheckoutParams, checkoutProductId } from "../features/payments/model/checkoutRoute";
 // src/screens/PayToUser.js
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -22,18 +23,8 @@ export default function PayToUser({ navigation, route }) {
 
   // ---- قراءة كل الأسماء المحتملة القادمة من الصفحة السابقة (Products/AgentPurchase) ----
   const params = useMemo(() => route?.params ?? {}, [route?.params]);
-  const productFromRoute = params.product ?? null;
-
-  // أولوية لاختيار store_product_id الصحيح
-  const storeProductId = useMemo(() => {
-    return (
-      params?.store_product_id ??
-      productFromRoute?.store_product_id ??
-      params?.product_id ??                 // fallback إن تم تمرير product_id (غير مفضّل)
-      productFromRoute?.id ??
-      null
-    );
-  }, [params, productFromRoute]);
+  const productId = checkoutProductId(params);
+  const productFromRoute = null;
 
   // اسم المنتج (اختياري للعرض فقط)
   const productName =
@@ -60,39 +51,15 @@ export default function PayToUser({ navigation, route }) {
       Alert.alert("الدفع إلى مستخدم", "أدخل رقم مستخدم صحيح.");
       return;
     }
-    if (!storeProductId) {
+    if (!productId) {
       Alert.alert("الدفع إلى مستخدم", "لا يوجد منتج مرتبط للدفع. أعد المحاولة من شاشة المنتج.");
       return;
     }
 
     try {
       setBusy(true);
-      navigation.navigate("Payment", {
-  // المنتج المطلوب
-  store_product_id: Number(storeProductId),
+      navigation.navigate("Payment", buildCheckoutParams(productId, {inputs:{target_user_id:uid,target_user_name:name.trim() || null}}));
 
-  // نفس السعر/العملة اللي أجت من Products (لو موجودين)
-  unit_price_display: route?.params?.unit_price_display ?? undefined,
-  display_currency: route?.params?.display_currency ?? route?.params?.currency ?? undefined,
-
-  // أعلام الوكيل لو جاي من منتجات لمستخدم وكيل
-  is_agent: route?.params?.is_agent === true || route?.params?.flow === "agent",
-  flow: route?.params?.flow || (route?.params?.is_agent ? "agent" : undefined),
-
-  // تعبئة user_inputs
-  user_inputs_prefill: {
-    target_user_id: uid,
-    target_user_name: name?.trim() || `User #${uid}`,
-    // مفاتيح متوافقة مع أسماء شائعة
-    user_id: uid,
-    name: name?.trim() || `User #${uid}`,
-  },
-
-  // معلومات عرض
-  productDisplayName: productName || undefined,
-
-
-      });
     } finally {
       setBusy(false);
     }
@@ -120,7 +87,7 @@ export default function PayToUser({ navigation, route }) {
 
           {/* ===== بطاقة معلومات المنتج ===== */}
           <View style={{ alignSelf: "center", width: "100%", maxWidth: MAX_W, paddingHorizontal: sx(14), marginTop: sy(12) }}>
-            {(productName || storeProductId) && (
+            {(productName || productId) && (
               <View style={[styles.infoCard, { borderRadius: RADIUS }]}>
                 <LinearGradient
                   colors={["#ECF4FF", "#E7F5FF"]}
@@ -133,9 +100,9 @@ export default function PayToUser({ navigation, route }) {
                     المنتج: <Text style={styles.infoStrong}>{productName}</Text>
                   </Text>
                 )}
-                {!!storeProductId && (
+                {!!productId && (
                   <Text style={[styles.infoTitle, { marginTop: 4 }]}>
-                    store_product_id: <Text style={styles.infoStrong}>{String(storeProductId)}</Text>
+                    store_product_id: <Text style={styles.infoStrong}>{String(productId)}</Text>
                   </Text>
                 )}
               </View>
@@ -186,9 +153,9 @@ export default function PayToUser({ navigation, route }) {
                 )}
               </Pressable>
 
-              {!!storeProductId && (
+              {!!productId && (
                 <View style={styles.hint}>
-                  <Text style={styles.hintText}>سيتم دفع قيمة المنتج رقم: {String(storeProductId)}</Text>
+                  <Text style={styles.hintText}>سيتم دفع قيمة المنتج رقم: {String(productId)}</Text>
                 </View>
               )}
             </View>

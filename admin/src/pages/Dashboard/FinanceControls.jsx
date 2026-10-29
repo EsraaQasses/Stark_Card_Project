@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../utils/apiError';
 import React, {
   useCallback,
   useEffect,
@@ -29,12 +30,7 @@ import { useStateContext } from '../../contexts/ContextProvider';
 // Helpers
 // ======================================================
 
-const messageFrom = (error, fallback) => (
-  error?.response?.data?.error
-  || error?.response?.data?.detail
-  || error?.response?.data?.code
-  || fallback
-);
+const messageFrom = apiErrorMessage;
 
 const inputClass = `
   w-full

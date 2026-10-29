@@ -41,7 +41,7 @@ function normalizeRequirementField(field, index) {
   else field_type = inferFieldType(field.field_name || field.name || "");
 
   const payload_key =
-    field.key || field.field || field.code || field.name || field.field_name || field.label || field.id || `field_${index + 1}`;
+    field.payload_key || field.key || field.field || field.code || field.name || field.field_name || field.label || field.id || `field_${index + 1}`;
   const field_name =
     field.field_name || field.name || field.label || field.key || field.field || field.code || field.id || `field_${index + 1}`;
   const is_required = field.is_required !== false && field.required !== false;
@@ -55,6 +55,7 @@ function normalizeRequirementField(field, index) {
     payload_key,
     field_type,
     is_required,
+    options: Array.isArray(field.options) ? field.options : [],
     placeholder,
   };
 }

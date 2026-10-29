@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../../shared/api/errors/apiError";
 // src/screens/transactions/NewDeposit.js
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
@@ -58,7 +59,7 @@ export default function NewDeposit({ navigation, route }) {
         setPaymentMethods(methods || []);
         if (methods && methods.length > 0) setSelectedPaymentMethod(methods[0]);
       } catch (e) {
-        Alert.alert("خطأ", "فشل تحميل طرق الدفع: " + (e?.message || ""));
+        Alert.alert("خطأ", getApiErrorMessage(e));
       } finally {
         setLoadingMethods(false);
       }
@@ -120,7 +121,7 @@ export default function NewDeposit({ navigation, route }) {
       setNote("رقم المرسل:\nملاحظات إضافية:");
       navigation.navigate("MyWallet");
     } catch (e) {
-      Alert.alert("خطأ", e?.message || "فشل إرسال الطلب، حاول مجدداً.");
+      Alert.alert("خطأ", getApiErrorMessage(e));
     } finally {
       setSending(false);
     }

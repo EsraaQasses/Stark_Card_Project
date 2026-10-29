@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 /* eslint-disable react-hooks/exhaustive-deps */
 // src/screens/AgentQRConnect.js
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -117,7 +118,7 @@ export default function AgentQRConnect({ navigation, route }) {
       Alert.alert("تم الربط", res?.message || "تم ربط حسابك بالوكيل بنجاح.");
       navigation.goBack();
     } catch (e) {
-      const msg = e?.response?.data?.error || e?.message || "فشل الربط. حاول مرة أخرى.";
+      const msg = getApiErrorMessage(e);
       Alert.alert("خطأ", String(msg));
       setScanned(false);
     } finally {

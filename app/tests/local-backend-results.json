@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-30",
+  "mode": "real_django_views_in_process",
+  "database": "sqlite_memory",
+  "external_network": "disabled",
+  "device_test": false,
+  "tests": [
+    {
+      "test": "memory database enforced before migrations",
+      "status": "passed"
+    },
+    {
+      "test": "migration connection remains isolated",
+      "status": "passed"
+    },
+    {
+      "test": "user: real password login view HTTP 200",
+      "status": "passed"
+    },
+    {
+      "test": "user: JWT pair returned",
+      "status": "passed"
+    },
+    {
+      "test": "user: authenticated profile read",
+      "status": "passed"
+    },
+    {
+      "test": "user: profile belongs to signed-in account",
+      "status": "passed"
+    },
+    {
+      "test": "user: authenticated history read",
+      "status": "passed"
+    },
+    {
+      "test": "user: new account sees no other payments",
+      "status": "passed"
+    },
+    {
+      "test": "user: real token refresh",
+      "status": "passed"
+    },
+    {
+      "test": "USD: real backend category calculator 10",
+      "status": "passed"
+    },
+    {
+      "test": "USD: real backend category calculator 20",
+      "status": "passed"
+    },
+    {
+      "test": "USD: refreshed price follows changed customer category",
+      "status": "passed"
+    },
+    {
+      "test": "SYP: real backend category calculator 10",
+      "status": "passed"
+    },
+    {
+      "test": "SYP: real backend category calculator 20",
+      "status": "passed"
+    },
+    {
+      "test": "SYP: refreshed price follows changed customer category",
+      "status": "passed"
+    },
+    {
+      "test": "user: incorrect password rejected",
+      "status": "passed"
+    },
+    {
+      "test": "agent: real password login view HTTP 200",
+      "status": "passed"
+    },
+    {
+      "test": "agent: JWT pair returned",
+      "status": "passed"
+    },
+    {
+      "test": "agent: authenticated profile read",
+      "status": "passed"
+    },
+    {
+      "test": "agent: profile belongs to signed-in account",
+      "status": "passed"
+    },
+    {
+      "test": "agent: authenticated history read",
+      "status": "passed"
+    },
+    {
+      "test": "agent: new account sees no other payments",
+      "status": "passed"
+    },
+    {
+      "test": "agent: real token refresh",
+      "status": "passed"
+    },
+    {
+      "test": "agent: incorrect password rejected",
+      "status": "passed"
+    },
+    {
+      "test": "unauthenticated history access rejected",
+      "status": "passed"
+    }
+  ],
+  "passed": 25
+}

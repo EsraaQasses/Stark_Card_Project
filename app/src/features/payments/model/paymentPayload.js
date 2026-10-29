@@ -15,6 +15,7 @@ export function buildPaymentUserInputs({
   now = Date.now(),
 }) {
   return {
+    ...(preUserInputs || {}),
     ...(product?.requiresGamerId ? { gamer_id: gamerId.trim() } : {}),
     ...requirementPayload.values,
     ...(Object.keys(requirementPayload._labels || {}).length > 0 && { _labels: requirementPayload._labels }),
@@ -29,7 +30,6 @@ export function buildPaymentUserInputs({
         ? { quantity: safeQty, amount: String(safeQty) }
         : { quantity: safeQty }),
 
-    ...(preUserInputs || {}),
     ...(isAgentFlow ? { sender_role: "agent" } : {}),
 
     mode: isPackages ? "packages" : isRange ? "range" : "simple",

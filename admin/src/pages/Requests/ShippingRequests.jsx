@@ -1,6 +1,8 @@
+import { apiErrorMessage } from '../../utils/apiError';
 import React, {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -26,13 +28,7 @@ import {
 import axiosInstance from '../../utils/axiosConfig';
 import { useStateContext } from '../../contexts/ContextProvider';
 
-const getErrorMessage = (error, fallback) => (
-  error?.response?.data?.detail
-  || error?.response?.data?.error
-  || error?.response?.data?.message
-  || error?.message
-  || fallback
-);
+const getErrorMessage = apiErrorMessage;
 
 const parseUserInputData = (value) => {
   if (!value) return {};
@@ -161,6 +157,8 @@ const ShippingRequests = () => {
   }), [isArabic]);
 
   const [rows, setRows] = useState([]);
+  const [stats, setStats] = useState(null);
+  const requestRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [error, setError] = useState('');
@@ -171,6 +169,9 @@ const ShippingRequests = () => {
   const [dateEnd, setDateEnd] = useState(() => damascusDateString());
 
 
+  const [shippingSummaries, setShippingSummaries] = useState([]);
+  const [currencyFilter, setCurrencyFilter] = useState('all');
+  const [advancedFilters, setAdvancedFilters] = useState({});
   const [detailsRequest, setDetailsRequest] = useState(null);
   const [approveRequest, setApproveRequest] = useState(null);
   const [rejectRequest, setRejectRequest] = useState(null);
@@ -182,13 +183,32 @@ const ShippingRequests = () => {
     window.setTimeout(() => setToast(null), 3500);
   };
 
-  const fetchAllPages = async (path) => {
+  const fetchAllPages = async (path, filters, signal) => {
     const result = [];
     let next = path;
-    let params = { page_size: 100 };
+    let params = { ...filters, page_size: 100 };
+    const seen = new Set();
+    let count = null;
+    let summary = null;
 
     while (next) {
-      const response = await axiosInstance.get(next, { params });
+      const target = new URL(next, `${axiosInstance.defaults.baseURL}/`);
+      const base = new URL(axiosInstance.defaults.baseURL);
+      if (target.origin !== base.origin || seen.has(target.href) || seen.size >= 1000) {
+        throw new Error('Invalid shipping pagination URL');
+      }
+      seen.add(target.href);
+      const response = await axiosInstance.get(next, { params, signal });
+      if (!Array.isArray(response.data?.results) || !Number.isInteger(response.data.count)) {
+        throw new Error('Shipping API must return paginated results and filtered count.');
+      }
+      if (count === null) {
+        count = response.data.count;
+        summary = response.data.summary;
+        if (!summary?.counts_by_status || !summary?.amounts_by_currency || summary.total_count !== count) {
+          throw new Error('Shipping API must return the filtered summary.');
+        }
+      }
 
       const pageRows = Array.isArray(response.data?.results)
         ? response.data.results
@@ -201,10 +221,30 @@ const ShippingRequests = () => {
       params = undefined;
     }
 
-    return result;
+    return { rows: result, count, summary };
   };
 
   const fetchShippingData = async () => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const { signal } = controller;
+    setStats(null);
+    setShippingSummaries([]);
+    if (dateStart && dateEnd && dateStart > dateEnd) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    const filters = {
+      ...Object.fromEntries(Object.entries(advancedFilters).filter(([, value]) => value !== '')),
+      ...(search.trim() ? { search: search.trim() } : {}),
+      ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+      ...(dateStart ? { created_from: `${dateStart}T00:00:00+03:00` } : {}),
+      ...(dateEnd ? { created_to: `${dateEnd}T23:59:59.999999+03:00` } : {}),
+      ...(currencyFilter !== 'all' ? { currency: currencyFilter } : {}),
+      ordering: advancedFilters.ordering || '-created_at,-id',
+    };
     try {
       setLoading(true);
       setError('');
@@ -222,9 +262,11 @@ const ShippingRequests = () => {
 
       const responses = await Promise.all(
         requestTypes.map(async ({ type, path }) => {
-          const data = await fetchAllPages(path);
-
-          return data.map((row) => {
+          const data = await fetchAllPages(path, filters, signal);
+          const counts = { total: data.summary.total_count,
+            ...Object.fromEntries(['pending', 'approved', 'rejected'].map((status) => [status, data.summary.counts_by_status[status] || 0])),
+          };
+          return { counts, type, summary: data.summary, rows: data.rows.map((row) => {
             const isAgentAdmin = type === 'agent-admin';
 
             return {
@@ -254,66 +296,73 @@ const ShippingRequests = () => {
                 ? labels.agentAdmin
                 : labels.standard,
             };
-          });
+          }) };
         }),
       );
-
+      if (signal.aborted) return;
+      setShippingSummaries(responses.map(({ type, summary }) => ({ type, summary })));
+      setStats(Object.fromEntries(['total', 'pending', 'approved', 'rejected'].map((key) => [
+        key, responses.reduce((sum, source) => sum + source.counts[key], 0),
+      ])));
       setRows(
         responses
-          .flat()
-          .sort(
-            (a, b) => (
-              new Date(b.created_at).getTime()
-              - new Date(a.created_at).getTime()
-            ),
-          ),
+          .flatMap((source) => source.rows)
+          .sort((a, b) => {
+            for (const clause of (advancedFilters.ordering || '-created_at,-id').split(',')) {
+              const descending = clause.startsWith('-');
+              const field = clause.replace(/^-/, '');
+              const left = field === 'created_at' ? new Date(a[field]).getTime() : ['amount', 'id'].includes(field) ? Number(a[field]) : String(a[field]);
+              const right = field === 'created_at' ? new Date(b[field]).getTime() : ['amount', 'id'].includes(field) ? Number(b[field]) : String(b[field]);
+              if (left !== right) return (left < right ? -1 : 1) * (descending ? -1 : 1);
+            }
+            return a.row_id.localeCompare(b.row_id);
+          }),
       );
     } catch (fetchError) {
+      if (signal.aborted) return;
+      setStats(null);
+      setShippingSummaries([]);
       setRows([]);
       setError(getErrorMessage(fetchError, labels.loadFailed));
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchShippingData();
-  }, []);
+    requestRef.current?.abort();
+    setLoading(true);
+    setStats(null);
+    setRows([]);
+    const timer = window.setTimeout(fetchShippingData, 300);
+    return () => {
+      window.clearTimeout(timer);
+      requestRef.current?.abort();
+    };
+  }, [search, statusFilter, currencyFilter, advancedFilters, dateStart, dateEnd, isArabic]);
 
-  // Date limits include both whole calendar days (Asia/Damascus).
-  // All loaded pages from both shipping sources are filtered before computing totals.
-  const filteredRows = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return rows.filter((request) => {
-      const status = String(request.status || '').toLowerCase();
-      if (statusFilter !== 'all' && status !== statusFilter) return false;
-      if (dateStart || dateEnd) {
-        const created = damascusDateString(request.created_at);
-        if (!created) return false;
-        if (dateStart && created < dateStart) return false;
-        if (dateEnd && created > dateEnd) return false;
-      }
-      if (!query) return true;
-      return [
-        request.id, request.row_id, request.user_name,
-        request.user_email, request.user_phone, request.agent_name,
-        request.payment_method_title, request.transaction_ref,
-      ].some((value) => String(value ?? '').toLocaleLowerCase().includes(query));
-    });
-  }, [rows, search, statusFilter, dateStart, dateEnd]);
-
-  const stats = useMemo(() => ({
-    total: filteredRows.length,
-    pending: filteredRows.filter((item) => item.status === 'pending').length,
-    approved: filteredRows.filter((item) => item.status === 'approved').length,
-    rejected: filteredRows.filter((item) => item.status === 'rejected').length,
-  }), [filteredRows]);
+  // Rows and pre-pagination counts use exactly the same server-side filters.
+  const filteredRows = rows;
 
   const clearFilters = () => {
     setStatusFilter('all');
-    setDateStart(damascusDateString());
-    setDateEnd(damascusDateString());
+    setCurrencyFilter('all');
+    setAdvancedFilters({});
+    setDateStart('');
+    setDateEnd('');
     setSearch('');
+  };
+
+  const setDatePreset = (period) => {
+    const today = damascusDateString();
+    const date = new Date(`${today}T00:00:00Z`);
+    if (period === 'week') {
+      date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    } else if (period === 'month') {
+      date.setUTCDate(1);
+    }
+    setDateStart(date.toISOString().slice(0, 10));
+    setDateEnd(today);
   };
 
   const invalidDateRange = Boolean(dateStart && dateEnd && dateStart > dateEnd);
@@ -325,6 +374,7 @@ const ShippingRequests = () => {
     if (Number.isNaN(date.getTime())) return '—';
 
     return date.toLocaleString(locale, {
+      timeZone: 'Asia/Damascus',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -430,31 +480,62 @@ const ShippingRequests = () => {
         onRefresh={fetchShippingData}
       />
 
+      <details className="my-4 rounded-xl border p-3">
+        <summary>{isArabic ? 'فلاتر إضافية' : 'Additional filters'}</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {[
+            ['user', isArabic ? 'معرّف المستخدم (الوكيل في طلبات الوكيل للإدارة)' : 'User ID (agent ID for agent-admin)'],
+            ['agent', isArabic ? 'معرّف الوكيل' : 'Agent ID'],
+            ['reviewer', isArabic ? 'معرّف المراجع' : 'Reviewer ID'],
+            ['provider', isArabic ? 'المزوّد' : 'Provider'],
+            ['amount_min', isArabic ? 'أقل مبلغ' : 'Minimum amount'],
+            ['amount_max', isArabic ? 'أعلى مبلغ' : 'Maximum amount'],
+          ].map(([key, label]) => <label key={key}>{label}<input
+            type={key === 'provider' ? 'text' : 'number'} min={key.endsWith('_min') || key.endsWith('_max') ? '0' : '1'} step={key.startsWith('amount_') ? 'any' : '1'}
+            value={advancedFilters[key] || ''} onChange={(event) => setAdvancedFilters((previous) => ({ ...previous, [key]: event.target.value }))}
+            className="block w-full rounded border p-2 dark:bg-slate-900" /></label>)}
+          <label>{isArabic ? 'الترتيب' : 'Ordering'}<select value={advancedFilters.ordering || '-created_at,-id'}
+            onChange={(event) => setAdvancedFilters((previous) => ({ ...previous, ordering: event.target.value }))} className="block rounded border p-2 dark:bg-slate-900">
+            {['-created_at,-id', 'created_at,id', 'amount', '-amount', 'status', 'currency'].map((value) => <option key={value} value={value}>{value}</option>)}
+          </select></label>
+        </div>
+      </details>
+      <section className="my-4 space-y-3">
+        <label>{isArabic ? 'العملة' : 'Currency'} <select value={currencyFilter} onChange={(event) => setCurrencyFilter(event.target.value)} className="rounded border p-2 dark:bg-slate-900">
+          <option value="all">{isArabic ? 'كل العملات' : 'All currencies'}</option><option value="USD">USD</option><option value="SYP">SYP</option>
+        </select></label>
+        {!loading && shippingSummaries.map(({ type, summary }) => <div key={type} className="rounded-xl border p-3">
+          <p>{type === 'standard' ? labels.standard : labels.agentAdmin}</p>
+          {Object.entries(summary.amounts_by_currency).map(([currency, statuses]) => <div key={currency} dir="ltr">
+            {Object.entries(statuses).map(([status, amount]) => <p key={status}>{currency} · {labels[status] || status}: {amount}</p>)}
+          </div>)}
+        </div>)}
+      </section>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label={labels.total}
-          value={stats.total}
+          value={loading || !stats ? '?' : stats.total}
           icon={<FiTruck />}
           accentColor={accentColor}
         />
 
         <StatCard
           label={labels.pending}
-          value={stats.pending}
+          value={loading || !stats ? '?' : stats.pending}
           icon={<FiClock />}
           accentColor="#f59e0b"
         />
 
         <StatCard
           label={labels.approved}
-          value={stats.approved}
+          value={loading || !stats ? '?' : stats.approved}
           icon={<FiCheck />}
           accentColor="#10b981"
         />
 
         <StatCard
           label={labels.rejected}
-          value={stats.rejected}
+          value={loading || !stats ? '?' : stats.rejected}
           icon={<FiX />}
           accentColor="#ef4444"
         />
@@ -470,6 +551,18 @@ const ShippingRequests = () => {
           total={rows.length}
         />
 
+        <div className="mb-3 flex flex-wrap gap-2">
+          {[
+            ['today', isArabic ? 'اليوم' : 'Today'],
+            ['week', isArabic ? 'هذا الأسبوع' : 'This week'],
+            ['month', isArabic ? 'هذا الشهر' : 'This month'],
+          ].map(([period, label]) => (
+            <button key={period} type="button" onClick={() => setDatePreset(period)}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="text-sm font-bold text-slate-600 dark:text-slate-300">
             {isArabic ? 'حالة الطلب' : 'Status'}

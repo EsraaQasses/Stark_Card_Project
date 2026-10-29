@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../utils/apiError';
 import React, {
   useCallback,
   useEffect,
@@ -50,12 +51,7 @@ const normalizeList = (data) => {
   return [];
 };
 
-const getApiError = (error, fallback) => (
-  error?.response?.data?.error
-  || error?.response?.data?.detail
-  || error?.response?.data?.message
-  || fallback
-);
+const getApiError = apiErrorMessage;
 
 const getInitials = (name) => {
   const value = String(name || '').trim();
@@ -539,8 +535,8 @@ const AgentDetails = () => {
       : 'Adjustment reason',
 
     adjustmentReasonHint: isArabic
-      ? 'يجب كتابة سبب واضح لا يقل عن 10 أحرف.'
-      : 'Enter a clear reason of at least 10 characters.',
+      ? 'يجب كتابة سبب واضح بحد أقصى 500 حرف.'
+      : 'Enter a clear reason, up to 500 characters.',
 
     executingAdjustment: isArabic
       ? 'جاري تعديل الرصيد...'
@@ -563,8 +559,8 @@ const AgentDetails = () => {
       : 'Enter an amount greater than zero.',
 
     invalidAdjustmentReason: isArabic
-      ? 'سبب التعديل يجب أن يكون 10 أحرف على الأقل.'
-      : 'Adjustment reason must be at least 10 characters.',
+      ? 'اكتب سبب التعديل من 1 إلى 500 حرف.'
+      : 'Adjustment reason must be 1 to 500 characters.',
 
     creditOperation: isArabic
       ? 'إضافة'
@@ -856,7 +852,7 @@ const AgentDetails = () => {
       return;
     }
 
-    if (reason.length < 10) {
+    if (!reason || reason.length > 500) {
       setAdjustmentError(
         labels.invalidAdjustmentReason,
       );
@@ -2249,7 +2245,7 @@ const AgentDetails = () => {
 
                 <textarea
                   rows="4"
-                  minLength="10"
+                  minLength="1"
                   maxLength="500"
                   value={adjustmentReason}
                   disabled={submittingAdjustment}

@@ -140,6 +140,11 @@
       "commissions": "العمولات",
       "discounts": "الخصومات",
       "taxes": "الضرائب",
+      "transfers": "التحويلات",
+      "shipping_credits": "أرصدة الشحن المضافة",
+      "cashouts": "السحب النقدي",
+      "compensations": "التعويضات",
+      "commission_reversals": "عكس العمولات",
       "other": "بند محاسبي آخر"
     },
     "validation": {

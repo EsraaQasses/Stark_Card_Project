@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../utils/apiError';
 import React, {
   useCallback,
   useEffect,
@@ -39,13 +40,7 @@ const normalizeList = (value) => {
   return [];
 };
 
-const getApiError = (error, fallback) => (
-  error?.response?.data?.detail
-  || error?.response?.data?.error
-  || error?.response?.data?.message
-  || error?.message
-  || fallback
-);
+const getApiError = apiErrorMessage;
 
 const pickPersonName = (person) => {
   if (!person || typeof person !== 'object') {
@@ -460,7 +455,7 @@ const Transactions = () => {
       item.actor?.name,
       item.sourceValue,
       item.targetValue,
-      item.amountValue,
+      item.amount,
       item.currencyValue,
       item.statusValue,
     ]);
@@ -471,7 +466,7 @@ const Transactions = () => {
     ].join('\n');
 
     const blob = new Blob(
-      [csvContent],
+      ['\ufeff', csvContent],
       { type: 'text/csv;charset=utf-8;' },
     );
 
@@ -701,8 +696,8 @@ const Transactions = () => {
                   </h2>
                   <p className="mt-1 text-sm font-semibold text-slate-400">
                     {isArabic
-                      ? 'الاسم الظاهر في الجدول مأخوذ من منفذ العملية أو صاحب المحفظة الموجود في استجابة الـ API.'
-                      : 'The actor shown below is resolved from the API actor or wallet owner.'}
+                      ? 'يظهر منفذ العملية المسجل في API؛ إذا لم يكن مسجلاً يظهر ذلك بوضوح.'
+                      : 'The actor comes from the API. Missing actor information is shown explicitly.'}
                   </p>
                 </div>
 

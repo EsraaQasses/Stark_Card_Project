@@ -37,7 +37,7 @@ const toApiDate = ({ year, month, day }) =>
 
 const buildMonthAnchors = (count = CHART_MONTHS, today = datePartsInReportZone()) =>
   Array.from({ length: count }, (_, index) => {
-    const month = new Date(Date.UTC(today.year, today.month - count + index + 1, 1, 12));
+    const month = new Date(Date.UTC(today.year, today.month - count + index, 1, 12));
     return {
       year: month.getUTCFullYear(),
       month: month.getUTCMonth() + 1,

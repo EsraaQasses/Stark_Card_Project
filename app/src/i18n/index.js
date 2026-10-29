@@ -327,22 +327,28 @@ const ar = {
   },
 };
 
+const checkoutTranslations = {
+  ar: {walletUnavailable:"الرصيد غير متوفر حالياً",loading:"جاري تحميل بيانات المنتج…",section:"القسم",available:"المنتج متاح",loadingPrice:"جاري تحميل السعر الحالي…",priceUnavailable:"السعر غير متوفر حالياً",apply:"تطبيق الفلتر",clear:"مسح الفلتر"},
+  en: {walletUnavailable:"Balance currently unavailable",loading:"Loading product details…",section:"Section",available:"Product available",loadingPrice:"Loading the current price…",priceUnavailable:"Price currently unavailable",apply:"Apply filter",clear:"Clear filter"},
+};
+ar.checkout = checkoutTranslations.ar;
+const en = {
+  checkout:checkoutTranslations.en,
+  common:{tryAgain:"Try again",loading:"Loading…",required:"Required",cancel:"Cancel",ok:"OK",error:"Error"},
+  payment:{productFallback:"Product",title:"Payment",enterYourId:"Enter your account ID"},
+};
+
 export function initI18n(lang = "ar") {
+  const selected = String(lang).startsWith("en") ? "en" : "ar";
   if (i18n.isInitialized) {
-    changeLanguage("ar"); // Force ar
+    changeLanguage(selected);
     return i18n;
   }
-  i18nUse(initReactI18next)
-    .init({
-      lng: "ar", // Default to ar
-      fallbackLng: "ar", // Fallback to ar
-      compatibilityJSON: "v3",
-      resources: { ar: { translation: ar } },
-      interpolation: { escapeValue: false },
-      returnNull: false,
-    });
+  i18nUse(initReactI18next).init({
+    lng:selected, fallbackLng:"ar", supportedLngs:["ar","en"],
+    resources:{ar:{translation:ar},en:{translation:en}},
+    interpolation:{escapeValue:false}, returnNull:false,
+  });
   return i18n;
 }
-
-// Export i18n instance for direct imports
 export default i18n;

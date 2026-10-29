@@ -140,6 +140,11 @@
       "commissions": "Commissions",
       "discounts": "Discounts",
       "taxes": "Taxes",
+      "transfers": "Transfers",
+      "shipping_credits": "Shipping credits",
+      "cashouts": "Cashouts",
+      "compensations": "Compensations",
+      "commission_reversals": "Commission reversals",
       "other": "Other Accounting Item"
     },
     "validation": {

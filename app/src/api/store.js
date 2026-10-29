@@ -1,3 +1,6 @@
+import { internalProductId, favoriteProductId } from "../features/payments/model/checkoutRoute";
+import { normalizeProductRequirements } from "../features/payments/model/paymentRequirements";
+import { getApiErrorMessage } from "../shared/api/errors/apiError";
 // src/api/store.js
 import api, { STORE_PREFIX, absolutizeUrl, buildUrl } from "./client";
 
@@ -100,12 +103,18 @@ function mapProduct(p) {
   const prices = p?.prices || null; // { base_currency, base_price, converted{USD,SYP}, exchange_rates }
 
   // المتطلبات (ID / أرقام / نصوص)
-  const requirements = Array.isArray(p?.requirements) ? p.requirements : [];
+  const requirements = p?.requirements ?? [];
 
   return {
     id: p?.id,
-    name: pickName(p),
-    description: pickDesc(p),
+    store_product_id: p?.store_product_id ?? null,
+    section_name: pickName(p?.section) || p?.section_name || p?.section_name_ar || p?.section_name_en || null,
+    availability: p?.availability ?? null,
+    requiresGamerId: p?.requiresGamerId === true || p?.requires_gamer_id === true,
+    qty: p?.qty ?? null,
+    step: p?.step ?? null,
+    name: pickName(p) || p?.name || "",
+    description: pickDesc(p) || p?.description || "",
 
     // العملة + السعر الأساسي
     currency: p?.currency || p?.base_currency || p?.price_currency || null,
@@ -223,17 +232,32 @@ export async function getProductsBySectionDetail(sectionId) {
 }
 
 /** منتج واحد بالتفصيل */
-export async function getUserProductById(productId) {
+export async function getUserProductById(productId, options = {}) {
   const url = buildUrl(STORE_PREFIX, "user/products", `${productId}/`);
-  const { data } = await api.get(url);
+  const { data } = await api.get(url, { signal: options.signal });
   return mapProduct(data);
 }
 
 /** متطلبات منتج محدد (الحقول المطلوبة للشراء) */
-export async function getUserProductRequirements(productId) {
+export async function getUserProductRequirements(productId, options = {}) {
   const url = buildUrl(STORE_PREFIX, "user/products", `${productId}`, "requirements/");
-  const { data } = await api.get(url);
+  const { data } = await api.get(url, { signal: options.signal });
   return Array.isArray(data) ? data : [];
+}
+
+/** Current details and requirements are loaded together; route snapshots never authorize checkout. */
+export async function loadCheckoutProduct(productId, options = {}) {
+  const id = internalProductId(productId);
+  if (!id) throw Object.assign(new Error("معرّف المنتج غير متوفر. افتح المنتج مجدداً من المتجر."),{code:"CHECKOUT_ID_MISSING"});
+  const product = await getUserProductById(id, options);
+  if (internalProductId(product?.id) !== id) throw Object.assign(new Error("تعذر التحقق من المنتج المطلوب. أعد المحاولة."),{code:"CHECKOUT_ID_MISMATCH"});
+  if (product.is_active !== true || product.availability === "unavailable") throw Object.assign(new Error("هذا المنتج غير متاح حالياً."),{code:"CHECKOUT_UNAVAILABLE"});
+  let requirements = normalizeProductRequirements(product);
+  if (!requirements.length) {
+    const fields = await getUserProductRequirements(id, options);
+    requirements = normalizeProductRequirements({ requirements: fields });
+  }
+  return { product, requirements };
 }
 
 /** تنفيذ استعلام (Query) للمنتج إن كان يدعم ذلك */
@@ -310,13 +334,13 @@ export async function searchUserProducts({
 export async function listFavorites() {
   const url = buildUrl(STORE_PREFIX, "user/favorites/");
   const { data } = await api.get(url);
-  const list = Array.isArray(data) ? data : [];
+  const list = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
   // كل عنصر: { id, product: {...} }
-  return list.map((f) => ({
-    id: f?.id,
-    product: f?.product ? mapProduct(f.product) : null,
-    _raw: f,
-  }));
+  return list.map(f => {
+    const id = favoriteProductId(f);
+    return { id: f?.id, product_id: id, product: f?.product && typeof f.product === "object"
+      ? mapProduct(f.product) : id ? { id } : null, _raw: f };
+  });
 }
 
 export async function addFavorite(product_id) {
@@ -400,35 +424,14 @@ export function displayPrice(product, uiCurrency = "USD") {
   // 1) أولاً: حاول استخدام user_final_prices (الموجود في mapProduct)
   const userPrices = product?.user_final_prices;
   if (userPrices && typeof userPrices === "object") {
-    const price = userPrices[curr] ?? userPrices.USD ?? userPrices.SYP ?? null;
+    const price = userPrices[curr] ?? null;
     if (price != null) return { amount: Number(price), currency: curr };
   }
 
-  // 2) ثانياً: حاول استخدام prices.converted الجاهز من الباك
-  const converted = product?.prices?.converted?.[curr];
-  if (converted != null) {
-    return { amount: Number(converted), currency: curr };
-  }
-
-  // 3) fallback: السعر الأساسي بدون تحويل
-  const base =
-    product?.prices?.base_price ??
-    product?.base_price ??
-    product?.price ??
-    null;
-
-  const baseCur =
-    product?.prices?.base_currency ??
-    product?.base_currency ??
-    product?.currency ??
-    null;
-
-  if (base == null) return { amount: null, currency: curr };
-
-  return {
-    amount: Number(base),
-    currency: (baseCur || curr).toUpperCase(),
-  };
+  const nativeCurrency=String(product?.currency || product?.base_currency || "").toUpperCase();
+  const finalPrice=product?.user_final_price ?? product?.price_info?.user_final_price;
+  if (nativeCurrency===curr && finalPrice != null && Number.isFinite(Number(finalPrice))) return {amount:Number(finalPrice),currency:curr};
+  return {amount:null,currency:curr};
 }
 
 /* ===================== الشراء (StoreProduct) ===================== */
@@ -504,16 +507,11 @@ export async function listUserPurchases(params = {}) {
   }
 }
 
+
 /**
- * استخراج رسالة الخطأ
+ * استخراج رسالة الخطأ من الباك إند
  */
-function extractErrorMessage(error, defaultMsg = "فشل الطلب") {
-  if (typeof error === "string") return error;
-  if (error?.response?.data?.detail) return error.response.data.detail;
-  if (error?.response?.data?.message) return error.response.data.message;
-  if (error?.message) return error.message;
-  return defaultMsg;
-}
+function extractErrorMessage(error) { return getApiErrorMessage(error); }
 
 function normalizePagination(data, params) {
   if (Array.isArray(data)) {

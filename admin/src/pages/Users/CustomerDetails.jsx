@@ -1,3 +1,4 @@
+import { apiErrorMessage } from '../../utils/apiError';
 import React, {
   useCallback,
   useEffect,
@@ -49,30 +50,7 @@ import { useStateContext } from '../../contexts/ContextProvider';
 
 const adjustmentCurrencies = new Set(['USD', 'SYP']);
 
-const getApiError = (error, fallback) => {
-  const data = error?.response?.data;
-
-  if (typeof data === 'string' && data.trim()) {
-    return data;
-  }
-
-  if (data?.error) {
-    return String(data.error);
-  }
-
-  if (data?.detail) {
-    return String(data.detail);
-  }
-
-  if (
-    Array.isArray(data?.non_field_errors)
-    && data.non_field_errors.length
-  ) {
-    return data.non_field_errors.join(' ');
-  }
-
-  return fallback;
-};
+const getApiError = apiErrorMessage;
 
 const createIdempotencyKey = (customerId) => {
   if (
@@ -712,8 +690,8 @@ const CustomerDetails = () => {
     currency: isArabic ? 'العملة' : 'Currency',
     reason: isArabic ? 'سبب العملية' : 'Reason',
     reasonHint: isArabic
-      ? 'السبب إلزامي ويجب أن يكون 10 أحرف على الأقل.'
-      : 'Reason is required and must be at least 10 characters.',
+      ? 'السبب إلزامي وبحد أقصى 500 حرف.'
+      : 'Reason is required, up to 500 characters.',
     cancel: isArabic ? 'إلغاء' : 'Cancel',
     submitRequest: isArabic ? 'تنفيذ تعديل الرصيد' : 'Apply balance adjustment',
     creating: isArabic ? 'جاري تعديل الرصيد...' : 'Applying adjustment...',
@@ -727,8 +705,8 @@ const CustomerDetails = () => {
       ? 'المبلغ المطلوب خصمه أكبر من الرصيد المتاح.'
       : 'The deduction amount is greater than the available balance.',
     reasonTooShort: isArabic
-      ? 'السبب يجب أن يكون 10 أحرف على الأقل.'
-      : 'Reason must be at least 10 characters.',
+      ? 'اكتب سبباً من 1 إلى 500 حرف.'
+      : 'Enter a reason of 1 to 500 characters.',
     adjustmentFailed: isArabic
       ? 'تعذر تعديل الرصيد.'
       : 'Failed to update the balance.',
@@ -1372,7 +1350,7 @@ const CustomerDetails = () => {
       return;
     }
 
-    if (reason.length < 10) {
+    if (!reason || reason.length > 500) {
       setAdjustmentError(labels.reasonTooShort);
       return;
     }
@@ -2619,6 +2597,7 @@ const CustomerDetails = () => {
 
             <textarea
               rows={4}
+              maxLength={500}
               value={adjustmentForm.reason}
               onChange={(event) => setAdjustmentForm((current) => ({
                 ...current,
@@ -2634,7 +2613,7 @@ const CustomerDetails = () => {
                   text-xs font-semibold
                   ${
                     adjustmentForm.reason.trim().length > 0
-                    && adjustmentForm.reason.trim().length < 10
+                    && adjustmentForm.reason.trim().length > 500
                       ? 'text-red-500'
                       : 'text-slate-400'
                   }
@@ -2644,7 +2623,7 @@ const CustomerDetails = () => {
               </span>
 
               <span className="shrink-0 text-xs font-black text-slate-400">
-                {adjustmentForm.reason.trim().length}/10+
+                {adjustmentForm.reason.trim().length}/500
               </span>
             </div>
           </label>

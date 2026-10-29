@@ -1,3 +1,4 @@
+import { isDefinitiveAuthFailure } from "../shared/api/errors/sessionPolicy";
 // src/context/AuthProvider.tsx
 import React, {
     createContext,
@@ -164,6 +165,7 @@ interface AuthContextType {
     booting: boolean;
     signIn: (data: { user?: any; profile?: any; access: string; refresh?: string }) => Promise<User>;
     signOut: () => Promise<void>;
+    clearLocalSession: () => Promise<void>;
     refreshUser: () => Promise<User | null>;
     setUserUnsafe: (partial: any) => Promise<void>;
 }
@@ -175,8 +177,7 @@ function isValidTokenString(s: any): s is string {
 }
 
 function isNetworkError(err: any) {
-    const msg = String(err?.message || "").toLowerCase();
-    return !err?.response && (msg.includes("network") || msg.includes("timeout") || msg.includes("failed"));
+    return Boolean(err?.message) && !err?.id && !isDefinitiveAuthFailure(err);
 }
 
 async function tryRefreshAccess(): Promise<string | null> {
@@ -184,7 +185,10 @@ async function tryRefreshAccess(): Promise<string | null> {
     if (!isValidTokenString(refresh)) return null;
     try {
         const result = await refreshTokenNormalized(refresh);
-        if (!result.ok) return null;
+        if (!result.ok) {
+            if (!isDefinitiveAuthFailure(result.error)) throw result.error;
+            return null;
+        }
         const data = result.data;
         const newAccess = data?.access;
         if (isValidTokenString(newAccess)) {
@@ -193,8 +197,9 @@ async function tryRefreshAccess(): Promise<string | null> {
             return newAccess;
         }
         return null;
-    } catch {
-        return null;
+    } catch (error) {
+        if (isDefinitiveAuthFailure(error as any)) return null;
+        throw error;
     }
 }
 
@@ -212,9 +217,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             const result = await getCurrentUserNormalized();
             if (!result.ok) {
                 const error = result.error;
-                return error.status
-                    ? { message: error.message, response: { status: error.status, data: error.details } }
-                    : error;
+                return { message: error.message, response: { status: error.status || 0 } };
             }
             const res = result.data;
             const profile = res?.data ?? res;
@@ -281,6 +284,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                         if (alive) setUser(null);
                     }
                 }
+            } catch {
+                // Keep recoverable local credentials on network/server/storage failures.
+                const cached = await loadUserFromStorage().catch(() => null);
+                if (alive && cached) setUser(cached);
             } finally {
                 if (alive) setBooting(false);
             }
@@ -313,15 +320,19 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         [fetchProfile]
     );
 
+    const clearLocalSession = useCallback(async () => {
+        await clearAuthStorage();
+        setUser(null);
+    }, []);
+
     const signOut = useCallback(async () => {
         const refresh = await getRefreshToken();
         try {
             if (isValidTokenString(refresh)) await apiLogout(refresh);
         } finally {
-            await clearAuthStorage();
-            setUser(null);
+            await clearLocalSession();
         }
-    }, []);
+    }, [clearLocalSession]);
 
     const refreshUser = useCallback(async () => {
         let access = await getAccessToken();
@@ -330,7 +341,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (!isValidTokenString(access)) return null;
         const freshOrErr: any = await fetchProfile(access);
-        if (!freshOrErr || freshOrErr?.response) return null;
+        if (!freshOrErr || freshOrErr?.response || isNetworkError(freshOrErr)) return null;
         const finalUser = { ...freshOrErr, token: access };
         setUser(finalUser);
         await saveUserToStorage(finalUser);
@@ -350,8 +361,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const value = useMemo(
-        () => ({ user, booting, signIn, signOut, refreshUser, setUserUnsafe }),
-        [user, booting, signIn, signOut, refreshUser, setUserUnsafe]
+        () => ({ user, booting, signIn, signOut, clearLocalSession, refreshUser, setUserUnsafe }),
+        [user, booting, signIn, signOut, clearLocalSession, refreshUser, setUserUnsafe]
     );
 
     return (
