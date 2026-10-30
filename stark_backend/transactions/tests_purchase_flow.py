@@ -76,3 +76,54 @@ class PurchaseFlowTests(TestCase):
 
         # Ensure connector was called
         mock_get_connector.assert_called()
+
+    @patch('third_party_apis.services.api_service.ConnectorFactory.get_connector')
+    def test_uncertain_transport_result_stays_pending(self, mock_get_connector):
+        mock_get_connector.return_value.execute_purchase.return_value = {
+            'success': False,
+            'status_code': None,
+            'error': 'Transport error; request outcome unknown. Do not retry.',
+        }
+        result = PurchaseService.process_purchase(
+            self.store_product.id, self.user,
+            {'phone_number': '0982416135', 'quantity': 1},
+        )
+        self.assertTrue(result['success'])
+        self.assertTrue(result['processing'])
+        self.assertEqual(result['status'], 'pending')
+        self.assertEqual(result['error_code'], 'PROVIDER_STATUS_UNKNOWN')
+        self.wallet.refresh_from_db()
+        self.assertGreater(self.wallet.pending_balance, 0)
+        self.assertEqual(self.wallet.total_balance, 1000)
+
+    @patch('transactions.services.purchase_service.APIService.process_payment')
+    def test_provider_auth_failure_releases_reservation_without_user_401(self, provider):
+        for status in (401, 403):
+            with self.subTest(status=status):
+                provider.return_value = {'success': False, 'status_code': status, 'error': 'Provider authentication failed'}
+                result = PurchaseService.process_purchase(self.store_product.id, self.user,
+                    {'quantity': 1}, idempotency_key=f'auth-{status}')
+                self.assertFalse(result['success'])
+                self.assertEqual(result['error_code'], 'PROVIDER_AUTH_ERROR')
+                self.wallet.refresh_from_db()
+                self.assertEqual(self.wallet.available_balance, 1000)
+                self.assertEqual(self.wallet.pending_balance, 0)
+                from rest_framework.test import APIClient
+                client = APIClient()
+                client.force_authenticate(self.user)
+                response = client.post('/api/store/user/purchases/', {
+                    'store_product_id': self.store_product.pk,
+                    'user_inputs': {'quantity': 1}, 'wallet_currency': 'USD',
+                    'idempotency_key': f'http-auth-{status}',
+                }, format='json')
+                self.assertEqual(response.status_code, 502, response.data)
+                self.assertEqual(response.data['error']['code'], 'PROVIDER_AUTH_ERROR')
+
+    @patch('transactions.services.purchase_service.APIService.process_payment')
+    def test_confirmed_rejection_is_not_pending_even_if_message_mentions_timeout(self, provider):
+        provider.return_value = {'success': False, 'status': 'rejected', 'error': 'Rejected after validation timeout'}
+        result = PurchaseService.process_purchase(self.store_product.id, self.user, {'quantity': 1})
+        self.assertFalse(result['success'])
+        self.assertEqual(result['error_code'], 'PROVIDER_REJECTED')
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.available_balance, 1000)

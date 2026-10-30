@@ -6,6 +6,7 @@ class ThirdPartyAPI(models.Model):
     
     PROVIDER_CHOICES = [
         ("wawp", "WAWP"),
+
         ("alaaeddin", "Alaaeddin"),
         ("stark-card", "Stark-Card"),
     ]

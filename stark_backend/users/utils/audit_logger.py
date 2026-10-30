@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class AuditLogger:
     @staticmethod
-    def log(request, action, resource_type, resource_id=None, details=None):
+    def log(request, action, resource_type, resource_id=None, details=None, strict=False):
         """Create audit log entry"""
         try:
             user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
@@ -32,6 +32,8 @@ class AuditLogger:
                 
         except Exception as e:
             logger.error(f"Failed to create audit log: {str(e)}")
+            if strict:
+                raise
     
     @staticmethod
     def _get_client_ip(request):

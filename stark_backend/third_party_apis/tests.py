@@ -22,14 +22,27 @@ class ConnectorTests(TestCase):
             is_active=True
         )
 
-    @patch.object(BaseConnector, "make_request")
-    def test_alaaeddin_connector_prefixes_api_v2(self, mock_make_request):
-        connector = AlaaeddinConnector(self.alaaeddin_api)
-        connector.make_request("/orders", "POST", data={"test": True})
+    @patch("subprocess.run")
+    def test_alaaeddin_connector_prefixes_api_v2(self, mock_run):
+        from pathlib import Path
 
-        mock_make_request.assert_called_once()
-        args, _ = mock_make_request.call_args
-        self.assertTrue(args[0].startswith("/v2/"))
+        def respond(args, **kwargs):
+            Path(args[args.index("--output") + 1]).write_text('{}')
+            return MagicMock(returncode=0, stdout="200")
+
+        mock_run.side_effect = respond
+        connector = AlaaeddinConnector(self.alaaeddin_api)
+        with patch.object(self.alaaeddin_api, "get_api_key", return_value="test-token"):
+            for endpoint in ("/orders", "/v2/orders", "/api/v2/orders"):
+                with self.subTest(endpoint=endpoint):
+                    result = connector.make_request(endpoint, "POST", data={"test": True})
+                    self.assertTrue(result["success"])
+                    args = mock_run.call_args.args[0]
+                    self.assertIn("-4", args)
+                    self.assertEqual(args[args.index("--url") + 1],
+                                     "https://www.alaaeddin.net/api/v2/orders")
+                    self.assertNotIn("test-token", " ".join(args))
+                    self.assertIn("Authorization: Bearer test-token", mock_run.call_args.kwargs["input"])
 
     @patch.object(BaseConnector, "make_request")
     def test_stark_connector_execute_purchase(self, mock_make_request):

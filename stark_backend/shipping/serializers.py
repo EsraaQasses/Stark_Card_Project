@@ -35,7 +35,7 @@ class StandardShippingRequestSerializer(serializers.ModelSerializer):
             "payment_method", "payment_method_title", "user_input_data", "receipt_image",
             "status", "admin_notes", "transaction_ref", "created_at", "updated_at", "processed_at"
         ]
-        read_only_fields = ["id", "user", "created_at", "updated_at", "processed_at", "transaction_ref"]
+        read_only_fields = ["id", "user", "created_at", "updated_at", "processed_at", "transaction_ref", "status", "admin_notes"]
 
 
 class AgentShippingRequestSerializer(serializers.ModelSerializer):
@@ -59,7 +59,7 @@ class AgentShippingRequestSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id", "user", "agent", "created_at", "updated_at", "processed_at",
-            "user_transaction_ref", "agent_transaction_ref"
+            "user_transaction_ref", "agent_transaction_ref", "status", "agent_notes"
         ]
 
 
@@ -77,4 +77,4 @@ class AgentAdminShippingRequestSerializer(serializers.ModelSerializer):
             "user_input_data", "status", "admin_notes", "transaction_ref",
             "created_at", "updated_at", "processed_at"
         ]
-        read_only_fields = ["id", "agent", "created_at", "updated_at", "processed_at", "transaction_ref"]
+        read_only_fields = ["id", "agent", "created_at", "updated_at", "processed_at", "transaction_ref", "status", "admin_notes"]

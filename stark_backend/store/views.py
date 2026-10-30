@@ -639,7 +639,15 @@ class UserProductListView(viewsets.ReadOnlyModelViewSet):
         
         # Base queryset with optimization
         queryset = Product.objects.filter(
-            is_active=True
+            is_active=True, administrator_disabled=False,
+        ).filter(
+            Q(api_config__isnull=True) | Q(api_config__is_active=True)
+        ).filter(
+            Q(external_product__isnull=True) | Q(
+                provider_status='active', external_product__is_active=True,
+                external_product__provider_status='active',
+                external_product__api_config__is_active=True,
+            )
         ).select_related(
             'section',
             'section__father_section',
@@ -1629,7 +1637,7 @@ class PurchaseViewSet(viewsets.ViewSet):
                     response_data["errors"] = result.get("errors")
                 if result.get("transaction_id"):
                     response_data["transaction_id"] = result.get("transaction_id")
-                return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+                return Response(response_data, status=status.HTTP_502_BAD_GATEWAY if error_code == 'PROVIDER_AUTH_ERROR' else status.HTTP_400_BAD_REQUEST)
                 
         except Exception as e:
             logger.error(f"Purchase processing error: {str(e)}")

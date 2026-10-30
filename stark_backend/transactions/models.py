@@ -220,23 +220,12 @@ class Transaction(models.Model):
             self.exchange_rate_side and self.source_currency and self.target_currency
         )
         if self.amount is not None and not has_conversion_snapshot and (self.amount_syp is None or self.amount_usd is None):
-            try:
-                from wallets.services import ExchangeService  # Import inside method
-                rates = ExchangeService.get_exchange_rates()
-                usd_to_syp = rates["usd_to_syp"]["value"]
-                syp_to_usd = rates["syp_to_usd"]["value"]
-                self.exchange_rate_used = usd_to_syp
-            except Exception:
-                usd_to_syp = Decimal('116')
-                syp_to_usd = Decimal('1') / usd_to_syp
-                self.exchange_rate_used = usd_to_syp
-
-            if self.currency == "USD":
+            # Never infer a second-currency amount from an unversioned or
+            # fabricated exchange rate. Preserve the native ledger amount.
+            if self.currency == "USD" and self.amount_usd is None:
                 self.amount_usd = self.amount
-                self.amount_syp = (self.amount * usd_to_syp).quantize(Decimal('0.00000001'))
-            else:
+            elif self.currency == "SYP" and self.amount_syp is None:
                 self.amount_syp = self.amount
-                self.amount_usd = (self.amount * syp_to_usd).quantize(Decimal('0.00000001'))
         
         # Set processed_at when status changes to approved
         if self.status == 'approved' and not self.processed_at:

@@ -106,12 +106,14 @@ class APIService:
         rejected_tokens = ('reject', 'rejected', 'failed', 'failure', 'cancel', 'canceled',
                            'not_accepted', 'not_acceptable', 'not_available')
 
-        if text in approved_statuses or any(tok in text for tok in arabic_approved):
-            return "approved"
-        if text in pending_statuses or any(tok in text for tok in arabic_pending):
-            return "pending"
-        if any(token in text for token in rejected_tokens) or any(tok in text for tok in arabic_rejected):
+        # Match confirmed statuses, not fragments such as "تم" inside
+        # "لم يتم" or "ناجح" inside "غير ناجح".
+        if text in rejected_tokens or text in arabic_rejected:
             return "rejected"
+        if text in pending_statuses or text in arabic_pending:
+            return "pending"
+        if text in approved_statuses or text in arabic_approved:
+            return "approved"
         return "unknown"
     
     @staticmethod
@@ -142,6 +144,9 @@ class APIService:
                     'status_code': 200
                 }
             elif endpoint == '/api/purchase':
+                # Purchases may use GET on some providers. Never replay a
+                # charge after a timeout or ambiguous HTTP failure.
+                connector.retries = 0
                 result = connector.execute_purchase(
                     payload.get('product_data', {}),
                     payload.get('user_data', {}),

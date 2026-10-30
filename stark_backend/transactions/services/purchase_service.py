@@ -273,10 +273,11 @@ class PurchaseService:
             raw_status = (api_result or {}).get("status") or (api_result or {}).get("message")
             provider_status = APIService._normalize_order_status(raw_status)
             provider_success = bool(api_result and api_result.get("success"))
+            provider_auth_failed = not provider_success and (api_result or {}).get("status_code") in (401, 403)
 
             if provider_success and provider_status == "approved":
                 normalized = "approved"
-            elif provider_status == "rejected":
+            elif provider_status == "rejected" or provider_auth_failed:
                 normalized = "rejected"
             else:
                 normalized = "pending" if provider_status == "pending" else "unknown"
@@ -305,7 +306,7 @@ class PurchaseService:
                 }
 
             error = str((api_result or {}).get("error") or (api_result or {}).get("message") or "Provider rejected purchase")
-            if "timeout" in error.lower() or normalized == "unknown" or normalized == "pending":
+            if normalized in {"unknown", "pending"}:
                 tx.note = f"{tx.note or ''}; PROVIDER_STATUS_UNKNOWN"
                 tx.save(update_fields=["note", "updated_at"])
                 payment.status = "processing"
@@ -323,7 +324,7 @@ class PurchaseService:
             payment.error_message = error
             payment.save(update_fields=["status", "error_message", "updated_at"])
             return {"success": False, "transaction_id": tx.id, "payment_id": payment.id,
-                    "error": error, "error_code": "PROVIDER_REJECTED"}
+                    "error": error, "error_code": "PROVIDER_AUTH_ERROR" if provider_auth_failed else "PROVIDER_REJECTED"}
         except RateUnavailable:
             return {"success": False, "error": "No active exchange-rate quote is available.",
                     "error_code": "FX_RATE_UNAVAILABLE"}

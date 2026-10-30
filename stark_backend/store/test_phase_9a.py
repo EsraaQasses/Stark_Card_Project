@@ -57,8 +57,10 @@ class ProductReadQueryOptimizationTests(TestCase):
         self._create_products(7)
         many_count, many_response = self._query_count()
 
-        self.assertEqual(len(one_response.data), 1)
-        self.assertEqual(len(many_response.data), 8)
+        self.assertEqual(one_response.data['count'], 1)
+        self.assertEqual(many_response.data['count'], 8)
+        self.assertEqual(len(one_response.data['results']), 1)
+        self.assertEqual(len(many_response.data['results']), 8)
         # Fixed setup, pagination, quote, requirements, and favorite queries are
         # allowed; adding seven products must not add per-row database queries.
         self.assertLessEqual(many_count, one_count + 1)

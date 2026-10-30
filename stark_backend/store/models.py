@@ -465,6 +465,16 @@ class Product(models.Model):
     @property
     def is_available_for_purchase(self):
         """Check if product can be purchased"""
+        if self.api_config and not self.api_config.is_active:
+            return False
+        if self.external_product:
+            return bool(
+                self.is_active and not self.administrator_disabled
+                and self.provider_status == "active"
+                and self.external_product.is_active
+                and self.external_product.provider_status == "active"
+                and self.external_product.api_config.is_active
+            )
         return (
             self.is_active and not self.administrator_disabled and
             (
@@ -550,6 +560,7 @@ class Favorite(models.Model):
 
 class ExternalProduct(models.Model):
     """Read-only cache of products from external APIs"""
+    administrator_disabled = models.BooleanField(default=False)
     api_config = models.ForeignKey(
         ThirdPartyAPI, 
         on_delete=models.CASCADE, 
@@ -839,3 +850,23 @@ class StoreProduct(models.Model):
                 return False, f"Missing required field: {field_name}"
         
         return True, "Valid"
+
+
+class ProductCategoryProfit(models.Model):
+    """Per-category product profit override; null inherits product base profit."""
+    product = models.ForeignKey('store.Product', on_delete=models.CASCADE, related_name='category_profit_rates')
+    customer_category = models.ForeignKey('users.CustomerCategory', on_delete=models.PROTECT, related_name='product_profit_rates')
+    profit_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('999.99'))],
+    )
+    revision = models.PositiveIntegerField(default=0)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['product', 'customer_category'], name='store_unique_product_category_profit'),
+            models.CheckConstraint(check=models.Q(profit_percentage__isnull=True) | (models.Q(profit_percentage__gte=0) & models.Q(profit_percentage__lte=Decimal('999.99'))), name='store_category_profit_bounds'),
+        ]

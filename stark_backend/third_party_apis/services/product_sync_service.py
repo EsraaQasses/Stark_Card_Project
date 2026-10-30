@@ -55,6 +55,8 @@ class ProductSynchronizationService:
     @classmethod
     def synchronize(cls, api_id, *, force=False):
         api_config = ThirdPartyAPI.objects.get(pk=api_id)
+        if not api_config.is_active:
+            return {"success": False, "error_code": "API_PROVIDER_DISABLED", "error": "Provider is disabled."}
         lock_key = f"product-sync:{api_config.provider}:{api_config.id}"
         token = uuid.uuid4().hex
         advisory_lock = False
@@ -80,6 +82,8 @@ class ProductSynchronizationService:
             products = connector.get_products()
             if products is None or products == []:
                 return cls._finish_unavailable(run, "PROVIDER_EMPTY_RESPONSE", "Provider returned no catalog data")
+            if not isinstance(products, list):
+                return cls._finish_unavailable(run, "PROVIDER_INVALID_RESPONSE", "Provider returned an invalid catalog")
 
             valid = []
             partial = False
@@ -87,7 +91,7 @@ class ProductSynchronizationService:
                 if not isinstance(data, dict) or not data.get("external_id") or not data.get("name"):
                     partial = True
                     ProductSyncResult.objects.create(
-                        run=run, external_id=str((data or {}).get("external_id") or "unknown"),
+                        run=run, external_id=str(data.get("external_id") or "unknown") if isinstance(data, dict) else "unknown",
                         status="invalid", message="Provider item missing external_id or name",
                     )
                     continue
@@ -104,10 +108,16 @@ class ProductSynchronizationService:
                     continue
                 valid.append((data, base_price))
 
+            if not valid:
+                return cls._finish_unavailable(run, "PROVIDER_INVALID_RESPONSE", "Provider returned no valid products")
+
             seen_ids = {str(data["external_id"]) for data, _ in valid}
             changed = False
             counts = {"synced": 0, "updated": 0, "unchanged": 0, "removed": 0}
             with transaction.atomic():
+                api_config = ThirdPartyAPI.objects.select_for_update().get(pk=api_id)
+                if not api_config.is_active:
+                    return cls._finish_unavailable(run, "API_PROVIDER_DISABLED", "Provider disabled during synchronization")
                 for data, base_price in valid:
                     status = cls._status(data.get("status"))
                     external, created = ExternalProduct.objects.select_for_update().get_or_create(
@@ -122,7 +132,7 @@ class ProductSynchronizationService:
                     external.required_fields_json = data.get("required_fields", [])
                     external.external_data = data.get("external_data") or data
                     external.provider_status = status
-                    external.is_active = status == "active"
+                    external.is_active = status == "active" and not external.administrator_disabled
                     external.last_sync_error_code = ""
                     external.last_sync_error = ""
                     external.save()
@@ -133,12 +143,12 @@ class ProductSynchronizationService:
                     for local in StoreProduct.objects.select_for_update().filter(external_product=external):
                         local.provider_status = status
                         if not local.administrator_disabled:
-                            local.is_active = status == "active"
+                            local.is_active = external.is_active
                         local.save(update_fields=["provider_status", "is_active", "updated_at"])
                     for local in Product.objects.select_for_update().filter(external_product=external):
                         local.provider_status = status
                         if not local.administrator_disabled:
-                            local.is_active = status == "active"
+                            local.is_active = external.is_active
                         local.save(update_fields=["provider_status", "is_active", "updated_at"])
                     ProductSyncResult.objects.create(
                         run=run, external_product=external, external_id=str(data["external_id"]),
@@ -192,23 +202,23 @@ class ProductSynchronizationService:
         with transaction.atomic():
             products = list(ExternalProduct.objects.select_for_update().filter(api_config=run.api_config))
             for external in products:
-                external.provider_status = "unavailable"
                 external.last_sync_error_code = code
                 external.last_sync_error = message
-                external.save(update_fields=["provider_status", "last_sync_error_code", "last_sync_error", "last_synced"])
-                StoreProduct.objects.filter(external_product=external).update(provider_status="unavailable")
-                Product.objects.filter(external_product=external).update(provider_status="unavailable")
+                # A failed catalog fetch is not evidence that an individual
+                # product has been disabled. Keep the last confirmed state.
+                external.save(update_fields=["last_sync_error_code", "last_sync_error", "last_synced"])
                 ProductSyncResult.objects.create(
                     run=run, external_product=external, external_id=external.external_id,
-                    status="unavailable", changed=True, message=message,
+                    status="unavailable", changed=False, message=message,
                 )
         run.status = "unavailable"
         run.error_code = code
         run.error_message = message
-        run.unavailable_count = 1
+        run.unavailable_count = len(products)
         run.finished_at = timezone.now()
         run.save(update_fields=["status", "error_code", "error_message", "unavailable_count", "finished_at"])
         cls._alert(run.api_config, message, code)
         cls._cache_invalidate()
         return {"success": False, "run_id": run.id, "error_code": code, "error": message, "synced_count": 0, "updated_count": 0,
-                "total_products": 0, "valid_products": 0}
+                "total_products": 0, "valid_products": 0,
+                "cached_product_count": len(products), "preserved_last_confirmed_state": True}

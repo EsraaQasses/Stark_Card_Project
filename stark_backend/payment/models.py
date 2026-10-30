@@ -138,23 +138,13 @@ class Payment(models.Model):
             self.exchange_rate_side and self.source_currency and self.target_currency
         )
         if self.final_price and not has_conversion_snapshot and (self.amount_usd is None or self.amount_syp is None):
-            try:
-                from wallets.services import ExchangeService
-                rates = ExchangeService.get_exchange_rates()
-                usd_to_syp = rates["usd_to_syp"]["value"]
-                syp_to_usd = rates["syp_to_usd"]["value"]
-                self.exchange_rate_used = usd_to_syp
-            except Exception:
-                usd_to_syp = Decimal('116')
-                syp_to_usd = Decimal('1') / usd_to_syp
-                self.exchange_rate_used = usd_to_syp
-
-            if self.currency == "USD":
+            # No implicit FX conversion in model.save(): only the native amount
+            # is known when there is no explicit conversion snapshot.
+            # Keep any supplied historical equivalent untouched.
+            if self.currency == "USD" and self.amount_usd is None:
                 self.amount_usd = self.final_price
-                self.amount_syp = (self.final_price * usd_to_syp).quantize(Decimal('0.01'))
-            else:
+            elif self.currency == "SYP" and self.amount_syp is None:
                 self.amount_syp = self.final_price
-                self.amount_usd = (self.final_price * syp_to_usd).quantize(Decimal('0.01'))
         super().save(*args, **kwargs)
     
     def calculate_final_price(self):

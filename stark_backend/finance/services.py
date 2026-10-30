@@ -350,7 +350,7 @@ class FinanceService:
         ids = sorted({sender_wallet_id, recipient_wallet_id})
         if len(ids) != 2:
             raise FinanceError("Transfer requires two distinct wallets")
-        locked = {wallet.id: wallet for wallet in Wallet.objects.select_for_update().filter(id__in=ids)}
+        locked = {wallet.id: wallet for wallet in Wallet.objects.select_for_update().filter(id__in=ids).order_by('pk')}
         sender = locked.get(sender_wallet_id)
         recipient = locked.get(recipient_wallet_id)
         if not sender or not recipient:
@@ -376,7 +376,16 @@ class FinanceService:
             raise InvalidFinancialTransition("Only approved outgoing transactions can be refunded")
         existing = cls._existing_idempotent(idempotency_key)
         if existing:
+            if existing.related_transaction_id != original.id or existing.transaction_type != 'refund':
+                raise IdempotencyConflict("Refund key belongs to a different operation.")
             return existing
+        # This service refunds the full debit. Locking the original above
+        # makes retries with different keys converge on one full refund.
+        existing_refund = Transaction.objects.filter(
+            related_transaction=original, transaction_type='refund', status__in=('pending', 'approved'),
+        ).order_by('pk').first()
+        if existing_refund:
+            return existing_refund
         snapshot = cls._refund_snapshot(original)
         return cls._create_pending(
             wallet=cls._wallet_for_update(original.wallet_id),

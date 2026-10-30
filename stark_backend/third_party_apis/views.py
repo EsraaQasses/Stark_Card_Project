@@ -123,7 +123,7 @@ class ThirdPartyAPIViewSet(viewsets.ModelViewSet):
                     continue
                 {'product': product_qs, 'external': external_qs, 'store': store_qs}[kind].filter(id__in=ids).update(
                     provider_status='removed', administrator_disabled=True,
-                ) if kind != 'external' else external_qs.filter(id__in=ids).update(provider_status='removed')
+                ) if kind != 'external' else external_qs.filter(id__in=ids).update(provider_status='removed', administrator_disabled=True)
             api.is_active = False
             api.save(update_fields=['is_active'])
 

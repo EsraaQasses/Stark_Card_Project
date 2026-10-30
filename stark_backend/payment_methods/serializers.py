@@ -4,6 +4,7 @@ import json
 # stark-image-upload-v1: multipart nested fields and validated image uploads
 from rest_framework import serializers
 from .models import PaymentMethod, PaymentMethodField, PaymentMethodImage
+from .media_service import media_transaction, retire_file, save_upload, validate_image
 
 class PaymentMethodFieldSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,7 +25,7 @@ class PaymentMethodSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentMethod
         fields = [
-            "id", "title", "name", "icon_url", "account_details",
+            "id", "title", "name", "icon_url", "qr_image", "instruction_image", "currency", "description", "account_details",
             "instructions", "note",
             "requires_receipt",
             "is_active", "fields", "additional_images",
@@ -33,13 +34,15 @@ class PaymentMethodSerializer(serializers.ModelSerializer):
         read_only_fields = ('created_at', 'updated_at')
 
 class PaymentMethodCreateSerializer(serializers.ModelSerializer):
+    is_active = serializers.BooleanField(required=False, default=True)
+    requires_receipt = serializers.BooleanField(required=False, default=True)
     fields = PaymentMethodFieldSerializer(many=True, required=False)
     additional_images = PaymentMethodImageSerializer(many=True, read_only=True)
     
     class Meta:
         model = PaymentMethod
         fields = [
-            "id", "title", "name", "icon_url", "account_details",
+            "id", "title", "name", "icon_url", "qr_image", "instruction_image", "currency", "description", "account_details",
             "instructions", "note",
             "requires_receipt",
             "is_active", "fields", "additional_images"
@@ -65,33 +68,38 @@ class PaymentMethodCreateSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def validate_icon_url(self, value):
-        if not value:
-            return value
-        if getattr(value, 'size', 0) > 5 * 1024 * 1024:
-            raise serializers.ValidationError('Image must be 5 MB or smaller.')
-        if getattr(value, 'content_type', '').lower() not in ('image/png', 'image/jpeg', 'image/webp'):
-            raise serializers.ValidationError('Only PNG, JPG or WEBP images are allowed.')
-        return value
+        return validate_image(value)
+
+    def validate_instruction_image(self, value):
+        return validate_image(value)
+
+    def validate_qr_image(self, value):
+        return validate_image(value)
 
     def create(self, validated_data):
-        fields_data = validated_data.pop('fields', [])
-        payment_method = PaymentMethod.objects.create(**validated_data)
-        
-        for field_data in fields_data:
-            PaymentMethodField.objects.create(payment_method=payment_method, **field_data)
-            
-        return payment_method
+        return self._save(PaymentMethod(), validated_data)
 
     def update(self, instance, validated_data):
+        return self._save(instance, validated_data)
+
+    def _save(self, instance, validated_data):
         fields_data = validated_data.pop('fields', None)
-        
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        
-        if fields_data is not None:
-            instance.fields.all().delete()
-            for field_data in fields_data:
-                PaymentMethodField.objects.create(payment_method=instance, **field_data)
-            
+        with media_transaction() as uploaded:
+            if instance.pk:
+                instance = PaymentMethod.objects.select_for_update().get(pk=instance.pk)
+            for name in ('icon_url', 'qr_image', 'instruction_image'):
+                if name in validated_data:
+                    value = validated_data.pop(name)
+                    retire_file(getattr(instance, name))
+                    if value:
+                        save_upload(instance, name, value, uploaded)
+                    else:
+                        setattr(instance, name, None)
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            if fields_data is not None:
+                instance.fields.all().delete()
+                for field_data in fields_data:
+                    PaymentMethodField.objects.create(payment_method=instance, **field_data)
         return instance

@@ -210,8 +210,8 @@ class CustomerAdministrationService:
     @transaction.atomic
     def request_adjustment(cls, actor, user_id, amount, currency, reason, idempotency_key, request=None):
         cls._require_admin(actor)
-        if not idempotency_key or not isinstance(reason, str) or len(reason.strip()) < 10:
-            raise ValidationError("A unique idempotency key and reason of at least 10 characters are required.")
+        if not idempotency_key or not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 500:
+            raise ValidationError("A unique idempotency key and a reason of 1 to 500 characters are required.")
         try:
             delta = Decimal(str(amount))
         except (InvalidOperation, TypeError, ValueError) as exc:

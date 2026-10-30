@@ -26,7 +26,11 @@ class BoundaryDateTimeField(forms.Field):
             raw = str(value).strip()
             parsed = None
             try:
-                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                if len(raw) == 10:
+                    parsed_date = datetime.strptime(raw, "%Y-%m-%d").date()
+                    parsed = datetime.combine(parsed_date, time.max if self.end else time.min)
+                else:
+                    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
             except ValueError:
                 try:
                     parsed_date = datetime.strptime(raw, "%Y-%m-%d").date()
@@ -43,6 +47,14 @@ class DateTimeBoundaryFilter(django_filters.Filter):
 
     def __init__(self, *args, end=False, **kwargs):
         kwargs["end"] = end
+        super().__init__(*args, **kwargs)
+
+
+class IDFilter(django_filters.Filter):
+    field_class = forms.IntegerField
+
+    def __init__(self, *args, **kwargs):
+        kwargs['min_value'] = 1
         super().__init__(*args, **kwargs)
 
 
@@ -74,7 +86,7 @@ class RequestFilterSet(django_filters.FilterSet):
         ("payment", "Payment"), ("cashout", "Cashout"), ("support", "Support"),
         ("refund", "Refund"), ("other", "Other"),
     ))
-    user = django_filters.NumberFilter(field_name="user_id")
+    user = IDFilter(field_name="user_id")
     currency = django_filters.ChoiceFilter(field_name="currency", choices=(("USD", "USD"), ("SYP", "SYP")))
     created_from = DateTimeBoundaryFilter(field_name="created_at", lookup_expr="gte")
     created_to = DateTimeBoundaryFilter(field_name="created_at", lookup_expr="lte", end=True)
@@ -102,6 +114,8 @@ class RequestFilterSet(django_filters.FilterSet):
             raise DjangoValidationError(
                 f"Invalid ordering field(s): {', '.join(invalid)}."
             )
+        if fields and not any(field.lstrip('-') == 'id' for field in fields):
+            fields.append('-id')
         return fields or ["-created_at", "-id"]
 
     def clean(self):
@@ -155,13 +169,24 @@ class RequestFilterSet(django_filters.FilterSet):
 
 
 class ShippingFilterSet(RequestFilterSet):
+    def filter_search(self, queryset, name, value):
+        query = Q()
+        for field in self.search_fields:
+            query |= Q(**{f"{field}__icontains": value})
+        identifier = str(value).strip().lstrip('#')
+        if identifier.isdecimal() and len(identifier) <= 19:
+            number = int(identifier)
+            if 0 < number <= 9223372036854775807:
+                query |= Q(pk=number)
+        return queryset.filter(query)
+
     request_type = None
     status = django_filters.ChoiceFilter(field_name="status", choices=(
         ("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected"),
         ("processing", "Processing"), ("failed", "Failed"),
     ))
-    reviewer = django_filters.NumberFilter(field_name="approved_by_id")
-    agent = django_filters.NumberFilter(method="filter_agent")
+    reviewer = IDFilter(field_name="approved_by_id")
+    agent = IDFilter(method="filter_agent")
     provider = django_filters.CharFilter(method="filter_provider")
     search_fields = ("user__name", "user__full_name", "user__email", "request__title", "request__description")
 
@@ -199,6 +224,7 @@ class AgentShippingFilterSet(BaseShippingFilterSet):
 
 
 class AgentAdminShippingFilterSet(ShippingFilterSet):
+    user = IDFilter(field_name="agent_id")
     search_fields = ("agent__name", "agent__full_name", "agent__email", "user_input_data")
 
     def filter_agent(self, queryset, name, value):
@@ -214,8 +240,8 @@ class AgentAdminShippingFilterSet(ShippingFilterSet):
 
 
 class AllRequestFilterSet(RequestFilterSet):
-    reviewer = django_filters.NumberFilter(method="filter_reviewer")
-    agent = django_filters.NumberFilter(field_name="user__agent_id")
+    reviewer = IDFilter(method="filter_reviewer")
+    agent = IDFilter(field_name="user__agent_id")
     provider = django_filters.CharFilter(field_name="user_input_data__provider", lookup_expr="iexact")
     search_fields = RequestFilterSet.search_fields + ("user_input_data",)
 
@@ -233,8 +259,8 @@ class CashoutFilterSet(django_filters.FilterSet):
         ("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected"),
         ("failed", "Failed"), ("cancelled", "Cancelled"),
     ))
-    user = django_filters.NumberFilter(field_name="user_id")
-    agent = django_filters.NumberFilter(field_name="recipient_id")
+    user = IDFilter(field_name="user_id")
+    agent = IDFilter(field_name="recipient_id")
     provider = django_filters.CharFilter(method="filter_provider")
     currency = django_filters.ChoiceFilter(field_name="currency", choices=(("USD", "USD"), ("SYP", "SYP")))
     created_from = DateTimeBoundaryFilter(field_name="created_at", lookup_expr="gte")

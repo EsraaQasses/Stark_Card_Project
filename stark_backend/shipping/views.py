@@ -43,39 +43,38 @@ from all_requests.openapi import SHIPPING_FILTER_PARAMETERS
 from all_requests.pagination_serializers import PaginatedRequestResponseSerializer
 from all_requests.schema_serializers import FilterValidationErrorSerializer
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from .summaries import ShippingSummaryMixin, shipping_summary
 
 logger = logging.getLogger(__name__)
 
 @extend_schema_view(
     list=extend_schema(parameters=SHIPPING_FILTER_PARAMETERS, responses={200: ShippingSerializer, 400: FilterValidationErrorSerializer}),
 )
-class ShippingViewSet(viewsets.ModelViewSet):
+class ShippingViewSet(ShippingSummaryMixin, viewsets.ModelViewSet):
     queryset = Shipping.objects.none()
     serializer_class = ShippingSerializer
     filter_backends = [SecureFilterBackend]
     filterset_class = ShippingFilterSet
     pagination_class = RequestPagination
+
+    def create(self, request, *args, **kwargs):
+        from rest_framework.exceptions import MethodNotAllowed
+        raise MethodNotAllowed(request.method)
     
     @action(detail=False, methods=['get'])
     def count(self, request):
         """Get total count of shipping requests"""
-        try:
-            pending_count = Shipping.objects.filter(status='pending').count()
-            total_count = Shipping.objects.count()
-            
-            return Response({
-                'total_count': total_count,
-                'pending_count': pending_count,
-                'approved_count': Shipping.objects.filter(status='approved').count(),
-                'rejected_count': Shipping.objects.filter(status='rejected').count()
-            })
-        except Exception as e:
-            logger.error(f"Error getting shipping counts: {str(e)}")
-            return Response({
-                'error': 'Database error',
-                'detail': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+        queryset = self.filter_queryset(self.get_queryset())
+        pending_count = queryset.filter(status='pending').count()
+        total_count = queryset.count()
+
+        return Response({
+            'total_count': total_count,
+            'pending_count': pending_count,
+            'approved_count': queryset.filter(status='approved').count(),
+            'rejected_count': queryset.filter(status='rejected').count()
+        })
+
     def get_queryset(self):
         user = self.request.user
         if user.role == 'admin':
@@ -93,8 +92,8 @@ class ShippingViewSet(viewsets.ModelViewSet):
                 .order_by('-created_at', '-id')
             )
         if user.role == 'agent':
-            return Shipping.objects.filter(user__agent=user).select_related('user', 'request')
-        return Shipping.objects.filter(user=user).select_related('user', 'request')
+            return Shipping.objects.filter(user__agent=user).select_related('user', 'request').order_by('-created_at', '-id')
+        return Shipping.objects.filter(user=user).select_related('user', 'request').order_by('-created_at', '-id')
     
     def get_serializer_class(self):
         if self.action in ['update_status', 'partial_update']:
@@ -109,10 +108,12 @@ class ShippingViewSet(viewsets.ModelViewSet):
         return False
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    @db_transaction.atomic
     def update_status(self, request, pk=None):
         """Update shipping status with proper transaction handling - FIXED VERSION"""
         try:
             shipping = self.get_object()
+            shipping = type(shipping).objects.select_for_update().get(pk=shipping.pk)
             if not self._can_update_shipping(request.user, shipping):
                 return Response({
                     "error": "You do not have permission to update this shipping request",
@@ -120,6 +121,8 @@ class ShippingViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_403_FORBIDDEN)
 
             new_status = request.data.get('status')
+            if shipping.status in {'approved', 'rejected', 'failed'} and new_status != shipping.status:
+                return Response({'error': 'Finalized shipping status cannot be changed.'}, status=status.HTTP_409_CONFLICT)
             old_status = shipping.status
             
             # Validate status transition
@@ -275,11 +278,12 @@ class ShippingViewSet(viewsets.ModelViewSet):
 
             # Get exchange rates
             rates = ExchangeService.get_exchange_rates()
-            if not rates or 'usd_to_syp' not in rates:
-                raise ValueError("No legacy exchange rate is available")
-            else:
-                usd_to_syp = rates["usd_to_syp"]["value"]
-                syp_to_usd = rates["syp_to_usd"]["value"]
+            if not rates.get("rate_available"):
+                raise ValueError("FX_RATE_UNAVAILABLE: active exchange-rate quote required")
+            usd_to_syp = rates["usd_to_syp"]["value"]
+            syp_to_usd = rates["syp_to_usd"]["value"]
+            if usd_to_syp is None or syp_to_usd is None:
+                raise ValueError("FX_RATE_UNAVAILABLE: incomplete exchange-rate quote")
 
             if shipping.currency == 'SYP':
                 amount_in_usd = (shipping.amount * syp_to_usd).quantize(Decimal('0.01'))
@@ -571,42 +575,28 @@ class ShippingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
-        """Override list to include payment statistics for admins"""
-        try:
-            queryset = self.filter_queryset(self.get_queryset())
-
-            page = self.paginate_queryset(queryset)
-            if page is not None:
-                serializer = ShippingSerializer(page, many=True)
-                response = self.get_paginated_response(serializer.data)
-            else:
-                serializer = ShippingSerializer(queryset, many=True)
-                response = Response({"results": serializer.data})
-
-            if request.user.role == 'admin':
-                from django.db.models import Sum
-                stats_queryset = Shipping.objects.all()
-                approved_shippings = stats_queryset.filter(status='approved')
-                total_amount = approved_shippings.aggregate(total=Sum('amount'))['total'] or Decimal('0')
-                pending_shippings = stats_queryset.filter(status='pending')
-                pending_amount = pending_shippings.aggregate(total=Sum('amount'))['total'] or Decimal('0')
-                usd_approved = approved_shippings.filter(currency='USD').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-                syp_approved = approved_shippings.filter(currency='SYP').aggregate(total=Sum('amount'))['total'] or Decimal('0')
-                response.data['payment_statistics'] = {
-                    'total_approved_amount': float(total_amount),
-                    'total_pending_amount': float(pending_amount),
-                    'usd_approved': float(usd_approved),
-                    'syp_approved': float(syp_approved),
-                    'approved_shippings_count': approved_shippings.count(),
-                    'pending_shippings_count': pending_shippings.count(),
-                    'rejected_shippings_count': stats_queryset.filter(status='rejected').count()
-                }
-
-            return response
-
-        except Exception as e:
-            logger.error(f"Error in shipping list: {str(e)}")
-            return super().list(request, *args, **kwargs)
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        response = self.get_paginated_response(self.get_serializer(page, many=True).data)
+        summary = shipping_summary(queryset)
+        response.data['summary'] = summary
+        if request.user.role == 'admin':
+            totals = summary['amounts_by_currency']
+            counts = summary['counts_by_status']
+            def amount(currency, state):
+                return Decimal(totals.get(currency, {}).get(state, '0'))
+            # Legacy scalar totals are meaningful only for a single currency.
+            currency = next(iter(totals), 'USD') if len(totals) <= 1 else None
+            response.data['payment_statistics'] = {
+                'total_approved_amount': float(amount(currency, 'approved')) if currency else None,
+                'total_pending_amount': float(amount(currency, 'pending')) if currency else None,
+                'usd_approved': float(amount('USD', 'approved')),
+                'syp_approved': float(amount('SYP', 'approved')),
+                'approved_shippings_count': counts.get('approved', 0),
+                'pending_shippings_count': counts.get('pending', 0),
+                'rejected_shippings_count': counts.get('rejected', 0),
+            }
+        return response
 
 
 class AgentShippingRequestView(APIView):
@@ -788,7 +778,7 @@ def _normalize_user_input(raw):
 @extend_schema_view(
     list=extend_schema(parameters=SHIPPING_FILTER_PARAMETERS, responses={200: StandardShippingRequestSerializer, 400: FilterValidationErrorSerializer}),
 )
-class StandardShippingRequestViewSet(viewsets.ModelViewSet):
+class StandardShippingRequestViewSet(ShippingSummaryMixin, viewsets.ModelViewSet):
     queryset = StandardShippingRequest.objects.none()
     serializer_class = StandardShippingRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -840,9 +830,13 @@ class StandardShippingRequestViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @db_transaction.atomic
     def update_status(self, request, pk=None):
         shipping = self.get_object()
+        shipping = type(shipping).objects.select_for_update().get(pk=shipping.pk)
         new_status = request.data.get('status')
+        if shipping.status in {'approved', 'rejected', 'failed'} and new_status != shipping.status:
+            return Response({'error': 'Finalized shipping status cannot be changed.'}, status=status.HTTP_409_CONFLICT)
         if new_status not in ['pending', 'approved', 'rejected', 'processing']:
             return Response({"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
         if new_status == 'approved' and shipping.status == 'approved':
@@ -887,7 +881,7 @@ class StandardShippingRequestViewSet(viewsets.ModelViewSet):
 @extend_schema_view(
     list=extend_schema(parameters=SHIPPING_FILTER_PARAMETERS, responses={200: AgentShippingRequestSerializer, 400: FilterValidationErrorSerializer}),
 )
-class AgentShippingRequestViewSet(viewsets.ModelViewSet):
+class AgentShippingRequestViewSet(ShippingSummaryMixin, viewsets.ModelViewSet):
     queryset = AgentShippingRequest.objects.none()
     serializer_class = AgentShippingRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -957,12 +951,16 @@ class AgentShippingRequestViewSet(viewsets.ModelViewSet):
             logger.error("Failed to notify agent for via-agent shipping %s: %s", shipping.id, e)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    @db_transaction.atomic
     def update_status(self, request, pk=None):
         shipping = self.get_object()
+        shipping = type(shipping).objects.select_for_update().get(pk=shipping.pk)
         if request.user.role != 'agent' or shipping.agent_id != request.user.id:
             return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
 
         new_status = request.data.get('status')
+        if shipping.status in {'approved', 'rejected', 'failed'} and new_status != shipping.status:
+            return Response({'error': 'Finalized shipping status cannot be changed.'}, status=status.HTTP_409_CONFLICT)
         if new_status not in ['pending', 'approved', 'rejected', 'processing']:
             return Response({"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
         if new_status == 'approved' and shipping.status == 'approved':
@@ -1007,7 +1005,7 @@ class AgentShippingRequestViewSet(viewsets.ModelViewSet):
 @extend_schema_view(
     list=extend_schema(parameters=SHIPPING_FILTER_PARAMETERS, responses={200: AgentAdminShippingRequestSerializer, 400: FilterValidationErrorSerializer}),
 )
-class AgentAdminShippingRequestViewSet(viewsets.ModelViewSet):
+class AgentAdminShippingRequestViewSet(ShippingSummaryMixin, viewsets.ModelViewSet):
     queryset = AgentAdminShippingRequest.objects.none()
     serializer_class = AgentAdminShippingRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -1054,9 +1052,13 @@ class AgentAdminShippingRequestViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @db_transaction.atomic
     def update_status(self, request, pk=None):
         shipping = self.get_object()
+        shipping = type(shipping).objects.select_for_update().get(pk=shipping.pk)
         new_status = request.data.get('status')
+        if shipping.status in {'approved', 'rejected', 'failed'} and new_status != shipping.status:
+            return Response({'error': 'Finalized shipping status cannot be changed.'}, status=status.HTTP_409_CONFLICT)
         if new_status not in ['pending', 'approved', 'rejected', 'processing']:
             return Response({"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
         if new_status == 'approved' and shipping.status == 'approved':

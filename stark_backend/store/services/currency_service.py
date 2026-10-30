@@ -14,24 +14,19 @@ class CurrencyService:
     @staticmethod
     def get_exchange_rates():
         """Get current exchange rates with caching"""
-        try:
-            rates = ExchangeService.get_exchange_rates()
-            
-            # Validate and ensure proper rates
-            usd_to_syp = Decimal(str(rates.get("usd_to_syp", {}).get("value", 116)))
-            syp_to_usd = Decimal('1') / usd_to_syp if usd_to_syp > 0 else (Decimal('1') / Decimal('116'))
-            
-            return {
-                "usd_to_syp": usd_to_syp,
-                "syp_to_usd": syp_to_usd
-            }
-        except Exception as e:
-            logger.error(f"Error getting exchange rates: {str(e)}")
-            # Return safe defaults
-            return {
-                "usd_to_syp": Decimal('116'),
-                "syp_to_usd": (Decimal('1') / Decimal('116'))  # 1/116
-            }
+        from finance.conversion import RateUnavailable
+        rates = ExchangeService.get_exchange_rates(display_only=True)
+        if not rates.get("rate_available"):
+            raise RateUnavailable("No active exchange-rate quote is available.")
+        buy = rates.get("usd_to_syp", {}).get("value")
+        sell_inverse = rates.get("syp_to_usd", {}).get("value")
+        if buy is None or sell_inverse is None:
+            raise RateUnavailable("The active exchange-rate quote is incomplete.")
+        usd_to_syp = Decimal(str(buy))
+        syp_to_usd = Decimal(str(sell_inverse))
+        if not usd_to_syp.is_finite() or not syp_to_usd.is_finite() or usd_to_syp <= 0 or syp_to_usd <= 0:
+            raise RateUnavailable("The active exchange-rate quote is invalid.")
+        return {"usd_to_syp": usd_to_syp, "syp_to_usd": syp_to_usd}
     
     @staticmethod
     def get_display_rates(quote=None):

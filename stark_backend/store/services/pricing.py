@@ -13,7 +13,7 @@ from wallets.rate_quotes import ExchangeRateQuoteService
 from agents.services.commission_policy import CommissionPolicy, EffectiveCommissionRate
 
 
-PRICING_POLICY_VERSION = "1.6"
+PRICING_POLICY_VERSION = "1.7"
 ZERO = Decimal("0")
 PERCENT = Decimal("100")
 PRICE_QUANTUM = Decimal("0.000000000001")
@@ -267,6 +267,28 @@ class PricingPolicy:
             calculated_at=timezone.now(),
         )
 
+    @staticmethod
+    def effective_product_profit_percentage(product, user):
+        """Per-category product override, else existing product base markup.
+
+        Null means inherit. Explicit 0 means replace base with zero.
+        Match the same default category used by User.effective_profit_percentage.
+        """
+        base_pct = Decimal(str(getattr(product, "product_profit_percentage", ZERO) or ZERO))
+        if user is None or getattr(user, "role", None) == "admin" or getattr(user, "is_staff", False):
+            return base_pct
+        category = getattr(user, "category", None)
+        if category is None or not category.is_active:
+            from users.models import CustomerCategory
+            category = CustomerCategory.objects.filter(is_default=True, is_active=True).first()
+        if category is None:
+            return base_pct
+        from store.models import ProductCategoryProfit
+        override = ProductCategoryProfit.objects.filter(
+            product_id=product.pk, customer_category_id=category.pk,
+        ).values_list("profit_percentage", flat=True).first()
+        return base_pct if override is None else Decimal(str(override))
+
     @classmethod
     def for_product(cls, *, product, user=None, wallet_currency=None, amount=None,
                     selected_option=None, quote=None, store_product=None,
@@ -288,7 +310,7 @@ class PricingPolicy:
             provider_product_id=getattr(external, "id", None),
             provider_cost_amount=provider_cost,
             provider_cost_currency="USD" if provider_cost is not None else None,
-            product_profit_percentage=getattr(product, "product_profit_percentage", ZERO),
+            product_profit_percentage=cls.effective_product_profit_percentage(product, user),
             product=product,
             quote=quote,
             operation_type=operation_type,

@@ -3,7 +3,7 @@ from threading import Barrier, Thread
 from unittest import skipUnless
 from unittest.mock import patch
 
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, connections
 from django.test import TestCase, TransactionTestCase
 
 from finance.services import FinanceError, FinanceService, InsufficientFunds
@@ -118,7 +118,7 @@ class FinanceConcurrencyTests(TransactionTestCase):
             except InsufficientFunds:
                 results.append("insufficient")
             finally:
-                close_old_connections()
+                connections.close_all()
 
         threads = [Thread(target=withdraw, args=(f"concurrent-{i}",)) for i in range(2)]
         for thread in threads:

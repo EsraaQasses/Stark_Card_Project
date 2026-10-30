@@ -28,7 +28,7 @@ if missing_vars:
     raise ValueError(f"Missing environment variables: {', '.join(missing_vars)}")
 
 # Allowed hosts for production
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'stark-card-app.com', 'www.stark-card-app.com', '37.120.185.235']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'stark-card-app.com', 'www.stark-card-app.com', '37.120.185.235', '192.168.1.110']
 
 # Application definition
 INSTALLED_APPS = [

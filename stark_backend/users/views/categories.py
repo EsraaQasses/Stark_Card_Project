@@ -1,3 +1,4 @@
+from rest_framework.exceptions import ValidationError
 from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework import viewsets, status
@@ -44,11 +45,13 @@ class CustomerCategoryViewSet(viewsets.ModelViewSet):
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
 
+    @transaction.atomic
     def perform_create(self, serializer):
         category = serializer.save()
         
         # Audit log for category creation
         AuditLogger.log(
+            strict=True,
             request=self.request,
             action='USER_UPDATE',
             resource_type='category',
@@ -60,31 +63,40 @@ class CustomerCategoryViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @transaction.atomic
     def perform_update(self, serializer):
-        old_category = self.get_object()
+        old_category = CustomerCategory.objects.select_for_update().get(pk=serializer.instance.pk)
+        old_name, old_profit = old_category.display_name, old_category.profit_percentage
+        serializer.instance = old_category
         category = serializer.save()
         
         # Audit log for category update
         AuditLogger.log(
+            strict=True,
             request=self.request,
             action='USER_UPDATE',
             resource_type='category',
             resource_id=category.id,
             details={
                 'action': 'category_updated',
-                'old_name': old_category.display_name,
+                'old_name': old_name,
                 'new_name': category.display_name,
-                'old_profit': float(old_category.profit_percentage),
+                'old_profit': float(old_profit),
                 'new_profit': float(category.profit_percentage)
             }
         )
 
+    @transaction.atomic
     def perform_destroy(self, instance):
+        instance = CustomerCategory.objects.select_for_update().get(pk=instance.pk)
+        if instance.product_profit_rates.exists():
+            raise ValidationError({'detail': 'This category has product rate history. Deactivate it instead of deleting it.'})
         category_id = instance.id
         category_name = instance.display_name
         
         # Audit log before deletion
         AuditLogger.log(
+            strict=True,
             request=self.request,
             action='USER_UPDATE',
             resource_type='category',
@@ -122,7 +134,7 @@ def assign_user_category(request):
     
     try:
         with transaction.atomic():
-            user = User.objects.get(id=user_id)
+            user = User.objects.select_for_update().get(id=user_id)
             
             if category_id is None:
                 # Remove category assignment - user will use default category
@@ -131,6 +143,7 @@ def assign_user_category(request):
                 
                 # Audit log
                 AuditLogger.log(
+                    strict=True,
                     request=request,
                     action='CATEGORY_ASSIGN',
                     resource_type='user',
@@ -143,7 +156,7 @@ def assign_user_category(request):
                     }
                 )
             else:
-                category = CustomerCategory.objects.get(id=category_id)
+                category = CustomerCategory.objects.select_for_update().get(id=category_id, is_active=True)
                 
                 # Assign category to user
                 user.assign_category(category, request.user, notes)
@@ -151,6 +164,7 @@ def assign_user_category(request):
                 
                 # Audit log
                 AuditLogger.log(
+                    strict=True,
                     request=request,
                     action='CATEGORY_ASSIGN',
                     resource_type='user',
@@ -218,7 +232,7 @@ def bulk_assign_category(request):
     try:
         with transaction.atomic():
             # Validate all users exist before processing
-            existing_users = User.objects.filter(id__in=user_ids)
+            existing_users = User.objects.select_for_update().filter(id__in=user_ids).order_by('pk')
             existing_user_ids = set(existing_users.values_list('id', flat=True))
             requested_user_ids = set(user_ids)
             
@@ -231,7 +245,7 @@ def bulk_assign_category(request):
             
             category = None
             if category_id is not None:
-                category = CustomerCategory.objects.get(id=category_id)
+                category = CustomerCategory.objects.select_for_update().get(id=category_id, is_active=True)
             
             assigned_count = 0
             for user in existing_users:
@@ -244,6 +258,7 @@ def bulk_assign_category(request):
             
             # Audit log for bulk action
             AuditLogger.log(
+                strict=True,
                 request=request,
                 action='CATEGORY_ASSIGN',
                 resource_type='user',

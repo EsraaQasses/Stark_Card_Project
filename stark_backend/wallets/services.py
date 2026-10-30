@@ -64,31 +64,9 @@ class ExchangeService:
         if display_only:
             return unavailable
 
-        # Legacy compatibility for unmigrated transactional consumers. D1
-        # display paths always pass display_only=True and never reach here.
-        try:
-            rate = ExchangeRate.objects.order_by("-updated_at").first()
-            if not rate:
-                logger.warning("ExchangeService: no ExchangeRate found, creating default 116.")
-                rate = ExchangeRate.objects.create(usd_to_syp=Decimal("116"))
-            if not rate.syp_to_usd or rate.syp_to_usd <= 0:
-                rate.syp_to_usd = (Decimal("1") / rate.usd_to_syp).quantize(Decimal("0.000001"))
-                rate.save(update_fields=["syp_to_usd", "updated_at"])
-            return {
-                "rate_available": False,
-                "legacy_compatibility": True,
-                "usd_to_syp": {"value": rate.usd_to_syp, "change": 0},
-                "syp_to_usd": {"value": rate.syp_to_usd, "change": 0},
-                "quote_id": None,
-                "version": None,
-                "effective_at": None,
-                "status": None,
-                "platform_buy_usd_rate_syp": None,
-                "platform_sell_usd_rate_syp": None,
-            }
-        except Exception as exc:
-            logger.error("Error getting legacy exchange rates: %s", exc)
-            return unavailable
+        # Fail closed: never create or reuse a legacy rate for financial writes.
+        # Legacy rows remain in the database for historical auditing only.
+        return unavailable
 
 
 class WalletService:

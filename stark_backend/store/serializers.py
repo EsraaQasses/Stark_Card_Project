@@ -176,7 +176,8 @@ class ExternalProductSerializer(ProductImageMetadataMixin, serializers.ModelSeri
         fields = [
             'id', 'external_id', 'name', 'description', 'base_price',
             'category', 'required_fields_json', 'api_config', 'api_name',
-            'provider', 'is_api_active', 'is_active', 'last_synced',
+            'provider', 'is_api_active', 'is_active', 'administrator_disabled', 'provider_status',
+            'last_sync_error_code', 'last_sync_error', 'last_synced',
             'image_url', 'image_source', 'image_available', 'image_is_fallback'
         ]
         read_only_fields = fields
@@ -521,6 +522,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Create a new product with requirements"""
+        if 'is_active' in validated_data:
+            validated_data['administrator_disabled'] = not validated_data['is_active']
         requirements_data = validated_data.pop('requirements', [])
         
         # Create the product instance
@@ -535,6 +538,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         """Update an existing product"""
         requirements_data = validated_data.pop('requirements', None)
+        if 'is_active' in validated_data:
+            validated_data['administrator_disabled'] = not validated_data['is_active']
         
         # Update product fields
         for attr, value in validated_data.items():
@@ -1169,6 +1174,16 @@ class StoreProductSerializer(ProductImageMetadataMixin, serializers.ModelSeriali
 
 
 class StoreProductCreateSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        if 'is_active' in validated_data:
+            validated_data['administrator_disabled'] = not validated_data['is_active']
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'is_active' in validated_data:
+            validated_data['administrator_disabled'] = not validated_data['is_active']
+        return super().update(instance, validated_data)
+
     """Serializer for creating/updating store products"""
     external_product = serializers.PrimaryKeyRelatedField(
         queryset=ExternalProduct.objects.filter(is_active=True),

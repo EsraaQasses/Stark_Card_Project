@@ -1,3 +1,4 @@
+from .profit_matrix import ProductProfitMatrixView
 # store/urls.py - Updated
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -18,6 +19,7 @@ user_router.register(r"sections", UserSectionListView, basename="user-section")
 user_router.register(r"products", UserProductListView, basename="user-product")
 
 urlpatterns = [
+    path('admin/profit-matrix/', ProductProfitMatrixView.as_view(), name='admin-product-profit-matrix'),
     # Admin endpoints
     path("admin/", include(admin_router.urls)),
     

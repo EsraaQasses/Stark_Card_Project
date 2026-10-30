@@ -606,6 +606,8 @@ class AlaaeddinConnector(BaseConnector):
                     }
                 else:
                     error_info = response_data.get('error', {})
+                    if not isinstance(error_info, dict):
+                        error_info = {'message': str(error_info)}
                     logger.warning(
                         "[Alaaeddin] error response -> status=%s, error=%s",
                         result.get("status_code"),
@@ -616,6 +618,7 @@ class AlaaeddinConnector(BaseConnector):
                         'error': error_info.get('message', 'API call failed'),
                         'error_code': error_info.get('code', ''),
                         'error_details': error_info.get('details', ''),
+                        'status': response_data.get('status', 'unknown'),
                         'client_reference': client_ref,
                         'status_code': result.get('status_code', 400)
                     }
@@ -644,6 +647,7 @@ class AlaaeddinConnector(BaseConnector):
                     'error': err.get('message', 'Request failed') if isinstance(err, dict) else (err or 'Request failed'),
                     'error_code': err.get('code', '') if isinstance(err, dict) else '',
                     'error_details': err.get('details', '') if isinstance(err, dict) else '',
+                    'status': 'rejected' if result.get('status_code') in (400, 422) and isinstance(err, dict) else 'unknown',
                     'status_code': result.get('status_code', 400)
                 }
                 
@@ -929,6 +933,7 @@ class StarkCardConnector(BaseConnector):
                     'success': False,
                     'error': f"API Error ({error_code}): {error_msg}",
                     'error_code': error_code,
+                    'status': 'rejected',
                     'status_code': result.get('status_code', 400)
                 }
             else:

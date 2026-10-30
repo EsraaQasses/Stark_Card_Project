@@ -261,6 +261,52 @@ class FinancialReportService:
             currency = str(row["provider_currency"] or "UNKNOWN").upper()
             totals["provider_cost"][currency] += cls._money(row["provider_cost"])
 
+        # Reconciliation audit: the historical totals contain amounts in their
+        # ORIGINAL currencies. Without an immutable FX quote, subtracting a
+        # provider USD cost from a SYP sale is not a verified profit calculation.
+        # Missing provider costs are likewise NOT assumed to be zero.
+        cost_quality_rows = (
+            cls._deduplicated_rows(start, end)
+            .filter(status="approved", transaction_type="purchase")
+            .values("report_currency", "operation_context__provider_cost_currency")
+            .annotate(
+                operation_count=Count("id"),
+                missing_cost_count=Count(
+                    "id", filter=(
+                        Q(operation_context__provider_cost_amount__isnull=True)
+                        | Q(operation_context__provider_cost_amount="")
+                    ),
+                ),
+            )
+        )
+        missing_cost_operations = 0
+        cross_currency_cost_operations = 0
+        unreconciled_currencies = set()
+        for quality in cost_quality_rows:
+            sale_currency = str(quality["report_currency"] or "UNKNOWN").upper()
+            cost_currency = str(quality["operation_context__provider_cost_currency"] or "").upper()
+            count = quality["operation_count"]
+            missing = quality["missing_cost_count"]
+            if not cost_currency:
+                missing = count
+            missing_cost_operations += missing
+            if missing:
+                unreconciled_currencies.add(sale_currency)
+            differing = count - missing if cost_currency and cost_currency != sale_currency else 0
+            cross_currency_cost_operations += differing
+            if differing:
+                unreconciled_currencies.update((sale_currency, cost_currency))
+        profit_reconciliation = {
+            "is_reconciled": not unreconciled_currencies,
+            "unreconciled_currencies": sorted(unreconciled_currencies),
+            "missing_cost_operations": missing_cost_operations,
+            "cross_currency_cost_operations": cross_currency_cost_operations,
+            "scope": "purchase_provider_cost_currency_and_presence_only",
+            "is_profit_confirmed": False,
+            "remaining_checks": ["historical_fx", "refunds", "commissions", "provider_settlement"],
+            "note": "Partial provider-cost presence/currency check ONLY. Profit remains unconfirmed pending FX, refunds, commissions and settlement reconciliation.",
+        }
+
         currencies = set(totals["revenue"]) | set(totals["provider_cost"]) | set(totals["agent_commission"])
         currencies |= set(totals["refunds"]) | set(totals["compensations"]) | set(totals["commission_reversals"])
         for currency in currencies:
@@ -284,6 +330,7 @@ class FinancialReportService:
             "totals": {name: cls._strings(values) for name, values in totals.items()},
             "status_totals": {name: cls._strings(values) for name, values in status_totals.items()},
             "operation_count": operation_count,
+            "profit_reconciliation": profit_reconciliation,
         }
 
     @classmethod
